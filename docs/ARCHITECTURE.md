@@ -1,0 +1,44 @@
+# PaceOn Architecture
+
+## Phase 0 경계
+
+웹은 호스트에서 실행하는 Next.js App Router다. 한국어 Light UI, Pretendard 자체 호스팅 subset, Tailwind 의미 토큰과 shadcn의 `components.json`·`cn` 기반을 갖춘다. 시작 화면은 준비 상태를 표시한다. 앱 업무 화면이나 작동하지 않는 등록 버튼을 제공하지 않는다.
+
+`@paceon/shared`는 `PlanMode`, `HealthResponse` 타입만 제공한다. `@paceon/scheduler`는 shared의 타입에만 의존하고, 현재 `schedulerContract`로 패키지 연결을 검증한다. 이 객체는 일정 생성 알고리즘의 구현 또는 준비 완료를 의미하지 않는다. 패키지는 workspace에서 TypeScript 소스를 export하며 Next.js는 `transpilePackages`로 처리한다. `build`는 별도 JS와 선언 파일도 생성한다. React, Next.js, Supabase, AI 런타임에 의존하지 않는다.
+
+Worker는 Python 3.13 / FastAPI / Pydantic / Uvicorn으로 구성한다. 비특권 사용자로 실행하고 호스트의 127.0.0.1:8000에만 포트를 공개한다. 현재 `/health`와 자동 API 문서만 제공한다. Queue 소비, PDF 처리 및 AI 호출은 아직 없다.
+
+Supabase CLI는 Auth, PostgreSQL 17, Storage, Realtime, Edge runtime과 Studio를 관리한다. Compose에 Supabase를 중복 정의하지 않는다. 다른 로컬 프로젝트와 충돌을 피하도록 553xx 포트를 사용한다. Windows Docker TCP 의존성이 있는 선택적 analytics 로그 수집은 꺼져 있다. 이 설정은 제품 AI 분석 기능과 별개다.
+
+## 실행 및 검증 경계
+
+```text
+Browser -> Next.js :3000 -> 정적 시작 화면
+                       -> /api/health (웹 liveness)
+
+Host -> Docker Worker :8000/health (Worker liveness)
+Host -> Supabase :55321 API / :55322 DB / :55323 Studio
+```
+
+현재 웹은 DB·Worker에 요청하지 않는다. 외부 연결을 확인하지 않고 health 결과에 ready 상태를 표시하지 않는다. 실제 HTTP smoke test와 DB `pg_isready`, Auth health 요청을 별도로 검증한다. 외부 API 키는 Phase 0의 설치·빌드·실행에 필요하지 않다.
+
+## 후속 도메인 흐름
+
+```text
+Resource + Goal + AvailabilityRule
+  -> Plan -> ScheduleSession
+  -> ProgressEvent -> 집계
+  -> ReplanRun -> 미래 미완료 ScheduleSession
+```
+
+Phase 1에서 DB 관계·제약·RLS·멱등성·계획 버전 계약을 정의한다. 사용자 학습일과 UTC 발생 시각을 분리하는 모델은 PRD에 명시한 뒤 적용한다. Phase 2에서 결정론적 scheduler의 날짜 입력, 분량 보존, 고정/과거/완료 세션 보존, 모드별 불가능 상태와 Balanced 정책을 구현한다. Phase 0에서 이 정책들을 임의로 확정하지 않는다.
+
+`packages/ai-schema`는 실제 AI 입출력 계약이 생기는 단계에서 추가한다. 현재 빈 패키지나 가짜 분석 결과를 만들지 않는다.
+
+## 의존성 관리
+
+- JS: `packageManager`, `.node-version`, 정확한 직접 의존성과 `pnpm-lock.yaml`.
+- Python: `pyproject.toml`의 직접 의존성, Python 3.13 컨테이너에서 해석한 전체 `requirements.lock`. Docker는 lock을 설치한다.
+- Python lock 갱신은 깨끗한 Python 3.13 환경에서 `pip install .` 후 `pip freeze`로 생성하며 로컬 프로젝트의 `paceon-ai-worker @ file:...` 행은 제거한다. `pip check`와 컨테이너 health를 재검증한다.
+- Python 이미지 태그는 `3.13-slim`으로 보안 패치 수신을 허용한다. 바이트 단위 이미지 재현이 필요하면 배포 단계에서 검증한 digest를 고정한다.
+- Next.js 개발 서버가 생성한 `apps/web/AGENTS.md`와 `CLAUDE.md`는 해당 버전의 번들 문서 확인 지침이다.

@@ -1,0 +1,20 @@
+{
+  "name": "paceon",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": { "node": ">=24.14.0 <25", "pnpm": "9.15.0" },
+  "scripts": {
+    "dev": "pnpm --filter @paceon/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm --filter @paceon/web lint",
+    "test": "node --test tests/workspace.test.mjs",
+    "test:smoke": "node --test tests/health.test.mjs",
+    "infra:up": "docker compose up -d --build",
+    "infra:down": "docker compose down",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop"
+  },
+  "devDependencies": { "typescript": "5.9.3" }
+}

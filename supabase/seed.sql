@@ -1,0 +1,2 @@
+-- Phase 0 has no application tables or sample user data.
+-- Domain migrations, RLS policies and reproducible seed data belong to Phase 1.
