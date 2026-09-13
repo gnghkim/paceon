@@ -18,7 +18,8 @@
     "pretendard": "1.3.9",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "tailwind-merge": "3.6.0"
+    "tailwind-merge": "3.6.0",
+    "@paceon/books": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",

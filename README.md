@@ -3,7 +3,7 @@
 **Your learning, at your pace.**  
 내 속도에 맞춰 계속 다시 짜주는 학습 계획.
 
-현재 범위는 **Phase 2 Scheduler Engine**이다. 개발 환경·DB 도메인·RLS에 더해 책의 일정 생성과 재계획을 수행하는 독립 TypeScript 엔진을 제공한다. 시작 화면은 준비 상태이며, 인증 UI·자료 등록 화면·실제 기록 저장 연결·AI 분석은 후속 단계에서 구현한다.
+현재 범위는 **Phase 3 Book Resource**다. 개발 환경·DB·RLS·일정 엔진에 더해 수동 도서 등록, Google Books 검색, 인증된 등록·조회 API를 제공한다. 시작 화면은 준비 상태이며, 인증·자료 화면은 Phase 4에서 연결한다.
 
 ## 준비
 
@@ -46,7 +46,7 @@ Windows에서 기본 Vector 로그 수집기가 `host.docker.internal:2375`에 �
 
 ## 환경변수
 
-현재 시작 화면은 키 없이 실행된다. Supabase를 웹에 연결하는 단계에서:
+현재 시작 화면과 수동 입력 검증은 키 없이 실행된다. 도서 저장 API를 사용하려면:
 
 ```powershell
 Copy-Item apps/web/.env.example apps/web/.env.local
@@ -62,6 +62,7 @@ pnpm typecheck
 pnpm lint
 pnpm build
 pnpm test
+pnpm test:books:integration
 pnpm db:test
 pnpm db:types:check
 pnpm db:test:api
@@ -74,7 +75,7 @@ supabase status
 docker exec supabase_db_PaceOn pg_isready -U postgres
 ```
 
-`pnpm test`는 Node 24의 TypeScript 지원으로 scheduler를 독립 import하고 Vitest의 일정 계산 테스트를 실행한다. DB·Docker·웹 서버가 없어도 실행 가능하다. `pnpm --filter @paceon/scheduler test`로 엔진만 검사할 수 있다. 웹 빌드도 workspace 경계를 검사한다. `test:smoke`는 실제 HTTP 응답 상태·JSON 계약을 검사한다. 필요하면 `WEB_HEALTH_URL`과 `WORKER_HEALTH_URL`로 주소를 바꿀 수 있다.
+`pnpm test`는 도서 입력·Provider·API 테스트와 scheduler 독립 import, Vitest 일정 계산 테스트를 실행한다. DB·Docker·웹 서버 없이 실행 가능하다. `test:books:integration`은 빌드 후 Supabase Local과 임시 프로덕션 서버에서 실제 인증·도서 등록·격리를 확인하고 테스트 계정을 삭제한다. `pnpm --filter @paceon/scheduler test`로 엔진만 검사할 수 있다. `test:smoke`는 실제 HTTP 응답 상태·JSON 계약을 검사한다. 필요하면 `WEB_HEALTH_URL`과 `WORKER_HEALTH_URL`로 주소를 바꿀 수 있다.
 
 `db:test`는 실제 PostgreSQL에서 RLS·외래키·입력 제약·이력 보존·계획 버전을 검증하고 rollback한다. `db:test:api`는 임시 Auth 사용자 두 명을 생성해 실제 토큰으로 REST 격리와 동시 쓰기를 검증한 뒤 계정을 삭제한다. 이 명령은 localhost Supabase만 허용하며 키를 파일이나 로그에 출력하지 않는다.
 
@@ -101,6 +102,7 @@ supabase stop
 
 ```text
 apps/web              Next.js 시작 화면 · 웹 health · 디자인 토큰
+packages/books        도서 검증 · Google Books/Manual/YES24 Provider
 packages/shared       공통 타입
 packages/scheduler    일정 생성·재계획·속도 추정 · Vitest
 services/ai-worker    FastAPI skeleton · Python 의존성 잠금 · Dockerfile
@@ -110,6 +112,6 @@ tests                 패키지 import · health HTTP · Auth/REST 격리·동�
 docs                  요구사항 · 설계 · 구현 준비 및 실행 계획
 ```
 
-다음 단계는 Phase 3 Book Resource다. 직접 등록과 Google Books 검색·페이지 수 보정, Provider 경계를 구현한다. 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
+다음 단계는 Phase 4 Basic UI다. 인증과 Today·자료 목록·상세·등록·Calendar 화면을 연결한다. 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
 
 의존성 구성 참고: [Next.js 설치](https://nextjs.org/docs/app/getting-started/installation), [Tailwind Next.js 설정](https://tailwindcss.com/docs/installation/framework-guides/nextjs), [FastAPI Docker 구성](https://fastapi.tiangolo.com/deployment/docker/).

@@ -3,13 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "packageManager": "pnpm@9.15.0",
-  "engines": { "node": ">=24.14.0 <25", "pnpm": "9.15.0" },
+  "engines": {
+    "node": ">=24.14.0 <25",
+    "pnpm": "9.15.0"
+  },
   "scripts": {
     "dev": "pnpm --filter @paceon/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm --filter @paceon/web lint",
-    "test": "node --test tests/workspace.test.mjs && pnpm --filter @paceon/scheduler test",
+    "test": "node --test tests/workspace.test.mjs tests/books.test.mjs tests/books-api.test.mjs && pnpm --filter @paceon/scheduler test",
     "test:smoke": "node --test tests/health.test.mjs",
     "infra:up": "docker compose up -d --build",
     "infra:down": "docker compose down",
@@ -20,7 +23,10 @@
     "db:types": "node scripts/db-types.mjs",
     "db:types:check": "node scripts/db-types.mjs --check",
     "db:test:api": "node --test tests/database-api.test.mjs",
-    "db:test:locks": "node --test tests/database-locks.test.mjs"
+    "db:test:locks": "node --test tests/database-locks.test.mjs",
+    "test:books:integration": "node --test tests/books-integration.test.mjs"
   },
-  "devDependencies": { "typescript": "5.9.3" }
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
 }

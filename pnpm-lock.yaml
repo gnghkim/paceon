@@ -14,6 +14,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@paceon/books':
+        specifier: workspace:*
+        version: link:../../packages/books
       '@paceon/scheduler':
         specifier: workspace:*
         version: link:../../packages/scheduler
@@ -60,6 +63,15 @@ importers:
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
+
+  packages/books:
+    dependencies:
+      '@paceon/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: 4.6.2
+        version: 4.6.2
 
   packages/scheduler:
     dependencies:

@@ -327,3 +327,16 @@ Phase 1 커밋 `94ab81f`에서 `feat/phase-2-scheduler` 브랜치를 만들었�
 - `pnpm install --frozen-lockfile`, `pnpm test`(독립 import 1개 + Vitest 52개), `pnpm typecheck`, `pnpm lint`, `pnpm build`가 통과했다. 생성된 JS를 Node에서 직접 import하여 12회/9월29일 결과도 확인했다.
 
 웹은 아직 준비 화면이다. 실제 자료 등록·진도 projection·DB 재계획 적용은 연결하지 않았다. 다음은 **Phase 3 Book Resource**: 직접 등록, Google Books 검색·페이지 수 보정, 검색 실패 시 수동 등록과 Provider 경계 구현이다.
+
+## 15. Phase 3 실행 기록 — 2026-09-13
+
+Phase 2를 `6e4986f`로 커밋하고 `feat/phase-3-book-resources`에서 구현했다.
+
+- `@paceon/books`에 Zod 등록 검증, ISBN-10/13 체크섬, 페이지 범위, Manual/Google Books/YES24 공통 Provider 계약을 구현했다. Google 검색은 5초 제한과 실패 시 수동 입력 가능 응답을 제공하고 YES24는 명시적으로 미지원 처리한다.
+- Google 결과의 ISBN·페이지 수를 보정하여 등록할 수 있다. 누락된 페이지 수는 추측하지 않는다. 수동 등록은 외부 API를 호출하지 않으며 기존 Scheduler로 남은 페이지를 계획할 수 있다.
+- `/api/books/search`, `/api/resources/books` GET/POST를 연결했다. Auth 서버에서 토큰을 검증하고 사용자 ID를 지정하며 같은 사용자 토큰으로 REST/RLS를 적용한다. 서비스 비밀 키는 사용하지 않는다.
+- Node 테스트 26개 + 기존 Scheduler Vitest 52개 통과. 실제 프로덕션 Next 서버와 임시 Auth 사용자로 등록·보정·조회·사용자 격리 HTTP 통합 테스트 1개도 통과했다. 테스트 계정과 임시 서버는 정리했다.
+- frozen lockfile 설치, 빌드, lint가 통과했다. 독립 리뷰의 Zod 사용 요구를 반영했다. Google 검색의 마지막 빈 페이지도 정상 결과로 처리하도록 회귀 테스트를 추가했다.
+- 키 없는 Google 실서버 요청은 HTTP 429였다. 검색 성공 응답의 파싱은 고정 응답 테스트로 확인했고 실서버 실패 시 수동 입력 안내를 확인했다. 실제 검색 결과를 받으려면 사용 가능한 Google Books 쿼터/키가 필요하다.
+
+도서 API 계약과 실행 방법은 [BOOKS.md](BOOKS.md)를 따른다. 화면은 아직 준비 상태다. 다음은 **Phase 4 Basic UI**: 인증과 Today·자료 목록·상세·등록·Calendar 화면 연결이다. 실제 진도 이력 반영과 원자적 재계획 저장은 Phase 5 범위다.
