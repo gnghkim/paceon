@@ -31,7 +31,7 @@ Resource + Goal + AvailabilityRule
   -> ReplanRun -> 미래 미완료 ScheduleSession
 ```
 
-Phase 1에서 DB 관계·제약·RLS·멱등성·계획 버전 계약을 정의한다. 사용자 학습일과 UTC 발생 시각을 분리하는 모델은 PRD에 명시한 뒤 적용한다. Phase 2에서 결정론적 scheduler의 날짜 입력, 분량 보존, 고정/과거/완료 세션 보존, 모드별 불가능 상태와 Balanced 정책을 구현한다. Phase 0에서 이 정책들을 임의로 확정하지 않는다.
+Phase 1에서 DB 관계·제약·RLS·멱등성·계획 버전 계약을 정의했다. 사용자 학습일과 UTC 발생 시각을 분리하는 모델도 PRD에 명시했다. Phase 2에서 결정론적 scheduler의 날짜 입력, 분량 보존, 고정/과거/완료 세션 보존, 모드별 불가능 상태와 Balanced 정책을 구현한다.
 
 `packages/ai-schema`는 실제 AI 입출력 계약이 생기는 단계에서 추가한다. 현재 빈 패키지나 가짜 분석 결과를 만들지 않는다.
 
@@ -42,3 +42,13 @@ Phase 1에서 DB 관계·제약·RLS·멱등성·계획 버전 계약을 정의�
 - Python lock 갱신은 깨끗한 Python 3.13 환경에서 `pip install .` 후 `pip freeze`로 생성하며 로컬 프로젝트의 `paceon-ai-worker @ file:...` 행은 제거한다. `pip check`와 컨테이너 health를 재검증한다.
 - Python 이미지 태그는 `3.13-slim`으로 보안 패치 수신을 허용한다. 바이트 단위 이미지 재현이 필요하면 배포 단계에서 검증한 digest를 고정한다.
 - Next.js 개발 서버가 생성한 `apps/web/AGENTS.md`와 `CLAUDE.md`는 해당 버전의 번들 문서 확인 지침이다.
+
+## Phase 1 추가 — Core Domain
+
+Auth의 User와 9개 public 테이블을 migration으로 정의한다. 모든 업무 데이터는 user_id로 소유하고, 복합 FK로 사용자·자료가 서로 다른 연결을 차단한다. authenticated RLS와 이력 테이블의 SELECT/INSERT 전용 권한을 함께 사용한다.
+
+shared의 도메인 타입은 DB schema에서 생성한 TypeScript 타입을 참조한다. scheduler는 여전히 타입에만 의존하며 DB 접근 코드를 포함하지 않는다. DB 스키마 생성 파일도 프레임워크 런타임 의존성이 없다.
+
+이 단계에서 추가한 계약은 지역 학습일과 UTC 발생 시각 분리, 최초 완료 분량 보존, append-only 진도/무효화 기록, 계획 버전 CAS, 재계획 전후 이력이다. 자세한 제약과 후속 transaction 경계는 [DATABASE](DATABASE.md)에 기록한다.
+
+웹은 아직 업무 DB 요청을 하지 않는다. DB는 pgTAP와 실제 Auth/REST 테스트로 직접 검증한다. 다음 Phase 2에서 일정 계산을 구현하고 Phase 5에서 기록·재계획 원자적 RPC를 연결한다.

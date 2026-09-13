@@ -1288,8 +1288,8 @@ Confidence
 4. External API는 Adapter Pattern 사용.
 5. AI Response는 반드시 JSON Schema / Zod validation.
 6. DB Schema 변경은 Migration 사용.
-7. 모든 날짜는 DB에서 UTC 저장.
-8. UI 표시에서 사용자 Timezone 적용.
+7. 발생 시각(created_at, started_at, completed_at 등)은 timestamptz로 저장하고 UTC로 교환한다. 학습일·시작일·목표일·예상 완료일은 사용자 시간대의 달력 날짜(date)로 분리한다.
+8. UI 시각 표시에서 사용자 Timezone을 적용한다. 계획과 학습 기록은 당시 timezone을 보존하여 설정 변경으로 과거 학습일이 달라지지 않게 한다.
 9. AI 장애 시 기본 Scheduler는 정상 동작해야 한다.
 10. 개발 중이라도 production-quality 구조를 유지한다.
 

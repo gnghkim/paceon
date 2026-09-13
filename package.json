@@ -14,7 +14,13 @@
     "infra:up": "docker compose up -d --build",
     "infra:down": "docker compose down",
     "db:start": "supabase start",
-    "db:stop": "supabase stop"
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset --local",
+    "db:test": "supabase test db",
+    "db:types": "node scripts/db-types.mjs",
+    "db:types:check": "node scripts/db-types.mjs --check",
+    "db:test:api": "node --test tests/database-api.test.mjs",
+    "db:test:locks": "node --test tests/database-locks.test.mjs"
   },
   "devDependencies": { "typescript": "5.9.3" }
 }

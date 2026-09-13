@@ -1,7 +1,7 @@
 # PaceOn 구현 준비
 
 작성일: 2026-09-12  
-상태: 요구사항 검토 완료 · Phase 0 기반 구현 및 검증 완료 (아래 §12 참조)  
+상태: Phase 1 Core Domain 구현 및 검증 완료 (최신 기록은 §13)  
 요구사항 기준: [PRD.md](PRD.md)  
 개발 순서 기준: [prompt.md](prompt.md)  
 화면·디자인 기준: [DESIGN.md](DESIGN.md)
@@ -295,3 +295,21 @@ DESIGN 원문은 이번 검토에서 수정하지 않았다. 이 절은 추가 �
 현재 시작 화면은 준비 상태다. 실제 인증, 자료 등록, 일정 계산, 진도 저장과 AI는 구현하지 않았다. 다음 착수 지점은 Phase 1 Core Domain이며, 날짜 모델·계획 버전 계약과 DB/RLS 구현이 필요하다. 기존 미정 정책은 그대로 남아 있다.
 
 도구 참고: pnpm 9에서 Node 24의 `url.parse` deprecation 경고가 발생한다. 실행 실패는 아니며 앱 lint/typecheck는 통과했다. ESLint는 Next.js 플러그인 peer 범위에 맞춰 9.x를 유지한다.
+
+## 13. Phase 1 실행 기록 — 2026-09-13
+
+Phase 0은 `30bfb4f`로 커밋했다. Phase 1 작업은 `feat/phase-1-core-domain`에서 진행했다.
+
+- Auth User와 9개 업무 테이블을 `20260913000000_core_domain.sql` migration으로 구성했다. 소유자·자료를 포함한 복합 FK, RLS, 인덱스, 값 범위와 상태 enum을 정의했다.
+- [DATABASE.md](DATABASE.md)에 날짜, 최초 진도, append-only 이력과 VOID 정정, 멱등성 키, 계획 버전 및 원자적 저장 경계를 기록했다. PRD의 UTC 날짜 규칙을 발생 시각과 지역 학습일로 구체화했다.
+- 비로그인 Alice/Bob seed를 작성했다. 빈 로컬 DB에서 migration과 seed를 재현하고, seed 재실행이 중복 행을 만들지 않는 것을 확인했다.
+- DB 타입을 shared로 생성하고 도메인 별칭을 연결했다. `pnpm db:types`와 `db:types:check`로 재생성 및 schema 일치를 검사한다.
+- pgTAP **70개** 통과: 사용자 격리, 소유권 위조, 교차 자료 참조, 페이지·시간·목표 제약, 지역 날짜, 이력 보존, VOID와 계층 순환, 버전 CAS, 계정 삭제.
+- 실제 Auth 토큰/REST 통합 테스트 통과: 데이터 격리, 소유권 위조 차단, 동시 CAS 한 건 반영, 중복 기록 한 건 저장, 임시 계정 정리.
+- 별도 DB 연결 두 개로 외래키 잠금 승격 교착을 재현한 후 `FOR NO KEY UPDATE`로 수정했다. 회귀 테스트 통과.
+- 코드 리뷰에서 발견한 bulk INSERT 순환 참조/VOID 참조 우회와 자료 단위 변경 불일치를 회귀 테스트로 재현하고 수정했다.
+- `pnpm typecheck`, `pnpm test`, `pnpm lint`, `pnpm build`, `supabase db lint --local`, `pnpm db:types:check`가 통과했다.
+
+Phase 1은 영속화 계약이다. 실제 진도 projection, 중복 페이지·총량 검사, 일정 계산, 원자적 기록/재계획 RPC와 업무 UI는 후속 단계다. 상세 구현 경계는 DATABASE 문서를 따른다.
+
+다음은 **Phase 2 Scheduler Engine**이다. Balanced 상한, 가용시간 제약, 속도 추정 정책을 확정한 뒤 Deadline/Pace/Balanced, 분량 보존과 완료일 예측을 순수 TypeScript 테스트로 구현한다.
