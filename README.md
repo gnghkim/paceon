@@ -3,7 +3,7 @@
 **Your learning, at your pace.**  
 내 속도에 맞춰 계속 다시 짜주는 학습 계획.
 
-현재 범위는 **Phase 7 PDF Import**다. 비공개 PDF 업로드, 페이지·책갈피·본문 일부 추출, 확인 후 서재 등록과 기존 계획·진도 기록을 연결했다. PDF 처리는 AI 키 없이 동작한다. 별도로 설정한 AI는 도서 분석과 학습 코칭을 제공한다. 사용법은 [PDF](docs/PDF.md), AI 설정은 [AI](docs/AI.md)를 따른다.
+현재 범위는 **Phase 8 Learning Statistics**다. 책·PDF의 학습 기록에서 기간별 분량·시간·활동일과 자료별 통계를 확인할 수 있다. 정정·무효 기록과 시간 미입력을 구분하며 기존 계획·진도에 영향을 주지 않는다. 사용법은 [학습 통계](docs/STATISTICS.md), [PDF](docs/PDF.md), AI 설정은 [AI](docs/AI.md)를 따른다.
 
 ## 준비
 
@@ -114,6 +114,6 @@ tests                 패키지 import · health HTTP · Auth/REST 격리·동�
 docs                  요구사항 · 설계 · 구현 준비 및 실행 계획
 ```
 
-다음 확장 후보는 학습단원 편집, OCR, 통계·알림이다. 실제 AI 모델 키 설정과 실호출 검증도 남아 있다. PDF 계약은 [PDF](docs/PDF.md), AI 계약은 [AI](docs/AI.md), 화면과 기록/계획 API는 [WORKSPACE_UI](docs/WORKSPACE_UI.md), 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
+다음 확장 후보는 학습단원 편집, OCR, 습관 추적·알림이다. 실제 AI 모델 키 설정과 실호출 검증도 남아 있다. 통계 계약은 [STATISTICS](docs/STATISTICS.md), PDF 계약은 [PDF](docs/PDF.md), AI 계약은 [AI](docs/AI.md), 화면과 기록/계획 API는 [WORKSPACE_UI](docs/WORKSPACE_UI.md), 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
 
 의존성 구성 참고: [Next.js 설치](https://nextjs.org/docs/app/getting-started/installation), [Tailwind Next.js 설정](https://tailwindcss.com/docs/installation/framework-guides/nextjs), [FastAPI Docker 구성](https://fastapi.tiangolo.com/deployment/docker/).

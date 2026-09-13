@@ -3,7 +3,14 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BookOpen, CalendarDays, LogOut, Plus, Sun } from 'lucide-react';
+import {
+  BookOpen,
+  CalendarDays,
+  ChartColumn,
+  LogOut,
+  Plus,
+  Sun,
+} from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,6 +29,12 @@ const navigation = [
     label: '라이브러리',
     english: 'Library',
     icon: BookOpen,
+  },
+  {
+    href: '/statistics',
+    label: '통계',
+    english: 'Statistics',
+    icon: ChartColumn,
   },
 ];
 
@@ -197,7 +210,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
       <nav
         aria-label="모바일 주 메뉴"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         {[
           navigation[0]!,
@@ -209,6 +222,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             icon: Plus,
           },
           navigation[2]!,
+          navigation[3]!,
         ].map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
