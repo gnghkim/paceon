@@ -94,14 +94,17 @@ export function createBookHandlers(config: Config | undefined, fetcher: typeof f
     },
   };
 }
-export function createSearchHandler(google: Pick<BookProvider, 'search'> = new GoogleBooksProvider(process.env.GOOGLE_BOOKS_API_KEY ? { apiKey: process.env.GOOGLE_BOOKS_API_KEY } : {})) {
+export function createSearchHandler(
+  google: Pick<BookProvider, 'search'> = new GoogleBooksProvider(process.env.GOOGLE_BOOKS_API_KEY ? { apiKey: process.env.GOOGLE_BOOKS_API_KEY } : {}),
+  yes24: Pick<BookProvider, 'search'> = new YES24Provider(process.env.YES24_API_KEY ? { apiKey: process.env.YES24_API_KEY } : {}),
+) {
   return async (request: Request): Promise<Response> => {
     try {
       const url = new URL(request.url);
       const query = url.searchParams.get('q') ?? '';
       if (!query.trim() || query.length > 200) throw new ApiError(400, 'Invalid query');
       const name = url.searchParams.get('provider') ?? 'google-books';
-      const provider = name === 'google-books' ? google : name === 'yes24' ? new YES24Provider() : name === 'manual' ? new ManualProvider() : undefined;
+      const provider = name === 'google-books' ? google : name === 'yes24' ? yes24 : name === 'manual' ? new ManualProvider() : undefined;
       if (!provider) throw new ApiError(400, 'Invalid provider');
       const result = await provider.search(query, { startIndex: integerParam(url, 'startIndex', 0, 0, 1000), maxResults: integerParam(url, 'maxResults', 10, 1, 40) });
       return json(result, result.status === 'ok' ? 200 : result.status === 'unsupported' ? 501 : 503);

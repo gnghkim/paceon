@@ -53,7 +53,7 @@ test('production Next routes register corrected books with real Auth and isolate
     const bob = await user();
     assert.equal((await api('/api/resources/books')).status, 401);
     assert.equal((await api('/api/resources/books', 'invalid-token', { title: 'Bad', totalPages: 10 })).status, 401);
-    const fallback = await api('/api/books/search?q=book&provider=yes24');
+    const fallback = await api('/api/books/search?q=book&provider=manual');
     assert.equal(fallback.status, 501);
     assert.equal((await fallback.json()).manualEntryAvailable, true);
     const saved = await api('/api/resources/books', alice.token, { title: 'Manual after fallback', totalPages: 200, currentPage: 50, user_id: bob.id });
@@ -108,6 +108,12 @@ test('production Next routes register corrected books with real Auth and isolate
     assert.equal(bobWorkspace.sessions[0].estimated_minutes, 55, 'decimal speed persists without IEEE over-rounding');
     const bobGoals = await fetch(new URL('/rest/v1/goals?select=id', base), { headers: { apikey: config.ANON_KEY, Authorization: `Bearer ${bob.token}` } });
     assert.equal((await bobGoals.json()).length, 1, 'losing concurrent transaction leaves no orphan goal');
+    const yes24 = await api('/api/resources/books', alice.token, { title: 'YES24 provenance fixture', totalPages: 584, source: 'YES24', sourceId: '12345678' });
+    assert.equal(yes24.status, 201);
+    const yes24Row = (await yes24.json()).resource;
+    assert.equal(yes24Row.source, 'YES24');
+    assert.equal(yes24Row.source_id, '12345678');
+    assert.equal((await api(`/api/workspace?resourceId=${yes24Row.id}`, bob.token)).status, 404);
   } finally {
     try {
       for (const id of users) await auth(`/auth/v1/admin/users/${id}`, undefined, true, 'DELETE');

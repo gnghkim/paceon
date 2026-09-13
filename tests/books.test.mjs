@@ -56,8 +56,8 @@ for (const response of [() => new Response('', { status: 429 }), () => new Respo
   });
 }
 
-test('YES24 explicitly reports unsupported and search bounds are validated', async () => {
-  assert.equal((await new YES24Provider().search('Book')).status, 'unsupported');
+test('YES24 without a key reports unavailable and search bounds are validated', async () => {
+  assert.equal((await new YES24Provider().search('Book')).status, 'unavailable');
   const google = new GoogleBooksProvider({ fetch: async () => { throw Error('must not fetch'); } });
   await assert.rejects(() => google.search(' '));
   await assert.rejects(() => google.search('Book', { maxResults: 41 }));

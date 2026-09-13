@@ -9,12 +9,18 @@ import {
   ChartColumn,
   LogOut,
   Plus,
+  PencilLine,
   Sun,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import {
+  QuickRecordProvider,
+  RecordButton,
+  useQuickRecord,
+} from './quick-record';
 
 const navigation = [
   { href: '/today', label: '오늘', english: 'Today', icon: Sun },
@@ -39,6 +45,16 @@ const navigation = [
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
+  return (
+    <QuickRecordProvider key={session?.user.id ?? 'anonymous'}>
+      <AppShellContent>{children}</AppShellContent>
+    </QuickRecordProvider>
+  );
+}
+
+function AppShellContent({ children }: { children: ReactNode }) {
+  const openRecord = useQuickRecord();
   const { session, loading, configured, error, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -171,7 +187,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
           <p className="hidden text-sm font-medium md:block">{title}</p>
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" className="hidden sm:inline-flex">
+            <RecordButton className="hidden md:inline-flex" />
+            <Button asChild variant="outline">
               <Link href="/resources/new">
                 <Plus aria-hidden="true" />
                 자료 추가
@@ -216,27 +233,42 @@ export function AppShell({ children }: { children: ReactNode }) {
           navigation[0]!,
           navigation[1]!,
           {
-            href: '/resources/new',
-            label: '자료 추가',
-            english: 'Add',
-            icon: Plus,
+            href: '#quick-record',
+            label: '기록',
+            english: 'Record',
+            icon: PencilLine,
           },
           navigation[2]!,
           navigation[3]!,
-        ].map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            aria-current={active(href) ? 'page' : undefined}
-            className={cn(
-              'flex min-h-16 flex-col items-center justify-center gap-1 text-xs text-muted-foreground',
-              active(href) && 'text-primary',
-            )}
-          >
-            <Icon size={20} aria-hidden="true" />
-            <span>{label}</span>
-          </Link>
-        ))}
+        ].map(({ href, label, icon: Icon }) =>
+          href === '#quick-record' ? (
+            <button
+              key={href}
+              type="button"
+              onClick={() => openRecord()}
+              aria-label="학습 기록"
+              className="flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-semibold text-primary"
+            >
+              <span className="flex h-8 w-12 items-center justify-center rounded-full bg-primary text-white">
+                <Icon size={20} aria-hidden="true" />
+              </span>
+              <span>{label}</span>
+            </button>
+          ) : (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active(href) ? 'page' : undefined}
+              className={cn(
+                'flex min-h-16 flex-col items-center justify-center gap-1 text-xs text-muted-foreground',
+                active(href) && 'text-primary',
+              )}
+            >
+              <Icon size={20} aria-hidden="true" />
+              <span>{label}</span>
+            </Link>
+          ),
+        )}
       </nav>
     </div>
   );

@@ -1,7 +1,7 @@
 import type { TablesInsert } from '@paceon/shared';
 import { z } from 'zod';
 
-export type BookSource = 'MANUAL' | 'GOOGLE_BOOKS';
+export type BookSource = 'MANUAL' | 'GOOGLE_BOOKS' | 'YES24';
 export interface BookMetadata {
   title: string;
   authors: string[];
@@ -63,7 +63,7 @@ const bookInputSchema = z.object({
   authors: z.array(z.string().max(200).trim()).max(20).default([]),
   totalPages: z.number().int().min(1).max(10_000_000),
   currentPage: z.number().int().min(0).default(0),
-  source: z.enum(['MANUAL', 'GOOGLE_BOOKS']).default('MANUAL'),
+  source: z.enum(['MANUAL', 'GOOGLE_BOOKS', 'YES24']).default('MANUAL'),
   sourceId: z.string().max(128).nullish(),
   isbn: z.string().max(32).nullish(),
   publisher: z.string().max(500).nullish(),
@@ -77,6 +77,7 @@ export function validateBook(value: unknown): BookDraft {
   const cleanAuthors = input.authors.filter(Boolean);
   const sourceId = optionalText(input.sourceId, 'sourceId', 128);
   if (source === 'GOOGLE_BOOKS' && (!sourceId || !/^[\w-]+$/.test(sourceId))) return invalid('sourceId');
+  if (source === 'YES24' && (!sourceId || !/^[1-9]\d*$/.test(sourceId))) return invalid('sourceId');
   if (source === 'MANUAL' && sourceId) return invalid('sourceId');
   const isbn = normalizeIsbn(input.isbn);
   const publisher = optionalText(input.publisher, 'publisher');
@@ -109,7 +110,96 @@ export class ManualProvider implements BookProvider {
 }
 export class YES24Provider implements BookProvider {
   readonly id = 'YES24';
-  async search(_query: string): Promise<SearchResult> { return { status: 'unsupported', books: [], manualEntryAvailable: true }; }
+  private readonly fetcher: typeof fetch;
+  private readonly apiKey: string | undefined;
+  constructor(options: { apiKey?: string; fetch?: typeof fetch } = {}) {
+    this.fetcher = options.fetch ?? globalThis.fetch;
+    this.apiKey = options.apiKey?.trim() || undefined;
+  }
+  async search(query: string, options: SearchOptions = {}): Promise<SearchResult> {
+    if (typeof query !== 'string' || !query.trim() || query.length > 200) return invalid('query');
+    const startIndex = options.startIndex ?? 0;
+    const maxResults = options.maxResults ?? 10;
+    if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex > 1000) return invalid('startIndex');
+    if (!Number.isInteger(maxResults) || maxResults < 1 || maxResults > 40) return invalid('maxResults');
+    if (!this.apiKey) return { status: 'unavailable', books: [], manualEntryAvailable: true };
+    try {
+      const signal = AbortSignal.timeout(5000);
+      const firstPage = Math.floor(startIndex / maxResults) + 1;
+      const offset = startIndex % maxResults;
+      const items: unknown[] = [];
+      let totalItems = 0;
+      // A zero-based offset can overlap two of YES24's one-based pages.
+      for (let page = firstPage; page <= firstPage + (offset ? 1 : 0); page++) {
+        const url = new URL('https://apis.yes24.com/v1/goods/itemList');
+        url.search = new URLSearchParams({ query: query.trim(), category: 'BOOK', detail: 'Y', page: String(page), pageSize: String(maxResults) }).toString();
+        const response = await this.fetcher(url, { headers: { 'X-Api-Key': this.apiKey }, signal, cache: 'no-store', redirect: 'error' });
+        const payload = record(await boundedJson(response));
+        if (response.status === 404 && payload.success === false && payload.errorCode === 'SEARCH_001') break;
+        if (!response.ok || payload.success !== true) throw new Error('upstream');
+        const data = record(payload.data);
+        if (!Array.isArray(data.items) || data.items.length > maxResults ||
+          typeof data.totalCount !== 'number' || !Number.isSafeInteger(data.totalCount) || data.totalCount < 0 ||
+          data.currentPage !== page || data.pageSize !== maxResults) throw new Error('shape');
+        if (page === firstPage) totalItems = data.totalCount;
+        items.push(...data.items);
+        if (data.items.length < maxResults || page * maxResults >= data.totalCount) break;
+      }
+      const books: BookMetadata[] = [];
+      for (const item of items.slice(offset, offset + maxResults)) {
+        try { books.push(yes24Metadata(item)); } catch { /* Skip malformed individual records. */ }
+      }
+      return { status: 'ok', books, totalItems, manualEntryAvailable: true };
+    } catch { return { status: 'unavailable', books: [], manualEntryAvailable: true }; }
+  }
+}
+async function boundedJson(response: Response): Promise<unknown> {
+  const limit = 2 * 1024 * 1024;
+  const declaredSize = response.headers.get('content-length');
+  if (declaredSize && Number(declaredSize) > limit) {
+    void response.body?.cancel().catch(() => {});
+    throw new Error('response size');
+  }
+  if (!response.body) throw new Error('empty response');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let size = 0;
+  let text = '';
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      size += chunk.value.byteLength;
+      if (size > limit) {
+        void reader.cancel().catch(() => {});
+        throw new Error('response size');
+      }
+      text += decoder.decode(chunk.value, { stream: true });
+    }
+    return JSON.parse(text + decoder.decode()) as unknown;
+  } finally { reader.releaseLock(); }
+}
+function yes24Metadata(value: unknown): BookMetadata {
+  const item = record(value);
+  const title = optionalText(item.title, 'title');
+  if (!title || typeof item.itemId !== 'number' || !Number.isSafeInteger(item.itemId) || item.itemId <= 0) return invalid('metadata');
+  const result: BookMetadata = { title, authors: [], source: 'YES24', sourceId: String(item.itemId) };
+  if (typeof item.author === 'string' && item.author.trim()) result.authors = [item.author.trim().slice(0, 200)];
+  for (const [key, field, max] of [['publisher', 'publisher', 500], ['publishDate', 'publishedDate', 32]] as const) {
+    if (typeof item[key] === 'string' && item[key].trim()) result[field] = item[key].trim().slice(0, max);
+  }
+  if (typeof item.pages === 'number' && Number.isInteger(item.pages) && item.pages > 0 && item.pages <= 10_000_000) result.pageCount = item.pages;
+  for (const identifier of [item.isbn13, item.isbn10]) {
+    try { const isbn = normalizeIsbn(identifier); if (isbn) { result.isbn = isbn; break; } } catch { /* ISBN metadata is optional. */ }
+  }
+  try { const thumbnail = cover(item.cover); if (thumbnail) result.thumbnail = thumbnail; } catch { /* A cover is optional. */ }
+  try {
+    const detail = record(item.contentDetail);
+    for (const [key, field] of [['bookIntroduction', 'description'], ['tableOfContents', 'tableOfContents']] as const) {
+      if (typeof detail[key] === 'string' && detail[key].trim()) result[field] = detail[key].trim().slice(0, 20_000);
+    }
+  } catch { /* Content details are optional. */ }
+  return result;
 }
 export class GoogleBooksProvider implements BookProvider {
   readonly id = 'GOOGLE_BOOKS';

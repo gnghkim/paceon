@@ -1,6 +1,6 @@
 # Book Resource — Phase 3
 
-`@paceon/books`는 웹·DB와 독립적인 도서 입력 검증과 검색 어댑터다. Zod 4.6.2로 등록 입력을 검증하고 ISBN 체크섬·페이지 관계·출처 조건을 검사한다. 수동 등록과 Google Books를 지원하며 `YES24Provider`는 명시적으로 `unsupported`를 반환한다. YES24 실제 연동과 화면은 구현하지 않았다.
+`@paceon/books`는 웹·DB와 독립적인 도서 입력 검증과 검색 어댑터다. Zod 4.6.2로 등록 입력을 검증하고 ISBN 체크섬·페이지 관계·출처 조건을 검사한다. 수동 등록, Google Books와 YES24 공식 Open API 검색을 지원한다. 등록 화면에서 검색 서비스를 선택한다.
 
 ## 검색
 
@@ -9,7 +9,8 @@
 - 공개 메타데이터 검색이며 로그인은 필요 없다. `q`는 공백 제외 1~200자, `startIndex`는 0~1000, `maxResults`는 1~40이다. 제목·저자·Google 검색 구문을 받으며 유효한 ISBN만 입력하면 `isbn:` 검색으로 바꾼다.
 - 성공: HTTP 200 `{ status: "ok", books: BookMetadata[], totalItems, manualEntryAvailable: true }`. 검색 결과가 없어도 성공이다.
 - Google 오류·쿼터 초과·5초 타임아웃·잘못된 응답: HTTP 503 `{ status: "unavailable", books: [], manualEntryAvailable: true }`.
-- `provider=yes24` 또는 `manual`: HTTP 501, `status: "unsupported"`. 수동 입력은 검색 서비스가 필요 없으며 등록 API를 바로 호출한다. 잘못된 파라미터는 400이다.
+- `provider=yes24`: 서버 환경변수 `YES24_API_KEY`가 필요하다. 공식 상품 검색 API에 `category=BOOK`, `detail=Y`를 요청하고 페이지 수·ISBN·출판사·표지 정보를 가져온다. 키 미설정·인증 실패·쿼터·연결 오류는 503과 직접 입력 안내를 반환한다. 공식 `SEARCH_001`은 빈 검색 결과로 처리한다.
+- `provider=manual`: HTTP 501, `status: "unsupported"`. 수동 입력은 검색 서비스가 필요 없으며 등록 API를 바로 호출한다. 잘못된 파라미터는 400이다.
 - Google API 키는 선택적인 서버 환경변수 `GOOGLE_BOOKS_API_KEY`다. 키 없이 검색이 제한될 수 있다. 키·원본 upstream 오류는 응답에 포함하지 않는다. 공개 검색 endpoint의 배포 환경별 요청 제한/쿼터 설정은 운영 시 별도 적용한다.
 
 공통 메타데이터: `title`, `authors`, 선택적인 `isbn`, `publisher`, `pageCount`, `thumbnail`, `description`, `publishedDate`, `tableOfContents`, 출처 `source`/`sourceId`. 누락된 페이지 수를 추측하지 않으며 잘못된 개별 도서는 제외한다. 설명은 외부 문자열이므로 UI에서 일반 텍스트로 표시해야 한다. HTML로 직접 삽입하지 않는다.
@@ -33,6 +34,12 @@
 `title`과 `totalPages`는 필수다. 기본값은 `authors: []`, `currentPage: 0`, `source: "MANUAL"`이다. ISBN은 선택이며 공백·하이픈 제거 후 ISBN-10/13 체크섬을 검증한다. `totalPages`는 1~10,000,000 정수, `currentPage`는 0~전체 페이지 정수다. 현재 페이지는 마지막으로 완료한 페이지이며 첫 배정은 그 다음 페이지다. `coverUrl`은 선택적인 HTTPS URL이다.
 
 Google 검색 결과를 선택하면 `pageCount → totalPages`, `thumbnail → coverUrl`로 옮기고 사용자가 페이지 수·ISBN 등을 보정한 후 등록한다. `source: "GOOGLE_BOOKS"`에는 `sourceId`(Google volume ID)가 필수다. 출처는 참고 메타데이터이며 서버가 원본과의 일치 여부를 보증하지 않는다. 외부 검색을 다시 호출하지 않으므로 검색 장애 중에도 저장할 수 있다.
+
+YES24 결과도 같은 확인·보정 화면을 사용한다. `source: "YES24"`의 `sourceId`는 양의 숫자로 된 상품 번호다. 키는 `apps/web/.env.local`에만 설정하고 `X-Api-Key` 헤더로 고정된 YES24 호스트에 전송한다. 리디렉션을 따라가지 않으며 응답은 2MiB, 요청은 총 5초로 제한한다. offset 기반 조회는 필요하면 최대 두 페이지를 가져와 잘라 반환한다. 누락된 페이지 수를 추측하지 않는다. 검색 결과의 소개·목차는 메타데이터로 반환하지만 현재 교재 등록에 자동 저장하지 않으며 AI에도 자동 전송하지 않는다.
+
+공식 키 발급은 [YES24 Developers](https://developers.yes24.com/), 응답 계약은 [상품 검색 문서](https://developers.yes24.com/api-doc/goods-item-list)를 따른다. 코드의 고정 응답 테스트와 실제 키 연결 검증은 구분한다.
+
+2026-09-13 실제 키로 `클린 코드` 검색 결과 10건을 받아 페이지 수가 있는 도서를 등록하고 AI 도서 분석·코칭 완료까지 확인했다. 키 값은 출력·커밋하지 않았으며 임시 검증 계정과 자료는 삭제했다.
 
 성공은 HTTP 201 `{ resource: <resources 행> }`. `currentPage`는 `initial_completed_workload`에 저장하고 전체 페이지와 같으면 상태는 `COMPLETED`다. 현재 API는 신규 등록용이며 이후 진도 변경은 Phase 5 이력 처리로 구현한다. 등록 요청의 `user_id` 등 계약 외 필드는 저장에 사용하지 않는다.
 

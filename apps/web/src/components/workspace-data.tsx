@@ -4,10 +4,16 @@ import { useAuth } from './auth-provider';
 import type { WorkspaceData } from '@/lib/workspace-types';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
+import { WORKSPACE_CHANGED } from '@/lib/quick-record';
 
 export function useWorkspace(query = '') {
   const { apiFetch, session } = useAuth();
   const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRevision((value) => value + 1);
+    window.addEventListener(WORKSPACE_CHANGED, refresh);
+    return () => window.removeEventListener(WORKSPACE_CHANGED, refresh);
+  }, []);
   const key = `${session?.user.id ?? ''}:${query}:${revision}`;
   const [result, setResult] = useState<{
     key: string;

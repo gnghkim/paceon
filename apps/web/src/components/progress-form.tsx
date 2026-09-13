@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Plan, Resource } from '@paceon/shared';
 import type { WorkspaceData } from '@/lib/workspace-types';
 import { useAuth } from './auth-provider';
@@ -80,12 +80,16 @@ export function ProgressForm({
   data,
   onSaved,
   onResult,
+  compact = false,
+  onLockedChange,
 }: {
   book: Resource;
   plan: Plan;
   data: WorkspaceData;
   onSaved: () => void;
   onResult?: (result: ProgressSummary) => void;
+  compact?: boolean;
+  onLockedChange?: (locked: boolean) => void;
 }) {
   const { apiFetch } = useAuth();
   const completed =
@@ -118,6 +122,10 @@ export function ProgressForm({
   const [stale, setStale] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<ProgressSummary | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    onLockedChange?.(busy || ambiguous);
+  }, [busy, ambiguous, onLockedChange]);
   const inFlight = useRef(false);
   const requestBody = useRef<string | null>(null);
   function changeKind(next: Kind) {
@@ -207,9 +215,16 @@ export function ProgressForm({
     }
   }
   return (
-    <Card id="record" className="scroll-mt-6 space-y-5 p-4 md:p-6">
+    <Card
+      id={compact ? undefined : 'record'}
+      className={
+        compact
+          ? 'space-y-4 border-0 shadow-none'
+          : 'scroll-mt-6 space-y-5 p-4 md:p-6'
+      }
+    >
       <div>
-        <h2 className="text-lg font-semibold">학습 기록</h2>
+        {!compact && <h2 className="text-lg font-semibold">학습 기록</h2>}
         <p className="mt-1 text-sm text-muted-foreground">
           현재 {completed}쪽까지 읽었어요 · 남은{' '}
           {Math.max(0, (book.total_pages ?? 0) - completed)}쪽
@@ -221,19 +236,39 @@ export function ProgressForm({
           설정을 확인해 주세요.
         </p>
       )}
-      <form onSubmit={submit} className="space-y-4">
+      <form
+        onSubmit={submit}
+        className="space-y-4"
+        onInvalidCapture={(event) => {
+          const field = event.target;
+          if (
+            compact &&
+            field instanceof HTMLInputElement &&
+            field.closest('.hidden')
+          ) {
+            event.preventDefault();
+            setExpanded(true);
+            setError('날짜와 학습 시간을 확인해 주세요.');
+            requestAnimationFrame(() => field.focus());
+          }
+        }}
+      >
         <fieldset
           disabled={busy || ambiguous || stale || !!result}
           className="space-y-4"
         >
           <legend className="sr-only">기록 종류와 내용</legend>
-          <div className="flex flex-wrap gap-2">
+          <div
+            className={compact && !expanded ? 'hidden' : 'flex flex-wrap gap-2'}
+          >
             {(
               [
                 ['LEARNING', '읽은 진도'],
                 ['REVIEW', '복습'],
-                ['CORRECTION', '마지막 기록 정정'],
-                ...(book.replan_required ? [['REPLAN', '일정 다시 조정']] : []),
+                ...(!compact ? [['CORRECTION', '마지막 기록 정정']] : []),
+                ...(!compact && book.replan_required
+                  ? [['REPLAN', '일정 다시 조정']]
+                  : []),
               ] as [Kind, string][]
             ).map(([value, label]) => (
               <Button
@@ -325,6 +360,7 @@ export function ProgressForm({
                       type="number"
                       min={1}
                       max={book.total_pages ?? undefined}
+                      inputMode="numeric"
                       step={1}
                       required
                       value={startPage}
@@ -336,10 +372,14 @@ export function ProgressForm({
                   <span>
                     {kind === 'REVIEW'
                       ? '복습 마지막 페이지'
-                      : '마지막으로 읽은 페이지'}
+                      : compact
+                        ? '오늘 어디까지 읽었나요? (마지막 페이지)'
+                        : '마지막으로 읽은 페이지'}
                   </span>
                   <Input
                     type="number"
+                    inputMode="numeric"
+                    autoFocus={compact}
                     min={
                       kind === 'LEARNING'
                         ? completed + 1
@@ -354,7 +394,37 @@ export function ProgressForm({
                     onChange={(e) => setEndPage(e.target.value)}
                   />
                 </label>
-                <label className="space-y-2 text-sm">
+                {compact &&
+                  kind === 'LEARNING' &&
+                  endPage !== '' &&
+                  Number(endPage) > completed &&
+                  Number(endPage) <= (book.total_pages ?? 0) && (
+                    <p
+                      role="status"
+                      className="text-sm font-medium text-primary sm:col-span-2"
+                    >
+                      {studyDate === today ? '오늘' : formatDate(studyDate)}{' '}
+                      {Number(endPage) - completed}쪽 읽었어요
+                    </p>
+                  )}
+                {compact && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    aria-expanded={expanded}
+                    onClick={() => setExpanded(!expanded)}
+                    className="justify-start sm:col-span-2"
+                  >
+                    {expanded
+                      ? '추가 입력 접기'
+                      : '추가 입력 · 날짜, 시간, 메모, 복습'}
+                  </Button>
+                )}
+                <label
+                  className={
+                    compact && !expanded ? 'hidden' : 'space-y-2 text-sm'
+                  }
+                >
                   <span>학습 날짜</span>
                   <Input
                     type="date"
@@ -364,10 +434,15 @@ export function ProgressForm({
                     onChange={(e) => setStudyDate(e.target.value)}
                   />
                 </label>
-                <label className="space-y-2 text-sm">
+                <label
+                  className={
+                    compact && !expanded ? 'hidden' : 'space-y-2 text-sm'
+                  }
+                >
                   <span>학습 시간 (분, 선택)</span>
                   <Input
                     type="number"
+                    inputMode="numeric"
                     min={0}
                     max={1440}
                     step={1}
@@ -376,7 +451,11 @@ export function ProgressForm({
                   />
                 </label>
               </div>
-              <label className="block space-y-2 text-sm">
+              <label
+                className={
+                  compact && !expanded ? 'hidden' : 'block space-y-2 text-sm'
+                }
+              >
                 <span>메모 (선택)</span>
                 <Input
                   maxLength={2000}
@@ -384,23 +463,40 @@ export function ProgressForm({
                   onChange={(e) => setMemo(e.target.value)}
                 />
               </label>
-              <p className="text-xs text-muted-foreground">
+              <p
+                className={
+                  compact && !expanded
+                    ? 'hidden'
+                    : 'text-xs text-muted-foreground'
+                }
+              >
                 학습 날짜는 {plan.timezone} 기준이며 미래 날짜는 기록할 수
                 없어요.
               </p>
             </>
           )}
-          <Button type="submit">
-            {busy
-              ? '저장 중…'
-              : kind === 'REPLAN'
-                ? '일정 다시 조정하기'
-                : kind === 'CORRECTION' &&
-                    endPage !== '' &&
-                    Number(endPage) === (latest?.start_page ?? 1) - 1
-                  ? '기록 무효 처리하기'
-                  : '기록 저장하기'}
-          </Button>
+          <div
+            className={
+              compact
+                ? 'sticky bottom-0 bg-surface pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]'
+                : undefined
+            }
+          >
+            <Button
+              type="submit"
+              className={compact ? 'min-h-12 w-full text-base' : undefined}
+            >
+              {busy
+                ? '저장 중…'
+                : kind === 'REPLAN'
+                  ? '일정 다시 조정하기'
+                  : kind === 'CORRECTION' &&
+                      endPage !== '' &&
+                      Number(endPage) === (latest?.start_page ?? 1) - 1
+                    ? '기록 무효 처리하기'
+                    : '기록 저장하기'}
+            </Button>
+          </div>
         </fieldset>
         {error && (
           <p role="alert" className="text-sm text-destructive">

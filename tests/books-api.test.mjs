@@ -41,5 +41,15 @@ test('search API exposes fallback and rejects unknown providers', async () => {
   assert.equal(response.status, 503);
   assert.equal((await response.json()).manualEntryAvailable, true);
   assert.equal((await handler(new Request('http://localhost?q=book&provider=unknown'))).status, 400);
-  assert.equal((await handler(new Request('http://localhost?q=book&provider=yes24'))).status, 501);
+  assert.equal((await handler(new Request('http://localhost?q=book&provider=manual'))).status, 501);
+});
+test('YES24 search uses the injected provider and preserves source metadata', async () => {
+  const handler = createSearchHandler({ search: async () => { throw Error('wrong provider'); } }, { search: async (query, options) => {
+    assert.equal(query, '클린 코드');
+    assert.equal(options.startIndex, 10);
+    return { status: 'ok', books: [{ title: '클린 코드', authors: [], source: 'YES24', sourceId: '12345', pageCount: 584 }], totalItems: 1, manualEntryAvailable: true };
+  } });
+  const response = await handler(new Request('http://localhost?q=%ED%81%B4%EB%A6%B0%20%EC%BD%94%EB%93%9C&provider=yes24&startIndex=10'));
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).books[0].source, 'YES24');
 });

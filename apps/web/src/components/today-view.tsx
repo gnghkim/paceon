@@ -15,6 +15,7 @@ import {
 import { Button } from './ui/button';
 import { SessionCard } from './session-card';
 import { formatDate } from '@/lib/planning';
+import { RecordButton } from './quick-record';
 
 export function TodayView() {
   const { data, error, reload } = useWorkspace();
@@ -123,14 +124,13 @@ export function TodayView() {
                     ),
                   )
                   .map((r) => (
-                    <Button key={r.id} asChild variant="outline">
-                      <Link
-                        href={`/resources/${r.id}#record`}
-                        className="max-w-full"
-                      >
-                        <span className="truncate">{r.title} · 학습 기록</span>
-                      </Link>
-                    </Button>
+                    <RecordButton
+                      key={r.id}
+                      bookId={r.id}
+                      className="max-w-full"
+                    >
+                      <span className="truncate">{r.title} · 학습 기록</span>
+                    </RecordButton>
                   ))}
               </div>
             </section>

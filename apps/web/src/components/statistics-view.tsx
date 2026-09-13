@@ -8,6 +8,7 @@ import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import type { StatisticsData } from '@/lib/statistics';
+import { WORKSPACE_CHANGED } from '@/lib/quick-record';
 
 const number = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 });
 const fieldClass =
@@ -22,6 +23,11 @@ function StatisticsContent() {
   const { session, apiFetch } = useAuth();
   const [query, setQuery] = useState('');
   const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRevision((value) => value + 1);
+    window.addEventListener(WORKSPACE_CHANGED, refresh);
+    return () => window.removeEventListener(WORKSPACE_CHANGED, refresh);
+  }, []);
   const [context, setContext] = useState<{
     today: string;
     timezone: string;

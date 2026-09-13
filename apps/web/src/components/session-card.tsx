@@ -1,4 +1,5 @@
-import Link from 'next/link';
+'use client';
+import { useQuickRecord } from './quick-record';
 import { ArrowUpRight, BookOpen, Clock3 } from 'lucide-react';
 import type { Resource, ScheduleSession } from '@paceon/shared';
 export function SessionCard({
@@ -8,10 +9,12 @@ export function SessionCard({
   session: ScheduleSession;
   book: Resource | undefined;
 }) {
+  const openRecord = useQuickRecord();
   return (
-    <Link
-      href={`/resources/${session.resource_id}#record`}
-      className="group flex min-w-0 items-center gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40"
+    <button
+      type="button"
+      onClick={() => openRecord(session.resource_id)}
+      className="group flex w-full min-w-0 items-center gap-4 rounded-xl border border-border bg-card p-5 text-left transition-colors hover:border-primary/40"
     >
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
         <BookOpen size={20} aria-hidden="true" />
@@ -39,6 +42,6 @@ export function SessionCard({
         aria-hidden="true"
         className="shrink-0 text-muted-foreground group-hover:text-primary"
       />
-    </Link>
+    </button>
   );
 }

@@ -25,6 +25,7 @@ export function BookForm() {
   const router = useRouter();
   const [entry, setEntry] = useState<'search' | 'manual'>('search');
   const [query, setQuery] = useState('');
+  const [provider, setProvider] = useState<'yes24' | 'google-books'>('yes24');
   const [results, setResults] = useState<BookMetadata[]>([]);
   const [searchMessage, setSearchMessage] = useState('');
   const [searching, setSearching] = useState(false);
@@ -47,7 +48,7 @@ export function BookForm() {
     setResults([]);
     try {
       const response = await fetch(
-        `/api/books/search?${new URLSearchParams({ q: query.trim(), provider: 'google-books' })}`,
+        `/api/books/search?${new URLSearchParams({ q: query.trim(), provider })}`,
       );
       const payload = (await response.json()) as SearchResult;
       if (version !== searchVersion.current) return;
@@ -169,6 +170,17 @@ export function BookForm() {
       </div>
       {entry === 'search' && (
         <Card className="space-y-4 p-4 md:p-6">
+          <label className="block space-y-2 text-sm font-medium">
+            <span>검색 서비스</span>
+            <select className="h-10 w-full rounded-lg border border-border bg-surface px-3" value={provider} disabled={saving} onChange={(event) => {
+              ++searchVersion.current;
+              setProvider(event.target.value as 'yes24' | 'google-books');
+              setResults([]); setSelected(null); setFields(empty); setSearchMessage(''); setSearching(false); setError('');
+            }}>
+              <option value="yes24">YES24</option>
+              <option value="google-books">Google Books</option>
+            </select>
+          </label>
           <form onSubmit={search} className="flex gap-2">
             <Input
               aria-label="도서 제목, 저자 또는 ISBN"
@@ -184,7 +196,7 @@ export function BookForm() {
             </Button>
           </form>
           <p className="text-xs text-muted-foreground">
-            Google Books에서 검색합니다. 찾는 책이 없으면 직접 입력할 수 있어요.
+            {provider === 'yes24' ? 'YES24' : 'Google Books'}에서 검색합니다. 찾는 책이 없으면 다른 서비스를 선택하거나 직접 입력할 수 있어요.
           </p>
           {searchMessage && (
             <p role="status" className="text-sm">
@@ -203,6 +215,7 @@ export function BookForm() {
                     <h2 className="break-words text-sm font-medium">
                       {book.title}
                     </h2>
+                    {book.source === 'YES24' && book.sourceId && /^[1-9]\d*$/.test(book.sourceId) && <a href={`https://www.yes24.com/product/goods/${book.sourceId}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">YES24 도서 정보</a>}
                     <p className="mt-1 text-xs text-muted-foreground">
                       {book.authors.join(', ') || '저자 정보 없음'}
                     </p>
