@@ -10,7 +10,7 @@ export function SessionCard({
 }) {
   return (
     <Link
-      href={`/resources/${session.resource_id}`}
+      href={`/resources/${session.resource_id}#record`}
       className="group flex min-w-0 items-center gap-4 rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40"
     >
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
@@ -31,7 +31,9 @@ export function SessionCard({
           </span>
         </div>
       </div>
-      <span className="sr-only">계획 보기</span>
+      <span className="shrink-0 text-xs font-medium text-primary">
+        학습 기록
+      </span>
       <ArrowUpRight
         size={18}
         aria-hidden="true"

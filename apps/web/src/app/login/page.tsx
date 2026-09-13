@@ -7,6 +7,7 @@ import { useAuth } from '@/components/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { resolveLoginEmail } from '@/lib/login-identifier';
 
 export default function LoginPage() {
   const { session, loading, configured, error: authError } = useAuth();
@@ -26,7 +27,10 @@ export default function LoginPage() {
     setError(null);
     setMessage(null);
     const fields = new FormData(event.currentTarget);
-    const email = String(fields.get('email') ?? '').trim();
+    const identifier = String(fields.get('email') ?? '').trim();
+    const email = mode === 'login'
+      ? resolveLoginEmail(identifier, process.env.NEXT_PUBLIC_SUPABASE_URL)
+      : identifier;
     const password = String(fields.get('password') ?? '');
     try {
       const client = getSupabaseBrowser();
@@ -41,7 +45,7 @@ export default function LoginPage() {
       if (result.error) {
         const code = result.error.code;
         if (code === 'invalid_credentials')
-          setError('이메일 또는 비밀번호를 확인해 주세요.');
+          setError('이메일·아이디 또는 비밀번호를 확인해 주세요.');
         else if (code === 'email_not_confirmed')
           setError('가입 확인 메일의 링크를 누른 뒤 로그인해 주세요.');
         else if (code === 'weak_password')
@@ -139,14 +143,14 @@ export default function LoginPage() {
           <form onSubmit={submit} className="mt-8 space-y-5">
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-medium">
-                이메일
+                {mode === 'login' ? '이메일 또는 아이디' : '이메일'}
               </label>
               <Input
                 id="email"
                 name="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.com"
+                type={mode === 'login' ? 'text' : 'email'}
+                autoComplete={mode === 'login' ? 'username' : 'email'}
+                placeholder={mode === 'login' ? '이메일 또는 아이디' : 'you@example.com'}
                 required
                 maxLength={254}
                 disabled={pending || !configured}

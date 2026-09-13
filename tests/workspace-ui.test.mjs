@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parsePlanOptions, createInitialSchedule, calendarDays, summarizeBook } from '../apps/web/src/lib/planning.ts';
+import { resolveLoginEmail } from '../apps/web/src/lib/login-identifier.ts';
+
+test('admin login alias is limited to Supabase Local and ordinary emails stay unchanged', () => {
+  assert.equal(resolveLoginEmail(' Admin ', 'http://127.0.0.1:55321'), 'admin@paceon.example');
+  assert.equal(resolveLoginEmail('admin', 'http://localhost:55321'), 'admin@paceon.example');
+  assert.equal(resolveLoginEmail('admin', 'https://example.supabase.co'), 'admin');
+  assert.equal(resolveLoginEmail(' reader@example.com ', 'http://localhost:55321'), 'reader@example.com');
+  assert.equal(resolveLoginEmail('admin', undefined), 'admin');
+});
 
 const options = { mode: 'PACE', startDate: '2026-09-14', timezone: 'Asia/Seoul', dailyPages: 20, minutesPerPage: 1, availability: [{ isoWeekday: 1, availableMinutes: 60 }] };
 test('plan boundary rejects bad dates, duplicate weekdays and impossible inputs', () => {

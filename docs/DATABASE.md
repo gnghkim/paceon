@@ -26,13 +26,13 @@ User는 `auth.users`를 사용한다. 별도의 비밀번호 테이블은 만들
 - `LEARNING`은 신규 학습, `REVIEW`는 복습. 둘 다 실제 분량 양수. 페이지가 있으면 양 끝 포함 분량과 일치해야 한다. 단위·세션·자료 참조와 자료 총 페이지 상한은 DB가 검증한다.
 - `VOID`는 특정 원본 LEARNING/REVIEW를 무효화한다. 원본을 삭제하지 않고 `voids_event_id`로 연결한다. 같은 원본은 한 번만 무효화 가능하며 다른 자료 또는 VOID를 다시 무효화할 수 없다. VOID의 분량은 0, 페이지·소요시간은 NULL이다.
 - 정정은 VOID와 새 기록을 한 transaction에 저장한다. 유효 진도는 최초 기준값 + 무효화되지 않은 LEARNING 합계, 속도는 유효 신규 학습 중 소요시간이 양수인 표본에서 계산한다. NULL/0분과 복습은 속도 표본에서 제외한다.
-- 이번 단계에서는 projection을 저장하지 않는다. 중복 페이지·초과 총량과 연속 진도 정책은 Phase 5 기록 서비스에서 자료 row lock 안에 검증해야 한다. DB에 insert 가능한 이벤트를 검증 완료한 학습 실적으로 간주하면 안 된다.
+- 진도는 유효한 이벤트에서 계산하고 자료에 진도 버전과 일정 조정 필요 여부를 저장한다. Phase 5 RPC는 자료 row lock 안에서 중복 페이지·초과 총량과 연속 진도를 검증한다. 직접 insert 가능한 이벤트를 검증 완료한 학습 실적으로 간주하면 안 된다.
 
 ## 계획 버전과 원자적 적용 계약
 
 `plans.version`은 1로 시작한다. UPDATE마다 DB trigger가 정확히 1 증가시키며 클라이언트가 직접 원하는 버전으로 덮어쓸 수 없다. 설정 수정도 `WHERE id = ... AND version = expected_version` 조건으로 수행하고 변경 행 0개면 충돌로 처리한다. `updated_at`도 DB가 갱신한다.
 
-`schedule_sessions.plan_version`은 해당 분량 배정 당시 버전이다. 과거 snapshot이므로 현재 plans.version과 같을 필요는 없지만 미래 버전은 허용하지 않는다. 기존 과거·완료·고정 세션의 배정 버전은 그대로 둔다. ReplanRun의 APPLIED 결과는 from_version + 1 = to_version, 실패/건너뜀은 같은 버전이다. 같은 계획 버전에 적용 성공한 run은 하나뿐이다.
+`schedule_sessions.plan_version`은 해당 분량 배정 당시 버전이다. 과거 snapshot이므로 현재 plans.version과 같을 필요는 없지만 미래 버전은 허용하지 않는다. 기존 과거·완료·고정 세션의 배정 버전은 그대로 둔다. ReplanRun의 APPLIED 결과는 from_version + 1 = to_version, FAILED는 같은 버전이다. SKIPPED는 기존 버전 또는 완료 상태 전환에 따른 +1을 허용한다. 같은 계획 버전에 적용 성공한 run은 하나뿐이다.
 
 Phase 5의 저장 RPC는 하나의 PostgreSQL transaction 안에서 다음 순서를 사용한다:
 
@@ -43,7 +43,7 @@ Phase 5의 저장 RPC는 하나의 PostgreSQL transaction 안에서 다음 순�
 5. 계획 버전 증가, ReplanRun 삽입, 수정 가능한 미래 세션만 갱신.
 6. 실패 시 모든 변경 rollback.
 
-이 최종 RPC와 자동 재계획은 아직 구현하지 않았다. 여러 REST 요청을 묶어 원자적이라고 부르지 않는다. 현재 세션 DML은 소유자의 수동 편집만 보호하며 자동 재계획의 과거/고정 보존 정책은 후속 RPC에서 강제한다.
+Phase 5의 `submit_book_progress`가 위 계약을 구현한다. 사용자별 advisory lock을 먼저 획득하고 원요청/결과 ledger로 재시도를 처리한다. 일정 계산 충돌은 실제 기록을 취소하지 않고 SKIPPED 이력과 `replan_required`를 저장한다. 이때 완독/재개 상태가 바뀌면 계획 버전도 1 증가하며, 상태가 같으면 기존 버전을 유지한다. 새 일정은 검증 성공 시에만 교체한다. 임의의 직접 REST 편집을 자동 재계획으로 취급하지 않는다. 상세 요청과 응답은 [WORKSPACE_UI.md](WORKSPACE_UI.md)를 따른다.
 
 자식 행의 자료 범위·계층·VOID 검증은 AFTER trigger에서 문장 전체의 결과를 검사한다. 자료 행에 `FOR NO KEY UPDATE`를 잡아 메타데이터 수정과 직렬화하며, 외래키가 사용하는 KEY SHARE와 충돌하는 잠금 승격을 피한다. 여러 행을 한 번에 넣어도 순환 계층과 VOID→VOID는 허용하지 않는다.
 

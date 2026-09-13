@@ -135,6 +135,7 @@ export type Database = {
           forecast_date: string | null
           goal_id: string
           id: string
+          minutes_per_page: number
           mode: Database["public"]["Enums"]["plan_mode"]
           preferred_daily_workload: number | null
           resource_id: string
@@ -151,6 +152,7 @@ export type Database = {
           forecast_date?: string | null
           goal_id: string
           id?: string
+          minutes_per_page?: number
           mode?: Database["public"]["Enums"]["plan_mode"]
           preferred_daily_workload?: number | null
           resource_id: string
@@ -167,6 +169,7 @@ export type Database = {
           forecast_date?: string | null
           goal_id?: string
           id?: string
+          minutes_per_page?: number
           mode?: Database["public"]["Enums"]["plan_mode"]
           preferred_daily_workload?: number | null
           resource_id?: string
@@ -287,6 +290,44 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "progress_events"
             referencedColumns: ["id", "resource_id", "user_id"]
+          },
+        ]
+      }
+      progress_submissions: {
+        Row: {
+          created_at: string
+          id: string
+          idempotency_key: string
+          request: Json
+          resource_id: string
+          result: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          request: Json
+          resource_id: string
+          result: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          request?: Json
+          resource_id?: string
+          result?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "progress_submissions_resource_id_user_id_fkey"
+            columns: ["resource_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id", "user_id"]
           },
         ]
       }
@@ -426,7 +467,9 @@ export type Database = {
           id: string
           initial_completed_workload: number
           isbn: string | null
+          progress_version: number
           publisher: string | null
+          replan_required: boolean
           source: string
           source_id: string | null
           status: Database["public"]["Enums"]["resource_status"]
@@ -445,7 +488,9 @@ export type Database = {
           id?: string
           initial_completed_workload?: number
           isbn?: string | null
+          progress_version?: number
           publisher?: string | null
+          replan_required?: boolean
           source?: string
           source_id?: string | null
           status?: Database["public"]["Enums"]["resource_status"]
@@ -464,7 +509,9 @@ export type Database = {
           id?: string
           initial_completed_workload?: number
           isbn?: string | null
+          progress_version?: number
           publisher?: string | null
+          replan_required?: boolean
           source?: string
           source_id?: string | null
           status?: Database["public"]["Enums"]["resource_status"]
@@ -572,6 +619,18 @@ export type Database = {
           p_sessions: Json
         }
         Returns: string
+      }
+      submit_book_progress: {
+        Args: {
+          p_as_of_date: string
+          p_candidate: Json
+          p_expected_initial: number
+          p_expected_sessions: Json
+          p_expected_total: number
+          p_request: Json
+          p_resource_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {

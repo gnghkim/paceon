@@ -142,8 +142,20 @@ export function BookLibrary() {
       ) : (
         <div className="space-y-3">
           {books.map((book) => {
-            const plan = data?.plans.find((p) => p.resource_id === book.id);
-            const summary = summarizeBook(book, plan);
+            const bookPlans =
+              data?.plans.filter((p) => p.resource_id === book.id) ?? [];
+            const plan =
+              bookPlans.find((p) => p.status === 'ACTIVE') ??
+              bookPlans
+                .filter((p) => p.status === 'COMPLETED')
+                .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+            const baseline = summarizeBook(book, plan);
+            const progress = data?.progress[book.id];
+            const summary = {
+              ...baseline,
+              completed: progress?.completedThroughPage ?? baseline.completed,
+              percent: progress?.percent ?? baseline.percent,
+            };
             return (
               <Link
                 key={book.id}
@@ -154,11 +166,13 @@ export function BookLibrary() {
                   <BookCover url={book.cover_url} title={book.title} />
                   <div className="min-w-0 flex-1">
                     <p className="mb-1 text-xs text-muted-foreground">
-                      {book.status === 'COMPLETED'
-                        ? '완독'
-                        : plan
-                          ? '계획 진행 중'
-                          : '계획 대기'}
+                      {book.replan_required
+                        ? '일정 조정 대기'
+                        : book.status === 'COMPLETED'
+                          ? '완독'
+                          : plan
+                            ? '계획 진행 중'
+                            : '계획 대기'}
                     </p>
                     <h2 className="break-words text-lg font-semibold">
                       {book.title}
@@ -169,8 +183,7 @@ export function BookLibrary() {
                     <div className="mt-4 max-w-sm">
                       <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                         <span>
-                          등록 시 진도 · {summary.completed} /{' '}
-                          {book.total_pages}쪽
+                          현재 진도 · {summary.completed} / {book.total_pages}쪽
                         </span>
                         <span>{summary.percent}%</span>
                       </div>
@@ -182,7 +195,10 @@ export function BookLibrary() {
                       </div>
                     </div>
                     <p className="mt-3 text-xs text-muted-foreground sm:hidden">
-                      예상 완독 · {book.status === 'COMPLETED' ? '이미 완독한 책' : formatDate(summary.forecast)}
+                      예상 완독 ·{' '}
+                      {book.status === 'COMPLETED'
+                        ? '이미 완독한 책'
+                        : formatDate(summary.forecast)}
                     </p>
                   </div>
                   <div className="hidden text-right sm:block">

@@ -1,6 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
+import {
+  ProgressForm,
+  ProgressResult,
+  type ProgressSummary,
+} from './progress-form';
 import { ArrowLeft, CalendarDays } from 'lucide-react';
 import { useWorkspace } from '@/components/workspace-data';
 import { BookCover } from '@/components/book-library';
@@ -10,6 +16,7 @@ import { Card } from '@/components/ui/card';
 import { formatDate, summarizeBook } from '@/lib/planning';
 
 export function BookDetail({ id }: { id: string }) {
+  const [saved, setSaved] = useState<ProgressSummary | null>(null);
   const { data, loading, error, reload } = useWorkspace(
     `?resourceId=${encodeURIComponent(id)}`,
   );
@@ -51,8 +58,30 @@ export function BookDetail({ id }: { id: string }) {
         </Button>
       </Card>
     );
-  const plan = data.plans.find((p) => p.resource_id === id);
-  const summary = summarizeBook(book, plan);
+  const bookPlans = data.plans.filter((p) => p.resource_id === id);
+  const plan =
+    bookPlans.find((p) => p.status === 'ACTIVE') ??
+    bookPlans
+      .filter((p) => p.status === 'COMPLETED')
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  const baseline = summarizeBook(book, plan);
+  const progress = data.progress[id];
+  const summary = {
+    ...baseline,
+    completed: progress?.completedThroughPage ?? baseline.completed,
+    percent: progress?.percent ?? baseline.percent,
+  };
+  const history = data.events
+    .filter((event) => event.resource_id === id)
+    .sort(
+      (a, b) =>
+        b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id),
+    );
+  const voided = new Set(
+    history
+      .filter((event) => event.event_type === 'VOID')
+      .map((event) => event.voids_event_id),
+  );
   const sessions = data.sessions
     .filter(
       (s) =>
@@ -96,7 +125,7 @@ export function BookDetail({ id }: { id: string }) {
       <Card className="grid gap-6 p-4 md:grid-cols-2 md:p-6">
         <div>
           <div className="flex items-center justify-between">
-            <h2 className="text-sm text-muted-foreground">등록 시 진도</h2>
+            <h2 className="text-sm text-muted-foreground">현재 읽은 진도</h2>
             <span className="text-sm font-semibold">{summary.percent}%</span>
           </div>
           <p className="mt-2 text-xl font-semibold">
@@ -112,7 +141,8 @@ export function BookDetail({ id }: { id: string }) {
             />
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            책을 등록할 때 입력한 읽은 페이지입니다.
+            등록 시 진도와 유효한 읽기 기록을 합산했어요. 복습과 무효 기록은
+            제외합니다.
           </p>
         </div>
         <div className="border-t border-border pt-5 md:border-l md:border-t-0 md:pl-6 md:pt-0">
@@ -129,14 +159,71 @@ export function BookDetail({ id }: { id: string }) {
           )}
           {plan && (
             <p className="mt-3 text-xs text-muted-foreground">
-              저장된 독서 계획 기준
+              {book.replan_required
+                ? '일정 조정 대기 · 기존 계획의 예상 날짜입니다.'
+                : '저장된 독서 계획 기준'}
             </p>
           )}
         </div>
       </Card>
+      {saved && <ProgressResult result={saved} />}
+      {plan && (
+        <ProgressForm
+          key={`${book.id}:${book.progress_version}:${plan.version}`}
+          book={book}
+          plan={plan}
+          data={data}
+          onSaved={reload}
+          onResult={setSaved}
+        />
+      )}
       {!plan && book.status !== 'COMPLETED' && (
         <PlanForm key={book.id} book={book} data={data} onSaved={reload} />
       )}
+      <Card className="space-y-4 p-4 md:p-6">
+        <h2 className="text-lg font-semibold">학습 기록 이력</h2>
+        <p className="text-xs text-muted-foreground">
+          최근 기록 20개를 표시해요. 정정 전 기록과 무효 처리도 이력에 남습니다.
+        </p>
+        {history.length ? (
+          <ul className="divide-y divide-border">
+            {history.slice(0, 20).map((event) => (
+              <li key={event.id} className="space-y-1 py-3 text-sm">
+                <p className="font-medium">
+                  {formatDate(event.study_date, true)} ·{' '}
+                  {event.event_type === 'VOID'
+                    ? '정정 · 이전 기록 무효 처리'
+                    : event.event_type === 'REVIEW'
+                      ? '복습 · 진도에 미포함'
+                      : voided.has(event.id)
+                        ? '읽기 · 무효 (정정됨)'
+                        : '읽기 · 유효'}
+                  {event.id === progress?.latestLearningId
+                    ? ' · 마지막 읽기 기록'
+                    : ''}
+                </p>
+                {event.event_type !== 'VOID' && (
+                  <p className="text-muted-foreground">
+                    {event.start_page}–{event.end_page}쪽
+                    {event.duration_minutes !== null
+                      ? ` · ${event.duration_minutes}분`
+                      : ''}
+                  </p>
+                )}
+                {event.memo && (
+                  <p className="whitespace-pre-wrap break-words text-muted-foreground">
+                    {event.memo}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            아직 기록한 학습이 없어요. 오늘 읽은 페이지를 남겨 보세요.
+          </p>
+        )}
+      </Card>
       {plan && (
         <Card className="p-4 md:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

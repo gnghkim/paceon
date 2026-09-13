@@ -6,6 +6,8 @@ import type {
   ScheduleSession,
   AvailabilityRule,
   LearnerProfile,
+  ProgressEvent,
+  ReplanRun,
 } from '@paceon/shared';
 import {
   ApiError,
@@ -17,6 +19,7 @@ import {
 import type { Config } from './books-api.ts';
 import { parsePlanOptions, createInitialSchedule } from './planning.ts';
 import type { WorkspaceData } from './workspace-types.ts';
+import { projectProgress, ProgressError } from './progress.ts';
 
 const uuid = z.uuid();
 export function createWorkspaceHandlers(
@@ -84,6 +87,7 @@ export function createWorkspaceHandlers(
     return { availability, timezone: profiles[0]?.timezone ?? 'Asia/Seoul' };
   }
   function handle(error: unknown) {
+    if (error instanceof ProgressError) return json({ error: error.message }, 409);
     if (error instanceof z.ZodError || error instanceof RangeError)
       return json(
         { error: '날짜, 분량과 학습 가능 시간을 확인해 주세요.' },
@@ -92,6 +96,10 @@ export function createWorkspaceHandlers(
     return failure(error);
   }
   return {
+    authenticate,
+    rest,
+    rows,
+    settings,
     async GET(request: Request) {
       try {
         const auth = await authenticate(request);
@@ -110,19 +118,21 @@ export function createWorkspaceHandlers(
           throw new ApiError(400, '조회 기간은 93일 이내로 선택해 주세요.');
         const id = url.searchParams.get('resourceId');
         if (id) uuid.parse(id);
-        const [resources, plans, sessions] = await Promise.all([
+        const [resources, plans, sessions, events, replans] = await Promise.all([
           rows<Resource>(auth, 'resources', {
             type: 'eq.BOOK',
             ...(id ? { id: `eq.${id}` } : {}),
           }),
           rows<Plan>(auth, 'plans', {
-            status: 'in.(ACTIVE,PAUSED)',
+            status: 'in.(ACTIVE,PAUSED,COMPLETED)',
             ...(id ? { resource_id: `eq.${id}` } : {}),
           }),
           rows<ScheduleSession>(auth, 'schedule_sessions', {
             and: `(study_date.gte.${from},study_date.lte.${to})`,
             ...(id ? { resource_id: `eq.${id}` } : {}),
           }),
+          rows<ProgressEvent>(auth, 'progress_events', { ...(id ? { resource_id: `eq.${id}` } : {}) }),
+          rows<ReplanRun>(auth, 'replan_runs', { ...(id ? { resource_id: `eq.${id}` } : {}) }),
         ]);
         if (id && !resources.length)
           throw new ApiError(404, '자료를 찾을 수 없습니다.');
@@ -131,7 +141,13 @@ export function createWorkspaceHandlers(
         );
         const data: WorkspaceData = {
           resources,
-          plans,
+          plans: plans.sort((a, b) => b.created_at.localeCompare(a.created_at)),
+          progress: Object.fromEntries(resources.map(book => {
+            const projection = projectProgress(book, events.filter(event => event.resource_id === book.id));
+            return [book.id, { completedThroughPage: projection.completedThroughPage, percent: projection.percent, latestLearningId: projection.latestLearningId }];
+          })),
+          events,
+          replans,
           sessions: sessions
             .filter((s) => active.has(s.plan_id))
             .sort(

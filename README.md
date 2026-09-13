@@ -3,7 +3,7 @@
 **Your learning, at your pace.**  
 내 속도에 맞춰 계속 다시 짜주는 학습 계획.
 
-현재 범위는 **Phase 4 Basic UI**다. 로그인·가입, Today, 서재 목록·상세·등록, 일/주/월 캘린더를 제공한다. 책을 등록하고 일정 미리보기를 확인한 뒤 첫 계획을 저장할 수 있다. 실제 학습 완료 기록과 자동 재계획은 Phase 5에서 연결한다.
+현재 범위는 **Phase 5 Progress / Replanning**이다. 로그인·가입, Today, 서재, 캘린더와 최초 계획에 더해 실제 읽기·복습·정정 기록을 저장한다. 실제 진도와 읽기 속도로 미래 일정을 재계산하고, 충돌이 있으면 기록을 보존한 채 일정 조정을 안내한다.
 
 ## 준비
 
@@ -112,6 +112,6 @@ tests                 패키지 import · health HTTP · Auth/REST 격리·동�
 docs                  요구사항 · 설계 · 구현 준비 및 실행 계획
 ```
 
-다음 단계는 Phase 5 Progress / Replanning이다. 실제 학습량 기록과 진도 계산, 원자적 재계획 저장을 연결한다. 화면과 최초 계획 API는 [WORKSPACE_UI](docs/WORKSPACE_UI.md), 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
+다음 단계는 Phase 6 AI다. 난이도·예상 시간·Coach의 범위를 정하고 핵심 학습 흐름과 독립적으로 연결한다. 화면과 기록/계획 API는 [WORKSPACE_UI](docs/WORKSPACE_UI.md), 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
 
 의존성 구성 참고: [Next.js 설치](https://nextjs.org/docs/app/getting-started/installation), [Tailwind Next.js 설정](https://tailwindcss.com/docs/installation/framework-guides/nextjs), [FastAPI Docker 구성](https://fastapi.tiangolo.com/deployment/docker/).

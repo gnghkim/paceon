@@ -32,7 +32,8 @@ export function TodayView() {
     .slice(0, 3);
   const withoutPlan = data.resources.filter(
     (r) =>
-      r.status === 'ACTIVE' && !data.plans.some((p) => p.resource_id === r.id),
+      r.status === 'ACTIVE' &&
+      !data.plans.some((p) => p.resource_id === r.id && p.status === 'ACTIVE'),
   );
   return (
     <div className="space-y-9">
@@ -104,6 +105,36 @@ export function TodayView() {
               </div>
             )}
           </section>
+          {!!data.resources.filter((r) =>
+            data.plans.some(
+              (p) => p.resource_id === r.id && p.status === 'ACTIVE',
+            ),
+          ).length && (
+            <section className="space-y-3">
+              <h2 className="font-semibold">오늘 읽은 진도 남기기</h2>
+              <p className="text-sm text-muted-foreground">
+                오늘 예정된 일정이 없어도 읽은 페이지를 기록할 수 있어요.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {data.resources
+                  .filter((r) =>
+                    data.plans.some(
+                      (p) => p.resource_id === r.id && p.status === 'ACTIVE',
+                    ),
+                  )
+                  .map((r) => (
+                    <Button key={r.id} asChild variant="outline">
+                      <Link
+                        href={`/resources/${r.id}#record`}
+                        className="max-w-full"
+                      >
+                        <span className="truncate">{r.title} · 학습 기록</span>
+                      </Link>
+                    </Button>
+                  ))}
+              </div>
+            </section>
+          )}
           {!!withoutPlan.length && (
             <section className="rounded-xl bg-accent p-5">
               <h2 className="font-semibold">계획을 기다리는 책</h2>
