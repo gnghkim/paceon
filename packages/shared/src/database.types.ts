@@ -200,6 +200,74 @@ export type Database = {
         }
         Relationships: []
       }
+      pdf_imports: {
+        Row: {
+          attempts: number
+          confirmation_current_page: number | null
+          confirmation_title: string | null
+          content_sha256: string
+          created_at: string
+          error_code: string | null
+          file_size: number
+          filename: string
+          id: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          resource_id: string | null
+          result: Json | null
+          status: string
+          storage_path: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          confirmation_current_page?: number | null
+          confirmation_title?: string | null
+          content_sha256: string
+          created_at?: string
+          error_code?: string | null
+          file_size: number
+          filename: string
+          id: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          resource_id?: string | null
+          result?: Json | null
+          status?: string
+          storage_path: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          confirmation_current_page?: number | null
+          confirmation_title?: string | null
+          content_sha256?: string
+          created_at?: string
+          error_code?: string | null
+          file_size?: number
+          filename?: string
+          id?: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          resource_id?: string | null
+          result?: Json | null
+          status?: string
+          storage_path?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdf_imports_resource_id_user_id_fkey"
+            columns: ["resource_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           created_at: string
@@ -680,7 +748,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      begin_pdf_import: {
+        Args: {
+          p_content_sha256: string
+          p_file_size: number
+          p_filename: string
+          p_id: string
+        }
+        Returns: Json
+      }
       claim_ai_job: { Args: never; Returns: Json }
+      claim_pdf_import: { Args: never; Returns: Json }
+      confirm_pdf_import: {
+        Args: { p_current_page: number; p_id: string; p_title: string }
+        Returns: string
+      }
       create_initial_book_plan: {
         Args: {
           p_expected_completed: number
@@ -692,6 +774,7 @@ export type Database = {
         }
         Returns: string
       }
+      discard_pdf_import: { Args: { p_id: string }; Returns: boolean }
       enqueue_ai_job: {
         Args: {
           p_input: Json
@@ -714,6 +797,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      finish_pdf_import: {
+        Args: {
+          p_error_code: string
+          p_id: string
+          p_lease_token: string
+          p_result: Json
+        }
+        Returns: boolean
+      }
+      queue_pdf_import: { Args: { p_id: string }; Returns: Json }
+      retry_pdf_import: { Args: { p_id: string }; Returns: Json }
       submit_book_progress: {
         Args: {
           p_as_of_date: string

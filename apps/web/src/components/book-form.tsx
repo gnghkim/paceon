@@ -145,6 +145,7 @@ export function BookForm() {
           책을 찾고, 지금까지 읽은 페이지를 알려 주세요.
         </p>
       </header>
+      <Button asChild variant="outline"><Link href="/resources/import">PDF 파일로 가져오기</Link></Button>
       <div className="flex gap-2">
         <Button
           variant={entry === 'search' ? 'secondary' : 'ghost'}

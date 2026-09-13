@@ -14,22 +14,25 @@ const titles = { BOOK_ANALYSIS: '도서 분석', COACH: '학습 코칭' };
 const active = (job: AiJobView) =>
   job.status === 'PENDING' || job.status === 'PROCESSING';
 
-export function AiInsight({ resourceId, planHref }: {
+export function AiInsight({ resourceId, planHref, initialOutline = '' }: {
   resourceId: string;
   planHref: string;
+  initialOutline?: string;
 }) {
   const { session } = useAuth();
   if (!session) return null;
-  return <InsightPanel key={`${session.user.id}:${resourceId}`} resourceId={resourceId} planHref={planHref} />;
+  return <InsightPanel key={`${session.user.id}:${resourceId}`} resourceId={resourceId} planHref={planHref} initialOutline={initialOutline} />;
 }
 
-function InsightPanel({ resourceId, planHref }: {
+function InsightPanel({ resourceId, planHref, initialOutline }: {
   resourceId: string;
   planHref: string;
+  initialOutline: string;
 }) {
   const { apiFetch } = useAuth();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [outline, setOutline] = useState('');
+  const [outlineDraft, setOutlineDraft] = useState<string | null>(null);
+  const outline = outlineDraft ?? initialOutline;
   const [busy, setBusy] = useState<Kind | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
@@ -147,7 +150,7 @@ function InsightPanel({ resourceId, planHref }: {
           <label htmlFor="ai-outline" className="text-sm font-medium">목차 또는 구성 정보 <span className="font-normal text-muted-foreground">(선택)</span></label>
           <textarea id="ai-outline" value={outline} maxLength={12000} rows={3}
             disabled={busy !== null || snapshot.jobs.some((job) => job.kind === 'BOOK_ANALYSIS' && active(job))}
-            onChange={(event) => setOutline(event.target.value)}
+            onChange={(event) => setOutlineDraft(event.target.value)}
             aria-describedby="ai-outline-help"
             placeholder="분석에 참고할 목차를 붙여 넣어 주세요."
             className="w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />

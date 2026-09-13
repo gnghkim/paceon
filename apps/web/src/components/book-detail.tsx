@@ -11,13 +11,19 @@ import { ArrowLeft, CalendarDays } from 'lucide-react';
 import { useWorkspace } from '@/components/workspace-data';
 import { BookCover } from '@/components/book-library';
 import { AiInsight } from '@/components/ai-insight';
+import { PdfSourceCard } from '@/components/pdf-source';
 import { PlanForm } from '@/components/plan-form';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { formatDate, summarizeBook } from '@/lib/planning';
 
 export function BookDetail({ id }: { id: string }) {
+  return <BookDetailPanel key={id} id={id} />;
+}
+
+function BookDetailPanel({ id }: { id: string }) {
   const [saved, setSaved] = useState<ProgressSummary | null>(null);
+  const [pdfOutline, setPdfOutline] = useState('');
   const { data, loading, error, reload } = useWorkspace(
     `?resourceId=${encodeURIComponent(id)}`,
   );
@@ -103,6 +109,7 @@ export function BookDetail({ id }: { id: string }) {
         <BookCover url={book.cover_url} title={book.title} large />
         <div className="min-w-0 flex-1">
           <p className="mb-2 text-xs text-muted-foreground">
+            {book.source === 'PDF_IMPORT' && <span>PDF · </span>}
             {book.status === 'COMPLETED' ? '완독한 책' : '읽고 있는 책'}
           </p>
           <h1 className="break-words text-2xl font-bold tracking-tight md:text-[28px]">
@@ -168,7 +175,8 @@ export function BookDetail({ id }: { id: string }) {
         </div>
       </Card>
       {saved && <ProgressResult result={saved} />}
-      <AiInsight resourceId={book.id} planHref={plan ? '#record' : book.status === 'COMPLETED' ? '#book-progress' : '#reading-plan'} />
+      <PdfSourceCard key={book.id} resourceId={book.id} onOutline={setPdfOutline} />
+      <AiInsight resourceId={book.id} initialOutline={pdfOutline} planHref={plan ? '#record' : book.status === 'COMPLETED' ? '#book-progress' : '#reading-plan'} />
       {plan && (
         <ProgressForm
           key={`${book.id}:${book.progress_version}:${plan.version}`}

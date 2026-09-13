@@ -63,11 +63,14 @@ export function BookLibrary() {
             읽고 있는 책과 앞으로의 여정을 한곳에서 확인하세요.
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline"><Link href="/resources/import">PDF 가져오기</Link></Button>
         <Button asChild>
           <Link href="/resources/new">
             <Plus className="size-4" />책 추가
           </Link>
         </Button>
+        </div>
       </header>
       <div className="flex flex-col justify-between gap-3 sm:flex-row">
         <div className="flex gap-1" aria-label="도서 상태 필터">
@@ -166,6 +169,7 @@ export function BookLibrary() {
                   <BookCover url={book.cover_url} title={book.title} />
                   <div className="min-w-0 flex-1">
                     <p className="mb-1 text-xs text-muted-foreground">
+                      {book.source === 'PDF_IMPORT' && <span>PDF · </span>}
                       {book.replan_required
                         ? '일정 조정 대기'
                         : book.status === 'COMPLETED'

@@ -20,6 +20,9 @@ importers:
       '@paceon/books':
         specifier: workspace:*
         version: link:../../packages/books
+      '@paceon/pdf-schema':
+        specifier: workspace:*
+        version: link:../../packages/pdf-schema
       '@paceon/scheduler':
         specifier: workspace:*
         version: link:../../packages/scheduler
@@ -93,6 +96,12 @@ importers:
       '@paceon/shared':
         specifier: workspace:*
         version: link:../shared
+      zod:
+        specifier: 4.6.2
+        version: 4.6.2
+
+  packages/pdf-schema:
+    dependencies:
       zod:
         specifier: 4.6.2
         version: 4.6.2

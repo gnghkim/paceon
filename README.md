@@ -3,7 +3,7 @@
 **Your learning, at your pace.**  
 내 속도에 맞춰 계속 다시 짜주는 학습 계획.
 
-현재 범위는 **Phase 6 AI**다. 로그인·가입, Today, 서재, 캘린더, 실제 진도 기록과 자동 재계획에 더해 도서 난이도·예상 시간 분석과 학습 코칭을 백그라운드 작업으로 제공한다. AI 키가 없으면 해당 기능만 비활성화되고 기록과 일정은 계속 사용할 수 있다. 설정과 범위는 [AI](docs/AI.md)를 따른다.
+현재 범위는 **Phase 7 PDF Import**다. 비공개 PDF 업로드, 페이지·책갈피·본문 일부 추출, 확인 후 서재 등록과 기존 계획·진도 기록을 연결했다. PDF 처리는 AI 키 없이 동작한다. 별도로 설정한 AI는 도서 분석과 학습 코칭을 제공한다. 사용법은 [PDF](docs/PDF.md), AI 설정은 [AI](docs/AI.md)를 따른다.
 
 ## 준비
 
@@ -53,7 +53,7 @@ Copy-Item apps/web/.env.example apps/web/.env.local
 supabase status
 ```
 
-출력의 로컬 URL과 publishable key를 `.env.local`에 입력한다. 루트 `.env.example`은 환경변수 목록 안내용이며, Next.js가 읽는 파일은 **apps/web/.env.local**이다. `SUPABASE_SECRET_KEY`는 서버 전용이며 필요할 때만 설정한다. 비밀 키에 `NEXT_PUBLIC_` 접두사를 붙이지 않는다. 실제 `.env`와 CLI 출력 로그는 Git에서 제외한다. Worker skeleton은 외부 키를 사용하지 않는다.
+출력의 로컬 URL과 publishable key를 `.env.local`에 입력한다. 루트 `.env.example`은 환경변수 목록 안내용이며, Next.js가 읽는 파일은 **apps/web/.env.local**이다. `SUPABASE_SECRET_KEY`는 서버 전용이며 필요할 때만 설정한다. 비밀 키에 `NEXT_PUBLIC_` 접두사를 붙이지 않는다. 실제 `.env`와 CLI 출력 로그는 Git에서 제외한다. PDF Worker 설정은 [PDF](docs/PDF.md), AI 제공자 설정은 [AI](docs/AI.md)를 따른다.
 
 ## 검증
 
@@ -105,13 +105,15 @@ apps/web              인증 · Today/서재/캘린더 · 도서/계획 API · �
 packages/books        도서 검증 · Google Books/Manual/YES24 Provider
 packages/shared       공통 타입
 packages/scheduler    일정 생성·재계획·속도 추정 · Vitest
-services/ai-worker    FastAPI skeleton · Python 의존성 잠금 · Dockerfile
+packages/ai-schema    AI 작업 입력·결과 검증
+packages/pdf-schema   PDF 처리 한도·결과·확인 입력 검증
+services/ai-worker    FastAPI · AI/PDF 작업 소비자 · 격리 PDF 파서 · Dockerfile
 supabase              도메인 migration · 비로그인 개발 seed · pgTAP 테스트
 docker                Worker Compose
 tests                 패키지 import · health HTTP · Auth/REST 격리·동시성 테스트
 docs                  요구사항 · 설계 · 구현 준비 및 실행 계획
 ```
 
-다음 확장 후보는 PDF 업로드·파싱과 학습단위 분석이다. 실제 AI 모델 키 설정과 실호출 검증도 남아 있다. AI 계약은 [AI](docs/AI.md), 화면과 기록/계획 API는 [WORKSPACE_UI](docs/WORKSPACE_UI.md), 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
+다음 확장 후보는 학습단원 편집, OCR, 통계·알림이다. 실제 AI 모델 키 설정과 실호출 검증도 남아 있다. PDF 계약은 [PDF](docs/PDF.md), AI 계약은 [AI](docs/AI.md), 화면과 기록/계획 API는 [WORKSPACE_UI](docs/WORKSPACE_UI.md), 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
 
 의존성 구성 참고: [Next.js 설치](https://nextjs.org/docs/app/getting-started/installation), [Tailwind Next.js 설정](https://tailwindcss.com/docs/installation/framework-guides/nextjs), [FastAPI Docker 구성](https://fastapi.tiangolo.com/deployment/docker/).

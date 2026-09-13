@@ -9,19 +9,26 @@ from fastapi import FastAPI, Response
 from pydantic import BaseModel
 
 from app.worker import Settings, Worker
+from app.pdf_worker import PdfSettings, PdfWorker
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = Settings.from_env()
     stop = threading.Event()
-    task = asyncio.create_task(asyncio.to_thread(Worker(settings).run, stop)) if settings.enabled else None
+    pdf_settings = PdfSettings.from_env()
+    consumers = []
+    if settings.enabled:
+        consumers.append(Worker(settings))
+    if pdf_settings.enabled:
+        consumers.append(PdfWorker(pdf_settings))
+    tasks = [asyncio.create_task(asyncio.to_thread(consumer.run, stop)) for consumer in consumers]
     try:
         yield
     finally:
         stop.set()
-        if task is not None:
-            await task
+        if tasks:
+            await asyncio.gather(*tasks)
 
 
 app = FastAPI(title="PaceOn AI Worker", version="0.0.0", lifespan=lifespan)

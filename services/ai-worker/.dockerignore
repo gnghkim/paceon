@@ -1,4 +1,5 @@
 .venv
+.venv-pdf
 build
 *.egg-info
 __pycache__

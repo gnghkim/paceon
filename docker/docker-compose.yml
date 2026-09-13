@@ -10,6 +10,7 @@ services:
     stop_grace_period: 90s
     environment:
       AI_ENABLED: ${AI_ENABLED:-false}
+      PDF_ENABLED: ${PDF_ENABLED:-false}
       SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:55321}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
