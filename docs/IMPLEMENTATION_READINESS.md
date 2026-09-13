@@ -1,7 +1,7 @@
 # PaceOn 구현 준비
 
 작성일: 2026-09-12  
-상태: Phase 1 Core Domain 구현 및 검증 완료 (최신 기록은 §13)  
+상태: Phase 2 Scheduler Engine 구현 및 검증 완료 (최신 기록은 §14)  
 요구사항 기준: [PRD.md](PRD.md)  
 개발 순서 기준: [prompt.md](prompt.md)  
 화면·디자인 기준: [DESIGN.md](DESIGN.md)
@@ -313,3 +313,17 @@ Phase 0은 `30bfb4f`로 커밋했다. Phase 1 작업은 `feat/phase-1-core-domai
 Phase 1은 영속화 계약이다. 실제 진도 projection, 중복 페이지·총량 검사, 일정 계산, 원자적 기록/재계획 RPC와 업무 UI는 후속 단계다. 상세 구현 경계는 DATABASE 문서를 따른다.
 
 다음은 **Phase 2 Scheduler Engine**이다. Balanced 상한, 가용시간 제약, 속도 추정 정책을 확정한 뒤 Deadline/Pace/Balanced, 분량 보존과 완료일 예측을 순수 TypeScript 테스트로 구현한다.
+
+## 14. Phase 2 실행 기록 — 2026-09-13
+
+Phase 1 커밋 `94ab81f`에서 `feat/phase-2-scheduler` 브랜치를 만들었다.
+
+- 책의 일정 생성, 재계획, 사용자 시간 예산을 공유하는 복수 책 생성, 속도 추정과 시간대 날짜 변환을 순수 TypeScript로 구현했다.
+- Balanced 기본 증가 상한 20%, 일일 가용시간 강제 제약, 최근 30일/최소 3개 표본의 속도 정책을 PRD와 [SCHEDULER.md](SCHEDULER.md)에 기록했다. 초기 예상 시간은 호출자가 제공하며 정책값은 명시적 입력으로 조정한다.
+- 과거·오늘·완료·고정·진행 중 세션 보존, 미래 고정 범위의 페이지·시간 예약, 중복·순서·용량 충돌과 부분 결과 반환 차단을 구현했다.
+- **Vitest 52개** 통과. 세 모드의 300개 입력 조합에서 페이지 합계·순서·누락/중복·요일·시간 제약과 입력 불변성을 검사했다.
+- 대표 결과: 320p/현재80p/20p씩/월~금/9월14일 시작 → 12회, 9월29일 완료. 첫날 10p 학습이면 9월30일, 40p이면 9월28일로 변경된다.
+- 독립 코드 리뷰에서 요청 시작일보다 앞선 미래 고정 세션의 중복 배정 경로를 재현하고 수정했다. 목표일 없는 Balanced의 탐색 상한 오인, 속도 수치 underflow, TypeScript 원본/소비자 import 호환성도 회귀 검증했다.
+- `pnpm install --frozen-lockfile`, `pnpm test`(독립 import 1개 + Vitest 52개), `pnpm typecheck`, `pnpm lint`, `pnpm build`가 통과했다. 생성된 JS를 Node에서 직접 import하여 12회/9월29일 결과도 확인했다.
+
+웹은 아직 준비 화면이다. 실제 자료 등록·진도 projection·DB 재계획 적용은 연결하지 않았다. 다음은 **Phase 3 Book Resource**: 직접 등록, Google Books 검색·페이지 수 보정, 검색 실패 시 수동 등록과 Provider 경계 구현이다.

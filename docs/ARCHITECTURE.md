@@ -52,3 +52,13 @@ shared의 도메인 타입은 DB schema에서 생성한 TypeScript 타입을 참
 이 단계에서 추가한 계약은 지역 학습일과 UTC 발생 시각 분리, 최초 완료 분량 보존, append-only 진도/무효화 기록, 계획 버전 CAS, 재계획 전후 이력이다. 자세한 제약과 후속 transaction 경계는 [DATABASE](DATABASE.md)에 기록한다.
 
 웹은 아직 업무 DB 요청을 하지 않는다. DB는 pgTAP와 실제 Auth/REST 테스트로 직접 검증한다. 다음 Phase 2에서 일정 계산을 구현하고 Phase 5에서 기록·재계획 원자적 RPC를 연결한다.
+
+## Phase 2 추가 — Scheduler Engine
+
+`packages/scheduler`는 dates, speed, types, scheduler 모듈로 구성한다. `scheduleBook`, `replanBook`, `scheduleBooks`, `estimateReadingSpeed`, `toStudyDate`를 공개한다. 알고리즘 계약 버전은 `book-scheduler-v1`이며 DB의 plan revision과 구분한다.
+
+단일 책의 연속 완료 지점을 입력받아 남은 페이지를 계산하고, 모드·요일·시간·외부 예약·보존 세션에 따라 순수 결과를 반환한다. 복합 계획은 배열 순서의 명시적 우선순위로 공통 시간 예산을 공유한다. 실제 DB 기록의 projection이나 저장 transaction을 이 모듈에서 수행하지 않는다.
+
+날짜는 명시적인 달력 날짜를 UTC 기반 정수 일자로 변환해 계산하므로 DST 때문에 하루가 누락되지 않는다. 현재 시각은 내부에서 읽지 않는다. 속도는 명시적 기간의 신규 페이지 표본에서만 추정하며 AI 호출이 없다.
+
+실패 결과는 충돌 코드와 보존 세션만 포함한다. 부분 계산된 세션을 반환하지 않아 후속 저장 계층이 실수로 일부 일정만 적용하는 경로를 줄인다. 실제 자동 적용은 Phase 5의 검증·잠금·원자적 RPC에서 구현한다. 세부 정책과 한계는 [SCHEDULER](SCHEDULER.md)를 따른다.
