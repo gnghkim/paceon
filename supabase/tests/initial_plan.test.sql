@@ -1,0 +1,11 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+set search_path = public, extensions;
+select plan(5);
+select has_function('public', 'create_initial_book_plan', array['uuid','integer','numeric','jsonb','jsonb','date']);
+select ok(not has_function_privilege('anon','public.create_initial_book_plan(uuid,integer,numeric,jsonb,jsonb,date)','execute'), 'Anonymous cannot create plans');
+select ok(has_function_privilege('authenticated','public.create_initial_book_plan(uuid,integer,numeric,jsonb,jsonb,date)','execute'), 'Authenticated may use RLS transaction');
+select is((select prosecdef from pg_proc where oid='public.create_initial_book_plan(uuid,integer,numeric,jsonb,jsonb,date)'::regprocedure), false, 'RPC preserves caller RLS');
+select throws_ok($$select public.create_initial_book_plan('00000000-0000-0000-0000-000000000000',100,0,'{}','[]',current_date)$$, '42501', 'Authentication required', 'No anonymous execution even as privileged caller');
+select * from finish();
+rollback;

@@ -49,6 +49,8 @@ Phase 5의 저장 RPC는 하나의 PostgreSQL transaction 안에서 다음 순�
 
 ## 개발 seed와 검증
 
+Phase 4에서 최초 도서 계획 저장용 `create_initial_book_plan` RPC를 추가했다. 사용자 단위 잠금, RLS, 페이지 연속성·공유 시간 예산 검증 뒤 목표·계획·세션을 한 트랜잭션으로 저장한다. 기존 진도 기록이나 활성 계획이 있으면 새 초기 계획을 만들지 않는다. 이 함수는 위의 진도 기록/재계획 RPC와 별개이며 상세 계약은 [WORKSPACE_UI.md](WORKSPACE_UI.md)를 따른다.
+
 seed는 `alice@paceon.example`, `bob@paceon.example`의 비로그인 fixture다. encrypted_password와 identity를 만들지 않는다. 실제 로그인 UI용 계정은 Auth API로 별도 생성한다. 고정 UUID와 `ON CONFLICT DO NOTHING`으로 반복 실행할 수 있다.
 
 `supabase db reset --local`은 PaceOn 로컬 데이터만 재생성하므로 개인 데이터를 넣은 이후에는 주의한다. pgTAP 테스트는 별도 fixture를 transaction 내에서 만들고 rollback한다. RLS는 실제 authenticated 역할과 JWT subject를 설정하여 검증하며, 별도 HTTP smoke는 실제 Auth API가 발급한 토큰으로 확인한다.

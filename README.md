@@ -3,7 +3,7 @@
 **Your learning, at your pace.**  
 내 속도에 맞춰 계속 다시 짜주는 학습 계획.
 
-현재 범위는 **Phase 3 Book Resource**다. 개발 환경·DB·RLS·일정 엔진에 더해 수동 도서 등록, Google Books 검색, 인증된 등록·조회 API를 제공한다. 시작 화면은 준비 상태이며, 인증·자료 화면은 Phase 4에서 연결한다.
+현재 범위는 **Phase 4 Basic UI**다. 로그인·가입, Today, 서재 목록·상세·등록, 일/주/월 캘린더를 제공한다. 책을 등록하고 일정 미리보기를 확인한 뒤 첫 계획을 저장할 수 있다. 실제 학습 완료 기록과 자동 재계획은 Phase 5에서 연결한다.
 
 ## 준비
 
@@ -46,7 +46,7 @@ Windows에서 기본 Vector 로그 수집기가 `host.docker.internal:2375`에 �
 
 ## 환경변수
 
-현재 시작 화면과 수동 입력 검증은 키 없이 실행된다. 도서 저장 API를 사용하려면:
+로그인과 도서 저장을 사용하려면:
 
 ```powershell
 Copy-Item apps/web/.env.example apps/web/.env.local
@@ -101,7 +101,7 @@ supabase stop
 ## 구조와 다음 단계
 
 ```text
-apps/web              Next.js 시작 화면 · 웹 health · 디자인 토큰
+apps/web              인증 · Today/서재/캘린더 · 도서/계획 API · 디자인 토큰
 packages/books        도서 검증 · Google Books/Manual/YES24 Provider
 packages/shared       공통 타입
 packages/scheduler    일정 생성·재계획·속도 추정 · Vitest
@@ -112,6 +112,6 @@ tests                 패키지 import · health HTTP · Auth/REST 격리·동�
 docs                  요구사항 · 설계 · 구현 준비 및 실행 계획
 ```
 
-다음 단계는 Phase 4 Basic UI다. 인증과 Today·자료 목록·상세·등록·Calendar 화면을 연결한다. 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
+다음 단계는 Phase 5 Progress / Replanning이다. 실제 학습량 기록과 진도 계산, 원자적 재계획 저장을 연결한다. 화면과 최초 계획 API는 [WORKSPACE_UI](docs/WORKSPACE_UI.md), 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
 
 의존성 구성 참고: [Next.js 설치](https://nextjs.org/docs/app/getting-started/installation), [Tailwind Next.js 설정](https://tailwindcss.com/docs/installation/framework-guides/nextjs), [FastAPI Docker 구성](https://fastapi.tiangolo.com/deployment/docker/).

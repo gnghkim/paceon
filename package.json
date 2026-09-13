@@ -12,7 +12,7 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm --filter @paceon/web lint",
-    "test": "node --test tests/workspace.test.mjs tests/books.test.mjs tests/books-api.test.mjs && pnpm --filter @paceon/scheduler test",
+    "test": "node --test tests/workspace.test.mjs tests/books.test.mjs tests/books-api.test.mjs tests/workspace-ui.test.mjs tests/planning-api.test.mjs && pnpm --filter @paceon/scheduler test",
     "test:smoke": "node --test tests/health.test.mjs",
     "infra:up": "docker compose up -d --build",
     "infra:down": "docker compose down",

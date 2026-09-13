@@ -40,7 +40,7 @@ Google 검색 결과를 선택하면 `pageCount → totalPages`, `thumbnail → 
 
 Supabase Auth의 `/auth/v1/user`로 토큰을 검증한 뒤 실제 사용자 ID를 지정한다. DB 요청은 publishable key와 같은 사용자 토큰을 사용하여 RLS를 유지한다. 서비스 비밀 키는 사용하지 않는다. Next가 읽는 `apps/web/.env.local`에 URL/publishable key를 설정한다. 인증 실패 401, 입력 오류 400, 16KiB 초과 413, JSON 외 형식 415, 서비스 미설정·장애 503이며 응답은 캐시하지 않는다. 저장 요청을 자동 재시도하지 않는다. 응답 유실 후 사용자 재등록은 중복 자료를 만들 수 있다.
 
-Phase 2 `scheduleBook`에는 저장된 `total_pages`와 `initial_completed_workload`를 각각 `totalPages`, `completedThroughPage`로 전달한다. 일정 미리보기 UI와 계획 저장 연결은 다음 단계다. Phase 4에서 인증 화면, Today, 자료 목록·상세·등록, Calendar를 연결한다.
+Phase 2 `scheduleBook`에는 저장된 `total_pages`와 `initial_completed_workload`를 각각 `totalPages`, `completedThroughPage`로 전달한다. Phase 4에서 인증 화면, Today, 자료 목록·상세·등록, Calendar와 첫 계획 미리보기/저장을 연결했다. 계약과 사용 방법은 [WORKSPACE_UI.md](WORKSPACE_UI.md)를 따른다.
 
 ## 검증
 

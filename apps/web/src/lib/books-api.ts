@@ -1,15 +1,15 @@
 import { BookValidationError, GoogleBooksProvider, YES24Provider, ManualProvider, validateBook, toBookResource } from '@paceon/books';
 import type { BookProvider } from '@paceon/books';
 
-interface Config { url: string; key: string }
-class ApiError extends Error {
+export interface Config { url: string; key: string }
+export class ApiError extends Error {
   readonly status: number;
   constructor(status: number, message: string) { super(message); this.status = status; }
 }
-function json(body: unknown, status = 200): Response {
+export function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 }
-function failure(error: unknown): Response {
+export function failure(error: unknown): Response {
   if (error instanceof ApiError) return json({ error: error.message }, error.status);
   if (error instanceof BookValidationError) return json({ error: error.message }, 400);
   return json({ error: 'Service temporarily unavailable' }, 503);
@@ -25,7 +25,7 @@ function integerParam(url: URL, name: string, fallback: number, min: number, max
   if (!Number.isInteger(value) || value < min || value > max) throw new ApiError(400, `Invalid ${name}`);
   return value;
 }
-async function readBody(request: Request): Promise<unknown> {
+export async function readBody(request: Request): Promise<unknown> {
   if (request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'application/json') throw new ApiError(415, 'Expected application/json');
   const reader = request.body?.getReader();
   if (!reader) throw new ApiError(400, 'Expected JSON body');
@@ -60,6 +60,7 @@ export function createBookHandlers(config: Config | undefined, fetcher: typeof f
     return { headers, userId: user.id as string, base: config.url };
   }
   return {
+    authenticate,
     async POST(request: Request): Promise<Response> {
       try {
         const auth = await authenticate(request);

@@ -70,6 +70,44 @@ test('production Next routes register corrected books with real Auth and isolate
     assert.equal(aliceList.resources.length, 2);
     assert.deepEqual(bobList.resources, []);
     assert.equal((await (await api('/api/resources/books?limit=1&offset=1', alice.token)).json()).resources.length, 1);
+    const today = new Date().toISOString().slice(0, 10);
+    const startDate = new Date(Date.parse(`${today}T12:00:00Z`) + 86400000).toISOString().slice(0, 10);
+    const options = { mode: 'PACE', startDate, timezone: 'Asia/Seoul', dailyPages: 20, minutesPerPage: 1,
+      availability: Array.from({ length: 7 }, (_, i) => ({ isoWeekday: i + 1, availableMinutes: 60 })) };
+    const preview = await api(`/api/resources/books/${row.id}/plan`, alice.token, { options, preview: true });
+    assert.equal(preview.status, 200);
+    assert.equal((await preview.json()).schedule.sessions[0].startPage, 51);
+    assert.equal((await api(`/api/resources/books/${row.id}/plan`, bob.token, { options, preview: true })).status, 404);
+    const duplicateSaves = await Promise.all([1, 2].map(() => api(`/api/resources/books/${row.id}/plan`, alice.token, { options })));
+    assert.deepEqual(duplicateSaves.map(r => r.status).sort(), [201, 409]);
+    const workspace = await (await api('/api/workspace', alice.token)).json();
+    assert.equal(workspace.plans.length, 1);
+    assert.equal(workspace.sessions.reduce((sum, s) => sum + s.planned_workload, 0), 150);
+    assert.equal(workspace.availability.length, 7);
+    assert.equal((await (await api('/api/workspace', bob.token)).json()).plans.length, 0);
+    assert.equal((await api(`/api/workspace?resourceId=${row.id}`, bob.token)).status, 404);
+    const secondBook = aliceList.resources.find(r => r.id !== row.id);
+    const overbooked = await api(`/api/resources/books/${secondBook.id}/plan`, alice.token, { options: { ...options, dailyPages: 50 } });
+    assert.equal(overbooked.status, 409, 'shared capacity is reserved');
+    const partial = await fetch(new URL('/rest/v1/rpc/create_initial_book_plan', base), { method: 'POST', headers: { apikey: config.ANON_KEY, Authorization: `Bearer ${alice.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_resource_id: secondBook.id, p_expected_total: 320, p_expected_completed: 0, p_options: options, p_forecast: startDate, p_sessions: [{ studyDate: startDate, startPage: 1, endPage: 20, estimatedMinutes: 20 }] }) });
+    assert.equal(partial.status, 400, 'incomplete plan is rejected inside transaction');
+    const goals = await fetch(new URL('/rest/v1/goals?select=id', base), { headers: { apikey: config.ANON_KEY, Authorization: `Bearer ${alice.token}` } });
+    assert.equal((await goals.json()).length, 1, 'failed saves leave no orphan goals');
+    // A separate user's two books race for one shared daily budget.
+    const competitors = [];
+    for (const title of ['Race A', 'Race B']) {
+      const response = await api('/api/resources/books', bob.token, { title, totalPages: 50 });
+      assert.equal(response.status, 201);
+      competitors.push((await response.json()).resource);
+    }
+    const decimalOptions = { ...options, dailyPages: 50, minutesPerPage: 1.1, availability: options.availability.map(a => ({ ...a, availableMinutes: 55 })) };
+    const races = await Promise.all(competitors.map(book => api(`/api/resources/books/${book.id}/plan`, bob.token, { options: decimalOptions })));
+    assert.deepEqual(races.map(r => r.status).sort(), [201, 409], 'different books cannot overbook shared minutes');
+    const bobWorkspace = await (await api('/api/workspace', bob.token)).json();
+    assert.equal(bobWorkspace.plans.length, 1);
+    assert.equal(bobWorkspace.sessions[0].estimated_minutes, 55, 'decimal speed persists without IEEE over-rounding');
+    const bobGoals = await fetch(new URL('/rest/v1/goals?select=id', base), { headers: { apikey: config.ANON_KEY, Authorization: `Bearer ${bob.token}` } });
+    assert.equal((await bobGoals.json()).length, 1, 'losing concurrent transaction leaves no orphan goal');
   } finally {
     try {
       for (const id of users) await auth(`/auth/v1/admin/users/${id}`, undefined, true, 'DELETE');

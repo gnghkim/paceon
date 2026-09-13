@@ -562,7 +562,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_initial_book_plan: {
+        Args: {
+          p_expected_completed: number
+          p_expected_total: number
+          p_forecast: string
+          p_options: Json
+          p_resource_id: string
+          p_sessions: Json
+        }
+        Returns: string
+      }
     }
     Enums: {
       plan_mode: "DEADLINE" | "PACE" | "BALANCED"
