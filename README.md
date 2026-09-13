@@ -3,7 +3,7 @@
 **Your learning, at your pace.**  
 내 속도에 맞춰 계속 다시 짜주는 학습 계획.
 
-현재 범위는 **Phase 5 Progress / Replanning**이다. 로그인·가입, Today, 서재, 캘린더와 최초 계획에 더해 실제 읽기·복습·정정 기록을 저장한다. 실제 진도와 읽기 속도로 미래 일정을 재계산하고, 충돌이 있으면 기록을 보존한 채 일정 조정을 안내한다.
+현재 범위는 **Phase 6 AI**다. 로그인·가입, Today, 서재, 캘린더, 실제 진도 기록과 자동 재계획에 더해 도서 난이도·예상 시간 분석과 학습 코칭을 백그라운드 작업으로 제공한다. AI 키가 없으면 해당 기능만 비활성화되고 기록과 일정은 계속 사용할 수 있다. 설정과 범위는 [AI](docs/AI.md)를 따른다.
 
 ## 준비
 
@@ -112,6 +112,6 @@ tests                 패키지 import · health HTTP · Auth/REST 격리·동�
 docs                  요구사항 · 설계 · 구현 준비 및 실행 계획
 ```
 
-다음 단계는 Phase 6 AI다. 난이도·예상 시간·Coach의 범위를 정하고 핵심 학습 흐름과 독립적으로 연결한다. 화면과 기록/계획 API는 [WORKSPACE_UI](docs/WORKSPACE_UI.md), 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
+다음 확장 후보는 PDF 업로드·파싱과 학습단위 분석이다. 실제 AI 모델 키 설정과 실호출 검증도 남아 있다. AI 계약은 [AI](docs/AI.md), 화면과 기록/계획 API는 [WORKSPACE_UI](docs/WORKSPACE_UI.md), 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
 
 의존성 구성 참고: [Next.js 설치](https://nextjs.org/docs/app/getting-started/installation), [Tailwind Next.js 설정](https://tailwindcss.com/docs/installation/framework-guides/nextjs), [FastAPI Docker 구성](https://fastapi.tiangolo.com/deployment/docker/).

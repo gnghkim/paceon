@@ -7,6 +7,14 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     init: true
+    stop_grace_period: 90s
+    environment:
+      AI_ENABLED: ${AI_ENABLED:-false}
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:55321}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      AI_POLL_SECONDS: ${AI_POLL_SECONDS:-3}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]

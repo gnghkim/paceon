@@ -10,6 +10,77 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_code: string | null
+          id: string
+          input: Json
+          input_tokens: number | null
+          kind: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          model: string | null
+          output_tokens: number | null
+          provider_response_id: string | null
+          resource_id: string
+          result: Json | null
+          source_revision: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          input: Json
+          input_tokens?: number | null
+          kind: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          model?: string | null
+          output_tokens?: number | null
+          provider_response_id?: string | null
+          resource_id: string
+          result?: Json | null
+          source_revision: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          input?: Json
+          input_tokens?: number | null
+          kind?: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          model?: string | null
+          output_tokens?: number | null
+          provider_response_id?: string | null
+          resource_id?: string
+          result?: Json | null
+          source_revision?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_jobs_resource_id_user_id_fkey"
+            columns: ["resource_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       availability_rules: {
         Row: {
           available_minutes: number
@@ -609,6 +680,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_ai_job: { Args: never; Returns: Json }
       create_initial_book_plan: {
         Args: {
           p_expected_completed: number
@@ -619,6 +691,28 @@ export type Database = {
           p_sessions: Json
         }
         Returns: string
+      }
+      enqueue_ai_job: {
+        Args: {
+          p_input: Json
+          p_kind: string
+          p_resource_id: string
+          p_source_revision: string
+        }
+        Returns: string
+      }
+      finish_ai_job: {
+        Args: {
+          p_error_code: string
+          p_input_tokens: number
+          p_job_id: string
+          p_lease_token: string
+          p_model: string
+          p_output_tokens: number
+          p_provider_response_id: string
+          p_result: Json
+        }
+        Returns: boolean
       }
       submit_book_progress: {
         Args: {

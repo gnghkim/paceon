@@ -14,6 +14,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@paceon/ai-schema':
+        specifier: workspace:*
+        version: link:../../packages/ai-schema
       '@paceon/books':
         specifier: workspace:*
         version: link:../../packages/books
@@ -78,6 +81,12 @@ importers:
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
+
+  packages/ai-schema:
+    dependencies:
+      zod:
+        specifier: 4.6.2
+        version: 4.6.2
 
   packages/books:
     dependencies:

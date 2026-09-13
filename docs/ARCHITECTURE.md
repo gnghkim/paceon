@@ -6,7 +6,7 @@
 
 `@paceon/shared`는 `PlanMode`, `HealthResponse` 타입만 제공한다. `@paceon/scheduler`는 shared의 타입에만 의존하고, 현재 `schedulerContract`로 패키지 연결을 검증한다. 이 객체는 일정 생성 알고리즘의 구현 또는 준비 완료를 의미하지 않는다. 패키지는 workspace에서 TypeScript 소스를 export하며 Next.js는 `transpilePackages`로 처리한다. `build`는 별도 JS와 선언 파일도 생성한다. React, Next.js, Supabase, AI 런타임에 의존하지 않는다.
 
-Worker는 Python 3.13 / FastAPI / Pydantic / Uvicorn으로 구성한다. 비특권 사용자로 실행하고 호스트의 127.0.0.1:8000에만 포트를 공개한다. 현재 `/health`와 자동 API 문서만 제공한다. Queue 소비, PDF 처리 및 AI 호출은 아직 없다.
+Worker는 Python 3.13 / FastAPI / Pydantic / Uvicorn으로 구성한다. 비특권 사용자로 실행하고 호스트의 127.0.0.1:8000에만 포트를 공개한다. Phase 6에서 설정된 경우 PostgreSQL AI 작업 큐를 소비하고 구조화된 도서 분석·코칭 결과를 저장한다. 외부 HTTP에는 생존 확인만 제공하며 작업 접근은 서비스 역할 RPC로 인증한다. PDF 처리는 후속 범위다.
 
 Supabase CLI는 Auth, PostgreSQL 17, Storage, Realtime, Edge runtime과 Studio를 관리한다. Compose에 Supabase를 중복 정의하지 않는다. 다른 로컬 프로젝트와 충돌을 피하도록 553xx 포트를 사용한다. Windows Docker TCP 의존성이 있는 선택적 analytics 로그 수집은 꺼져 있다. 이 설정은 제품 AI 분석 기능과 별개다.
 
@@ -33,7 +33,7 @@ Resource + Goal + AvailabilityRule
 
 Phase 1에서 DB 관계·제약·RLS·멱등성·계획 버전 계약을 정의했다. 사용자 학습일과 UTC 발생 시각을 분리하는 모델도 PRD에 명시했다. Phase 2에서 결정론적 scheduler의 날짜 입력, 분량 보존, 고정/과거/완료 세션 보존, 모드별 불가능 상태와 Balanced 정책을 구현한다.
 
-`packages/ai-schema`는 실제 AI 입출력 계약이 생기는 단계에서 추가한다. 현재 빈 패키지나 가짜 분석 결과를 만들지 않는다.
+`packages/ai-schema`는 Phase 6 AI 입력 타입과 엄격한 Zod 출력 검증을 제공한다. Python Worker는 같은 계약을 Pydantic으로 검증한다. 상세 구조와 제한은 [AI](AI.md)를 따른다.
 
 ## 의존성 관리
 

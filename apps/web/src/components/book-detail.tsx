@@ -10,6 +10,7 @@ import {
 import { ArrowLeft, CalendarDays } from 'lucide-react';
 import { useWorkspace } from '@/components/workspace-data';
 import { BookCover } from '@/components/book-library';
+import { AiInsight } from '@/components/ai-insight';
 import { PlanForm } from '@/components/plan-form';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -122,7 +123,7 @@ export function BookDetail({ id }: { id: string }) {
           )}
         </div>
       </header>
-      <Card className="grid gap-6 p-4 md:grid-cols-2 md:p-6">
+      <Card id="book-progress" className="grid scroll-mt-6 gap-6 p-4 md:grid-cols-2 md:p-6">
         <div>
           <div className="flex items-center justify-between">
             <h2 className="text-sm text-muted-foreground">현재 읽은 진도</h2>
@@ -167,6 +168,7 @@ export function BookDetail({ id }: { id: string }) {
         </div>
       </Card>
       {saved && <ProgressResult result={saved} />}
+      <AiInsight resourceId={book.id} planHref={plan ? '#record' : book.status === 'COMPLETED' ? '#book-progress' : '#reading-plan'} />
       {plan && (
         <ProgressForm
           key={`${book.id}:${book.progress_version}:${plan.version}`}
@@ -178,7 +180,9 @@ export function BookDetail({ id }: { id: string }) {
         />
       )}
       {!plan && book.status !== 'COMPLETED' && (
-        <PlanForm key={book.id} book={book} data={data} onSaved={reload} />
+        <div id="reading-plan" className="scroll-mt-6">
+          <PlanForm key={book.id} book={book} data={data} onSaved={reload} />
+        </div>
       )}
       <Card className="space-y-4 p-4 md:p-6">
         <h2 className="text-lg font-semibold">학습 기록 이력</h2>

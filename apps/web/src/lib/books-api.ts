@@ -25,7 +25,7 @@ function integerParam(url: URL, name: string, fallback: number, min: number, max
   if (!Number.isInteger(value) || value < min || value > max) throw new ApiError(400, `Invalid ${name}`);
   return value;
 }
-export async function readBody(request: Request): Promise<unknown> {
+export async function readBody(request: Request, maxBytes = 16_384): Promise<unknown> {
   if (request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'application/json') throw new ApiError(415, 'Expected application/json');
   const reader = request.body?.getReader();
   if (!reader) throw new ApiError(400, 'Expected JSON body');
@@ -36,7 +36,7 @@ export async function readBody(request: Request): Promise<unknown> {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > 16_384) { await reader.cancel(); throw new ApiError(413, 'Body too large'); }
+      if (size > maxBytes) { await reader.cancel(); throw new ApiError(413, 'Body too large'); }
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }
