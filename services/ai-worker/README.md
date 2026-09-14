@@ -4,6 +4,31 @@ FastAPI keeps `/health` as a liveness-only check. Its lifespan starts one pollin
 AI consumer only when `AI_ENABLED=true` and every required setting is present.
 Missing settings leave the health endpoint available without DB or provider calls.
 
+The same AI switch also enables learning feedback and speech inference. Speech
+cleanup continues whenever the Supabase URL and service key are configured, even
+with AI disabled or an absent provider key. Each poll rotates through at most three
+cleanup candidates; individual storage failures retain their durable reservations
+and do not prevent other deletions or queued inference. Speech uses
+`claim_speech_job`, `checkpoint_speech_prompt`, and `finish_speech_job` leases.
+Apply the speech migrations before enabling it. Prompt text and Korean meaning
+are checkpointed before TTS; retries reuse the fixed private `sample.mp3` object.
+Defaults are `gpt-4o-mini-tts` / `marin` and `gpt-4o-mini-transcribe`; sentence and
+feedback generation use the configured `OPENAI_MODEL`.
+
+Recordings are checked against stored size/SHA-256, limited to 10 MiB and 60
+seconds, decoded using ffmpeg, and converted to mono 16 kHz PCM WAV before
+transcription. WAV, WebM, Ogg, MP4 and MP3 signatures select a fixed demuxer;
+successful decoding is required. A credential-free isolated launcher permits
+only local-file input protocols and caps wall time at 20 seconds. Linux also
+limits address space to 512 MiB, CPU to 15 seconds, output to 2 MB and open files
+to 32. The Docker image includes ffmpeg; local runs must install it separately.
+Audio shorter than 0.5 seconds or with insufficient non-silent samples is rejected
+before provider calls. This is a silence filter, not speech or pronunciation
+assessment. Feedback addresses recognized wording and grammar; original
+transcripts are preserved. Raw audio, text, provider errors and secrets are never
+logged. Cleanup uses reserved DB candidates and acknowledges only successful
+Storage deletion; the DB ledger recovers objects uploaded after a deletion race.
+
 PDF imports use an independent `PDF_ENABLED=true` consumer. It only requires
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, never an OpenAI key or model.
 Apply the PDF import migration before enabling it. The worker claims a leased

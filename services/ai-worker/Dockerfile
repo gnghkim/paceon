@@ -6,7 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 COPY requirements.lock ./requirements.lock
-RUN pip install --no-cache-dir -r requirements.lock \
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.lock \
     && useradd --create-home --uid 10001 worker
 COPY --chown=worker:worker app ./app
 USER worker

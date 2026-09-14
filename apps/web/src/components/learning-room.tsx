@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { SpeechPanel } from './speech-panel';
 import { LearningJobCard } from './learning-job';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Pause, Play, Send, Square } from 'lucide-react';
@@ -40,6 +41,8 @@ export function LearningRoom({ id }: { id: string }) {
   const [now, setNow] = useState(0);
   const [stopToken, setStopToken] = useState(0);
   const observations = useRef(Promise.resolve(true));
+  const stopSpeechRef = useRef<(() => Promise<void>) | null>(null);
+  const speechObservations = useRef(Promise.resolve<string | null>(null));
   const stopPlaybackRef = useRef<(() => Promise<void>) | null>(null);
   const [view, setView] = useState({
     device: '',
@@ -56,6 +59,7 @@ export function LearningRoom({ id }: { id: string }) {
     lastActivity: 0,
     lastTextActivity: 0,
     videoPlaying: false,
+    speechPlaying: false,
     stopMedia: false,
     session: null as LearningSession | null,
     blocked: false,
@@ -403,6 +407,7 @@ export function LearningRoom({ id }: { id: string }) {
       if (
         s?.status !== 'ACTIVE' ||
         state.current.videoPlaying ||
+        state.current.speechPlaying ||
         state.current.pendingEnd ||
         document.visibilityState !== 'visible'
       )
@@ -422,7 +427,7 @@ export function LearningRoom({ id }: { id: string }) {
         local();
         void flush();
         if (state.current.session?.status === 'ACTIVE')
-          void (async () => { await stopPlaybackRef.current?.(); await transition('PAUSE', 'HIDDEN'); })().catch(() => {});
+          void (async () => { await stopSpeechRef.current?.(); await stopPlaybackRef.current?.(); await transition('PAUSE', 'HIDDEN'); })().catch(() => {});
       }
     };
     const unload = (e: BeforeUnloadEvent) => {
@@ -449,7 +454,7 @@ export function LearningRoom({ id }: { id: string }) {
         runtime.videoPlaying = false;
         // This imperative controller is installed after the snapshot loads.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        void (async () => { await stopPlaybackRef.current?.(); await transition('PAUSE', 'HIDDEN'); })().catch(() => {});
+        void (async () => { await stopSpeechRef.current?.(); await stopPlaybackRef.current?.(); await transition('PAUSE', 'HIDDEN'); })().catch(() => {});
       }
     };
   }, [auth?.user.id, key, reload, flush, transition, local, acceptSession]);
@@ -460,6 +465,28 @@ export function LearningRoom({ id }: { id: string }) {
     }, 3000);
     return () => clearTimeout(timeout);
   }, [draft, flush]);
+  const observeSpeech = (phase: 'prepare' | 'active' | 'stop'): Promise<string | null> => {
+    const operation = speechObservations.current.then(async () => {
+      const runtime = state.current;
+      if (phase === 'prepare' && !runtime.busy && !runtime.pendingEnd && !runtime.blocked && runtime.session?.pause_reason !== 'MANUAL' && document.visibilityState === 'visible') runtime.stopMedia = false;
+      if (phase !== 'stop' && (runtime.blocked || runtime.stopMedia || runtime.pendingEnd || document.visibilityState !== 'visible')) return null;
+      let session = runtime.session;
+      if (phase === 'prepare') { session = await start(); return session?.id ?? null; }
+      if (!session || session.status === 'ENDED' || runtime.blocked) return null;
+      const playing = phase === 'active';
+      runtime.speechPlaying = playing;
+      runtime.lastActivity = playing ? Date.now() : runtime.lastTextActivity;
+      try {
+        const response = await apiFetch('/api/learning/speech/commands', { method: 'POST', keepalive: phase === 'stop', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'SPEECH_TICK', requestId: crypto.randomUUID(), sessionId: session.id, deviceId: runtime.device, generation: session.generation, playing }) });
+        const body = await response.json();
+        if (!response.ok) { if (response.status === 409) { runtime.blocked = true; setLocked(true); } throw new Error(body.error ?? '말하기 시간을 동기화하지 못했어요.'); }
+        acceptSession(body.session);
+        return runtime.blocked ? null : body.session.id;
+      } catch (e) { runtime.speechPlaying = false; setError((e as Error).message); return null; }
+    });
+    speechObservations.current = operation.catch(() => null);
+    return operation;
+  };
   const observeVideo = (observation: PlaybackObservation): Promise<boolean> => {
     // Only a new visible player event may resume a hidden-tab pause.
     // Already queued observations cannot clear a subsequent explicit stop.
@@ -468,6 +495,7 @@ export function LearningRoom({ id }: { id: string }) {
       state.current.stopMedia = false;
     const operation = observations.current.then(async () => {
       const runtime = state.current;
+      if (observation.playing) await stopSpeechRef.current?.();
       runtime.videoPlaying = observation.playing && document.visibilityState === 'visible';
       if (runtime.blocked || (observation.playing && (runtime.stopMedia || runtime.pendingEnd || runtime.session?.pause_reason === 'MANUAL'))) {
         runtime.videoPlaying = false;
@@ -668,6 +696,7 @@ export function LearningRoom({ id }: { id: string }) {
                     setStopToken((value) => value + 1);
                     state.current.stopMedia = true;
                     state.current.videoPlaying = false;
+                    await stopSpeechRef.current?.();
                     await stopPlaybackRef.current?.();
                     await flush();
                     await transition('PAUSE', 'MANUAL');
@@ -705,7 +734,8 @@ export function LearningRoom({ id }: { id: string }) {
                   setStopToken((value) => value + 1);
                   state.current.stopMedia = true;
                   state.current.videoPlaying = false;
-                  await stopPlaybackRef.current?.();
+                  await stopSpeechRef.current?.();
+                    await stopPlaybackRef.current?.();
                   if (!(await flush()))
                     throw new Error('초안 저장을 확인한 뒤 종료해 주세요.');
                   state.current.pendingEnd = true;
@@ -763,6 +793,7 @@ export function LearningRoom({ id }: { id: string }) {
         stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'}
         stopToken={stopToken} stopPlaybackRef={stopPlaybackRef} onObservation={observeVideo} activity={activity} reload={reload}
       />}
+      <SpeechPanel workspaceId={id} ownerId={auth!.user.id} stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'} stopToken={stopToken} stopSpeechRef={stopSpeechRef} onMedia={observeSpeech} stopVideo={async () => { await stopPlaybackRef.current?.(); }} />
       {recovery && (
         <section className="space-y-3 rounded-xl border border-primary p-4">
           <h2 className="font-semibold">저장하지 못한 초안이 있어요</h2>

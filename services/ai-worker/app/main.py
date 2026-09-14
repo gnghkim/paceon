@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from app.worker import Settings, Worker
 from app.learning_worker import LearningWorker
+from app.speech_worker import SpeechWorker
 from app.pdf_worker import PdfSettings, PdfWorker
 
 
@@ -22,6 +23,8 @@ async def lifespan(app: FastAPI):
     if settings.enabled:
         consumers.append(Worker(settings))
         consumers.append(LearningWorker(settings))
+    if settings.supabase_url and settings.service_key:
+        consumers.append(SpeechWorker(settings))
     if pdf_settings.enabled:
         consumers.append(PdfWorker(pdf_settings))
     tasks = [asyncio.create_task(asyncio.to_thread(consumer.run, stop)) for consumer in consumers]

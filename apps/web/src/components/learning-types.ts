@@ -103,3 +103,18 @@ export function learningDuration(seconds: number) {
     `${n % 60}`.padStart(2, '0')
   );
 }
+
+export interface LearningSpeech {
+  id: string;
+  kind: 'PROMPT' | 'RECORDING';
+  status: 'UPLOADING' | 'QUEUED' | 'RUNNING' | 'READY' | 'FAILED' | 'DELETED';
+  reference_text: string;
+  original_text: string;
+  edited_text: string | null;
+  feedback: LearningOutput | null;
+  keep_audio: boolean;
+  expires_at: string | null;
+  audio_deleted_at: string | null;
+  error_code: string | null;
+  created_at: string;
+}

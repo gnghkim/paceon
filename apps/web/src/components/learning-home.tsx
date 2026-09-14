@@ -35,7 +35,7 @@ export function LearningHome() {
     const timer = setTimeout(() => void reload(), 0);
     return () => clearTimeout(timer);
   }, [reload]);
-  async function create() {
+  async function create(speaking = false) {
     if (busy) return;
     setBusy(true);
     setError('');
@@ -49,7 +49,7 @@ export function LearningHome() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...creation.current,
-          title: '나의 영어 쓰기',
+          title: speaking ? '나의 영어 말하기' : '나의 영어 쓰기',
           prompt: '오늘 있었던 일이나 지금 떠오르는 생각을 영어로 써 보세요.',
         }),
       });
@@ -58,7 +58,7 @@ export function LearningHome() {
           '학습실을 만들지 못했어요. 다시 시도하면 같은 요청을 이어갑니다.',
         );
       const body = await res.json();
-      router.push(`/learn/${body.workspace.id}`);
+      router.push(`/learn/${body.workspace.id}${speaking ? '#learning-speech' : ''}`);
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -137,6 +137,7 @@ export function LearningHome() {
           {busy ? '학습실 여는 중…' : '새 글 쓰기'}
           <ArrowRight aria-hidden="true" />
         </Button>
+        <Button className="min-h-11 sm:ml-2" variant="outline" disabled={busy} onClick={() => void create(true)}>스피킹 시작</Button>
       </section>
       {data?.aiEnabled === false && (
         <p className="text-sm text-muted-foreground">

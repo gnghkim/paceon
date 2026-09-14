@@ -395,6 +395,105 @@ export type Database = {
           },
         ]
       }
+      learning_speech: {
+        Row: {
+          attempts: number
+          audio_deleted_at: string | null
+          content_sha256: string | null
+          created_at: string
+          duration_seconds: number | null
+          edited_text: string | null
+          error_code: string | null
+          expires_at: string
+          feedback: Json | null
+          file_size: number | null
+          id: string
+          input: Json
+          keep_audio: boolean
+          kind: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          mime_type: string | null
+          original_text: string
+          reference_text: string
+          session_id: string | null
+          status: string
+          storage_path: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          attempts?: number
+          audio_deleted_at?: string | null
+          content_sha256?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          edited_text?: string | null
+          error_code?: string | null
+          expires_at?: string
+          feedback?: Json | null
+          file_size?: number | null
+          id: string
+          input?: Json
+          keep_audio?: boolean
+          kind: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          mime_type?: string | null
+          original_text?: string
+          reference_text?: string
+          session_id?: string | null
+          status: string
+          storage_path?: string | null
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          attempts?: number
+          audio_deleted_at?: string | null
+          content_sha256?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          edited_text?: string | null
+          error_code?: string | null
+          expires_at?: string
+          feedback?: Json | null
+          file_size?: number | null
+          id?: string
+          input?: Json
+          keep_audio?: boolean
+          kind?: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          mime_type?: string | null
+          original_text?: string
+          reference_text?: string
+          session_id?: string | null
+          status?: string
+          storage_path?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_speech_session_id_workspace_id_user_id_fkey"
+            columns: ["session_id", "workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "learning_sessions"
+            referencedColumns: ["id", "workspace_id", "user_id"]
+          },
+          {
+            foreignKeyName: "learning_speech_workspace_id_user_id_fkey"
+            columns: ["workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "learning_workspaces"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       learning_video_notes: {
         Row: {
           content: string
@@ -1124,9 +1223,31 @@ export type Database = {
         }
         Returns: Json
       }
+      begin_speech_upload: {
+        Args: {
+          p_content_sha256: string
+          p_file_size: number
+          p_id: string
+          p_mime_type: string
+          p_reference_text: string
+          p_session_id: string
+          p_workspace_id: string
+        }
+        Returns: Json
+      }
+      checkpoint_speech_prompt: {
+        Args: {
+          p_job_id: string
+          p_lease_token: string
+          p_meaning: string
+          p_reference_text: string
+        }
+        Returns: boolean
+      }
       claim_ai_job: { Args: never; Returns: Json }
       claim_learning_job: { Args: never; Returns: Json }
       claim_pdf_import: { Args: never; Returns: Json }
+      claim_speech_job: { Args: never; Returns: Json }
       confirm_pdf_import: {
         Args: { p_current_page: number; p_id: string; p_title: string }
         Returns: string
@@ -1187,10 +1308,28 @@ export type Database = {
         }
         Returns: boolean
       }
+      finish_speech_cleanup: { Args: { p_id: string }; Returns: boolean }
+      finish_speech_job: {
+        Args: {
+          p_error_code: string
+          p_job_id: string
+          p_lease_token: string
+          p_output: Json
+        }
+        Returns: boolean
+      }
       learning_command: { Args: { p_command: Json }; Returns: Json }
+      learning_speech_command: { Args: { p_command: Json }; Returns: Json }
       learning_video_command: { Args: { p_command: Json }; Returns: Json }
       queue_pdf_import: { Args: { p_id: string }; Returns: Json }
+      queue_speech_recording: { Args: { p_id: string }; Returns: Json }
       retry_pdf_import: { Args: { p_id: string }; Returns: Json }
+      speech_audio_path: { Args: { p_id: string }; Returns: Json }
+      speech_cleanup_candidates: { Args: never; Returns: Json }
+      speech_storage_allowed: {
+        Args: { p_metadata: Json; p_name: string; p_write: boolean }
+        Returns: boolean
+      }
       submit_book_progress: {
         Args: {
           p_as_of_date: string

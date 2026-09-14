@@ -7,7 +7,7 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     init: true
-    stop_grace_period: 90s
+    stop_grace_period: 180s
     environment:
       AI_ENABLED: ${AI_ENABLED:-false}
       PDF_ENABLED: ${PDF_ENABLED:-false}
@@ -15,6 +15,9 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-mini-transcribe}
+      OPENAI_TTS_MODEL: ${OPENAI_TTS_MODEL:-gpt-4o-mini-tts}
+      OPENAI_TTS_VOICE: ${OPENAI_TTS_VOICE:-marin}
       AI_POLL_SECONDS: ${AI_POLL_SECONDS:-3}
     restart: unless-stopped
     healthcheck:

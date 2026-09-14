@@ -17,6 +17,7 @@ interface Player {
   getAvailablePlaybackRates(): number[];
   setPlaybackRate(rate: number): void;
   pauseVideo(): void;
+  playVideo(): void;
   seekTo(seconds: number, allowSeekAhead: boolean): void;
   destroy(): void;
 }
@@ -67,6 +68,9 @@ export function YouTubePlayer({ videoId, initialPosition, stopped, stopToken, se
   const [position, setPosition] = useState(initialPosition);
   const [a, setA] = useState<number | null>(null);
   const [b, setB] = useState<number | null>(null);
+  const [shadowSeconds, setShadowSeconds] = useState(10);
+  const [shadowMessage, setShadowMessage] = useState('');
+  const shadowEnd = useRef<number | null>(null);
   const loop = useRef({ a, b });
   useEffect(() => { loop.current = { a, b }; }, [a, b]);
   useEffect(() => {
@@ -81,6 +85,7 @@ export function YouTubePlayer({ videoId, initialPosition, stopped, stopToken, se
       const seconds = p.getCurrentTime();
       setPosition(seconds);
       callbacks.current.onPosition(seconds);
+      if (shadowEnd.current !== null && seconds >= shadowEnd.current) { shadowEnd.current = null; p.pauseVideo(); setShadowMessage('구간 듣기가 끝났어요. 아래 말하기 연습에서 녹음하세요.'); halted = true; }
       const playing = !halted && p.getPlayerState() === 1 && document.visibilityState === 'visible';
       if (playing && callbacks.current.stopped) { p.pauseVideo(); return; }
       const boundary = playing && loop.current.a !== null && loop.current.b !== null && seconds >= loop.current.b;
@@ -122,7 +127,7 @@ export function YouTubePlayer({ videoId, initialPosition, stopped, stopToken, se
     // A saved-position update must never reconstruct a playing iframe.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId]);
-  useEffect(() => { if (stopped || stopToken > 0) player.current?.pauseVideo(); }, [stopped, stopToken]);
+  useEffect(() => { if (stopped || stopToken > 0) { shadowEnd.current = null; player.current?.pauseVideo(); } }, [stopped, stopToken]);
   useEffect(() => { if (seek && ready) player.current?.seekTo(seek.seconds, true); }, [seek, ready]);
   return <section className="space-y-3" aria-label="YouTube 영상">
     <div ref={host} className="aspect-video min-h-[200px] w-full overflow-hidden rounded-xl bg-black [&_iframe]:h-full [&_iframe]:w-full" />
@@ -135,6 +140,12 @@ export function YouTubePlayer({ videoId, initialPosition, stopped, stopToken, se
       <Button variant="outline" disabled={!ready || a === null || position <= a} onClick={() => setB(position)}>B 지정 {b !== null && learningDuration(b)}</Button>
       {b !== null && <Button variant="outline" onClick={() => { setA(null); setB(null); }}>반복 해제</Button>}
       <a className="underline" href={`https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(position)}s`} target="_blank" rel="noreferrer">YouTube에서 열기</a>
+    </div>
+    <div className="space-y-2 rounded-lg border border-border p-3">
+      <h3 className="text-sm font-medium">짧은 구간 쉐도잉</h3>
+      <p className="text-xs text-muted-foreground">현재 위치부터 5–30초 듣고 영상이 멈추면, 아래 말하기 연습에서 녹음하세요.</p>
+      <div className="flex flex-wrap items-center gap-2"><label className="text-sm">구간 길이 <input type="number" min={5} max={30} value={shadowSeconds} onChange={(e) => setShadowSeconds(Number(e.target.value))} className="w-20 rounded border border-border bg-background p-2" />초</label><Button variant="outline" disabled={!ready || stopped || !Number.isFinite(shadowSeconds) || shadowSeconds < 5 || shadowSeconds > 30} onClick={() => { const p = player.current; if (!p) return; setA(null); setB(null); loop.current = { a: null, b: null }; shadowEnd.current = p.getCurrentTime() + shadowSeconds; setShadowMessage('선택 구간 듣는 중…'); p.playVideo(); }}>현재 위치부터 구간 듣기</Button><a href="#learning-speech" className="min-h-11 px-3 py-2 text-sm underline" onClick={() => { shadowEnd.current = null; player.current?.pauseVideo(); }}>영상 멈추고 말하기</a></div>
+      {shadowMessage && <p role="status" className="text-sm">{shadowMessage}</p>}
     </div>
     <p className="text-xs text-muted-foreground">재생 버튼을 누르면 마지막 위치에서 이어 봐요. 외부 YouTube 시청 시간은 자동 기록하지 않아요.</p>
   </section>;

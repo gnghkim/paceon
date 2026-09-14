@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -14,6 +15,7 @@ import {
   getSupabaseBrowser,
   isSupabaseConfigured,
 } from '@/lib/supabase-browser';
+import { allowSpeechDrafts, clearSpeechDrafts } from './speech-draft';
 
 interface AuthContextValue {
   session: Session | null;
@@ -32,6 +34,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const configured = isSupabaseConfigured();
+  const previousOwner = useRef<string | null>(null);
+  useEffect(() => {
+    const owner = session?.user.id ?? null;
+    if (previousOwner.current && previousOwner.current !== owner)
+      void clearSpeechDrafts(previousOwner.current).catch(() => {});
+    if (owner) allowSpeechDrafts(owner);
+    previousOwner.current = owner;
+  }, [session?.user.id]);
 
   useEffect(() => {
     let active = true;
