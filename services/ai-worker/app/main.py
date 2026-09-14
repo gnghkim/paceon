@@ -23,6 +23,8 @@ async def lifespan(app: FastAPI):
     if settings.enabled:
         consumers.append(Worker(settings))
         consumers.append(LearningWorker(settings))
+    # Speech is not gated on AI_ENABLED: audio retention and account-deletion
+    # cleanup must keep running. It claims speech jobs only when AI is enabled.
     if settings.supabase_url and settings.service_key:
         consumers.append(SpeechWorker(settings))
     if pdf_settings.enabled:

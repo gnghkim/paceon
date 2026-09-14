@@ -9,6 +9,36 @@ class YouTubeError extends Error { readonly status: number; constructor(status: 
 const hash = (value: string) => createHash('sha256').update(value).digest('base64url');
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
 const failure = (error: unknown) => error instanceof YouTubeError ? json({ error: error.message }, error.status) : json({ error: 'YouTube 서비스를 잠시 사용할 수 없습니다.' }, 503);
+const isToken = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 16384;
+
+function parseTokens(body: Record<string, unknown>, previous?: Tokens): Tokens {
+  const invalid = () => new YouTubeError(503, 'Google 인증 응답을 확인할 수 없습니다.');
+  const { access_token: access, refresh_token: refreshToken, expires_in: expiresIn } = body;
+  if (!isToken(access)) throw invalid();
+  if (refreshToken !== undefined && !isToken(refreshToken)) throw invalid();
+  // Google omits refresh_token on refresh grants; keep the stored one.
+  const refresh = refreshToken ?? previous?.refresh;
+  if (!refresh) throw invalid();
+  if (typeof expiresIn !== 'number' || !Number.isFinite(expiresIn) || expiresIn < 0 || expiresIn > 86400) throw invalid();
+  return { access, refresh, expires: Date.now() + expiresIn * 1000 };
+}
+
+type LibraryKind = 'playlists' | 'subscriptions' | 'videos';
+type LibraryQuery = { kind: LibraryKind; pageToken: string; playlistId: string | null; channelId: string | null };
+const libraryKinds: readonly string[] = ['playlists', 'subscriptions', 'videos'];
+const libraryParams: readonly string[] = ['kind', 'pageToken', 'playlistId', 'channelId'];
+
+function parseLibraryQuery(params: URLSearchParams): LibraryQuery {
+  const invalid = () => new YouTubeError(400, '잘못된 조회 요청입니다.');
+  for (const key of params.keys()) if (!libraryParams.includes(key) || params.getAll(key).length !== 1) throw invalid();
+  const kind = params.get('kind') ?? '', pageToken = params.get('pageToken') ?? '', playlistId = params.get('playlistId'), channelId = params.get('channelId');
+  if (!libraryKinds.includes(kind) || pageToken.length > 2048) throw invalid();
+  if (params.has('playlistId') && params.has('channelId')) throw invalid();
+  if (kind !== 'videos' && (params.has('playlistId') || params.has('channelId'))) throw invalid();
+  const source = playlistId || channelId;
+  if (kind === 'videos' && (!source || !/^[A-Za-z0-9_-]{1,150}$/.test(source))) throw new YouTubeError(400, '재생목록 또는 채널을 선택해 주세요.');
+  return { kind: kind as LibraryKind, pageToken, playlistId, channelId };
+}
 
 export function readYouTubeConfig(env: Record<string, string | undefined> = process.env): Config | undefined {
   const { GOOGLE_CLIENT_ID: clientId, GOOGLE_CLIENT_SECRET: clientSecret, YOUTUBE_TOKEN_ENCRYPTION_KEY: encryptionKey, APP_URL: appUrl, NEXT_PUBLIC_SUPABASE_URL: supabaseUrl, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publicKey, SUPABASE_SERVICE_ROLE_KEY: serviceKey } = env;
@@ -59,8 +89,7 @@ export function createYouTubeHandlers(config: Config | undefined, fetcher: typeo
     }
     const body = await result.json();
     if (body.scope && !String(body.scope).split(' ').includes(scope)) throw new YouTubeError(409, 'YouTube 읽기 권한이 필요합니다. 다시 연결해 주세요.');
-    if (typeof body.access_token !== 'string' || !body.access_token || body.access_token.length > 16384 || (body.refresh_token !== undefined && (typeof body.refresh_token !== 'string' || !body.refresh_token || body.refresh_token.length > 16384)) || !(body.refresh_token || previous?.refresh) || typeof body.expires_in !== 'number' || !Number.isFinite(body.expires_in) || body.expires_in < 0 || body.expires_in > 86400) throw new YouTubeError(503, 'Google 인증 응답을 확인할 수 없습니다.');
-    return { access: body.access_token, refresh: body.refresh_token || previous!.refresh, expires: Date.now() + body.expires_in * 1000 };
+    return parseTokens(body, previous);
   }
   async function access(userId: string) {
     const c = configured(), row = await store<Stored | null>({ action: 'get', userId });
@@ -140,24 +169,21 @@ export function createYouTubeHandlers(config: Config | undefined, fetcher: typeo
     },
     async LIBRARY(request: Request) {
       try {
-        const userId = await authenticate(request), params = new URL(request.url).searchParams, kind = params.get('kind'), pageToken = params.get('pageToken') ?? '';
-        for (const key of params.keys()) if (!['kind', 'pageToken', 'playlistId', 'channelId'].includes(key) || params.getAll(key).length !== 1) throw new YouTubeError(400, '잘못된 조회 요청입니다.');
-        if ((params.has('playlistId') && params.has('channelId')) || (kind !== 'videos' && (params.has('playlistId') || params.has('channelId')))) throw new YouTubeError(400, '잘못된 조회 요청입니다.');
-        if (pageToken.length > 2048 || !['playlists', 'subscriptions', 'videos'].includes(kind ?? '')) throw new YouTubeError(400, '잘못된 조회 요청입니다.');
-        const id = params.get('playlistId') || params.get('channelId');
-        if (kind === 'videos' && (!id || !/^[A-Za-z0-9_-]{1,150}$/.test(id))) throw new YouTubeError(400, '재생목록 또는 채널을 선택해 주세요.');
+        const userId = await authenticate(request), query = parseLibraryQuery(new URL(request.url).searchParams);
         const accessToken = await access(userId);
-        let resource = kind!, parameters: Record<string, string> = { part: 'snippet', maxResults: '50', ...(pageToken ? { pageToken } : {}) };
-        if (kind === 'videos') {
-          let playlistId = params.get('playlistId');
-          if (!playlistId) { const channel = await data(accessToken, 'channels', { part: 'contentDetails', id: id! }); playlistId = channel.items?.[0]?.contentDetails?.relatedPlaylists?.uploads; }
+        let resource: string = query.kind, parameters: Record<string, string> = { part: 'snippet', maxResults: '50', ...(query.pageToken ? { pageToken: query.pageToken } : {}) };
+        if (query.kind === 'videos') {
+          let playlistId = query.playlistId;
+          if (!playlistId) { const channel = await data(accessToken, 'channels', { part: 'contentDetails', id: query.channelId! }); playlistId = channel.items?.[0]?.contentDetails?.relatedPlaylists?.uploads; }
           if (!playlistId) throw new YouTubeError(404, '채널의 업로드 목록이 없습니다.');
           resource = 'playlistItems'; parameters = { ...parameters, playlistId };
         } else parameters.mine = 'true';
         const body = await data(accessToken, resource, parameters), items: Item[] = [];
+        const itemKind = ({ videos: 'video', subscriptions: 'channel', playlists: 'playlist' } as const)[query.kind];
         for (const entry of (Array.isArray(body.items) ? body.items.slice(0, 50) : [])) {
-          const itemId = kind === 'videos' ? entry.snippet?.resourceId?.videoId : kind === 'subscriptions' ? entry.snippet?.resourceId?.channelId : entry.id;
-          if (typeof itemId === 'string' && (kind !== 'videos' || /^[A-Za-z0-9_-]{11}$/.test(itemId))) items.push({ id: itemId, title: String(entry.snippet?.title ?? itemId).slice(0, 500), kind: kind === 'videos' ? 'video' : kind === 'subscriptions' ? 'channel' : 'playlist' });
+          const itemId = query.kind === 'videos' ? entry.snippet?.resourceId?.videoId : query.kind === 'subscriptions' ? entry.snippet?.resourceId?.channelId : entry.id;
+          if (typeof itemId !== 'string' || (query.kind === 'videos' && !/^[A-Za-z0-9_-]{11}$/.test(itemId))) continue;
+          items.push({ id: itemId, title: String(entry.snippet?.title ?? itemId).slice(0, 500), kind: itemKind });
         }
         return json({ items, ...(typeof body.nextPageToken === 'string' && body.nextPageToken.length <= 2048 ? { nextPageToken: body.nextPageToken } : {}) });
       } catch (error) { return failure(error); }

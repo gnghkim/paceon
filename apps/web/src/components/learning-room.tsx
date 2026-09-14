@@ -8,6 +8,8 @@ import { LearningVideoPanel } from './learning-video-panel';
 import type { PlaybackObservation } from './youtube-player';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
+import { DraftRecovery, SessionHistory } from './learning-room-sections';
+import { mergeLearningPages, sessionTiming, timerStatusLabel } from './learning-room-view';
 import {
   learningDuration,
   type LearningSnapshot,
@@ -98,12 +100,13 @@ export function LearningRoom({ id }: { id: string }) {
   const command = useCallback(
     async <T,>(payload: Command): Promise<T> => {
       const signature = JSON.stringify(payload);
+      // END and MESSAGE must survive a reload so a retry reuses the same requestId.
+      const persisted = payload.action === 'END' || payload.action === 'MESSAGE';
+      const storageKey = `${key}:pending:${payload.action}`;
       let request = pending.current.get(signature);
-      if (payload.action === 'END' || payload.action === 'MESSAGE') {
+      if (persisted) {
         try {
-          const raw = sessionStorage.getItem(
-            `${key}:pending:${payload.action}`,
-          );
+          const raw = sessionStorage.getItem(storageKey);
           if (raw) request = JSON.parse(raw) as Command;
         } catch {
           /* Keep in-memory retry. */
@@ -113,12 +116,9 @@ export function LearningRoom({ id }: { id: string }) {
         request = { ...payload, requestId: crypto.randomUUID() };
         pending.current.set(signature, request);
       }
-      if (payload.action === 'END' || payload.action === 'MESSAGE') {
+      if (persisted) {
         try {
-          sessionStorage.setItem(
-            `${key}:pending:${payload.action}`,
-            JSON.stringify(request),
-          );
+          sessionStorage.setItem(storageKey, JSON.stringify(request));
         } catch {
           /* Retry remains in memory. */
         }
@@ -134,29 +134,20 @@ export function LearningRoom({ id }: { id: string }) {
         for (const [entry, saved] of pending.current) {
           if (saved.requestId === request.requestId) pending.current.delete(entry);
         }
-      };
-      if (!res.ok) {
-        if (res.status < 500) {
-          forgetRequest();
-          if (payload.action === 'END' || payload.action === 'MESSAGE')
-            try {
-              sessionStorage.removeItem(`${key}:pending:${payload.action}`);
-            } catch {
-              /* Storage may be unavailable. */
-            }
+        if (!persisted) return;
+        try {
+          sessionStorage.removeItem(storageKey);
+        } catch {
+          /* Storage may be unavailable. */
         }
+      };
+      // 5xx keeps the request so the next attempt is an idempotent retry.
+      if (res.ok || res.status < 500) forgetRequest();
+      if (!res.ok)
         throw new LearningError(
           body.error ?? '연결을 확인하고 다시 시도해 주세요.',
           res.status,
         );
-      }
-      forgetRequest();
-      if (payload.action === 'END' || payload.action === 'MESSAGE')
-        try {
-          sessionStorage.removeItem(`${key}:pending:${payload.action}`);
-        } catch {
-          /* Storage may be unavailable. */
-        }
       return body as T;
     },
     [apiFetch, key],
@@ -609,47 +600,13 @@ export function LearningRoom({ id }: { id: string }) {
         )}
       </div>
     );
-  const owned = current?.device_id === view.device;
-  const provisional =
-    current?.status === 'ACTIVE' &&
-    owned &&
-    !view.pendingEnd &&
-    now - view.lastActivity < 60000 &&
-    now < Date.parse(current.lease_expires_at)
-      ? Math.max(0, Math.min(15, (now - Date.parse(current.last_seen_at)) / 1000))
-      : 0;
-  const stale =
-    current?.status === 'ACTIVE' &&
-    (now >= Date.parse(current.lease_expires_at) ||
-      now - view.lastActivity >= 60000 ||
-      now - Date.parse(current.last_seen_at) > 30000);
+  const { provisional, stale } = sessionTiming(current, view, now);
   const inflight = data.jobs.some(
     (j) =>
       j.kind === 'WRITING_REPLY' && ['QUEUED', 'RUNNING'].includes(j.status),
   );
-  const pages = [data, ...history];
-  const messages = [
-    ...new Map(pages.flatMap((p) => p.messages).map((m) => [m.id, m])).values(),
-  ].sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const jobs = [
-    ...new Map(
-      [...pages]
-        .reverse()
-        .flatMap((p) => p.jobs)
-        .map((j) => [j.id, j]),
-    ).values(),
-  ].sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const sessions = [
-    ...new Map(
-      [...pages]
-        .reverse()
-        .flatMap((p) => p.sessions)
-        .map((s) => [s.id, s]),
-    ).values(),
-  ];
-  const hasMore = Object.values((history.at(-1) ?? data).hasMore ?? {}).some(
-    Boolean,
-  );
+  const { messages, jobs, sessions, videoNotes, videoVisits, hasMore } =
+    mergeLearningPages([data, ...history]);
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <header>
@@ -673,17 +630,13 @@ export function LearningRoom({ id }: { id: string }) {
               {learningDuration((current?.elapsed_seconds ?? 0) + provisional)}
             </p>
             <p className="text-xs text-muted-foreground">
-              {locked
-                ? '다른 기기에서 학습 중'
-                : view.pendingEnd
-                  ? '종료 동기화 대기'
-                  : !current
-                    ? (data.video ? '재생하거나 글을 쓰면 시작돼요' : '글을 쓰면 시작돼요')
-                    : current.status === 'ENDED'
-                      ? '학습 종료 · 기록됨'
-                      : current.status === 'PAUSED' || stale
-                        ? '일시 정지'
-                        : '학습 중 · 시간 동기화 중'}
+              {timerStatusLabel({
+                locked,
+                pendingEnd: view.pendingEnd,
+                current,
+                stale,
+                hasVideo: !!data.video,
+              })}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -788,50 +741,20 @@ export function LearningRoom({ id }: { id: string }) {
       )}
       {data.video && <LearningVideoPanel
         video={data.video} title={data.workspace.title}
-        notes={[...new Map(pages.flatMap((p) => p.videoNotes ?? []).map((n) => [n.id, n])).values()]}
-        visits={[...new Map(pages.flatMap((p) => p.videoVisits ?? []).map((v) => [v.id, v])).values()]}
+        notes={videoNotes}
+        visits={videoVisits}
         stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'}
         stopToken={stopToken} stopPlaybackRef={stopPlaybackRef} onObservation={observeVideo} activity={activity} reload={reload}
       />}
       <SpeechPanel workspaceId={id} ownerId={auth!.user.id} stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'} stopToken={stopToken} stopSpeechRef={stopSpeechRef} onMedia={observeSpeech} stopVideo={async () => { await stopPlaybackRef.current?.(); }} />
       {recovery && (
-        <section className="space-y-3 rounded-xl border border-primary p-4">
-          <h2 className="font-semibold">저장하지 못한 초안이 있어요</h2>
-          <p className="text-sm">
-            클라우드 글과 다른 내용이에요. 복원할 글을 확인해 주세요.
-          </p>
-          <details>
-            <summary className="min-h-11 cursor-pointer py-3 text-sm">
-              이 기기의 초안 보기
-            </summary>
-            <p className="max-h-48 overflow-auto whitespace-pre-wrap text-sm">
-              {recovery.text}
-            </p>
-          </details>
-          <details>
-            <summary className="min-h-11 cursor-pointer py-3 text-sm">
-              클라우드 초안 보기
-            </summary>
-            <p className="max-h-48 overflow-auto whitespace-pre-wrap text-sm">
-              {data.workspace.draft || '(빈 초안)'}
-            </p>
-          </details>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              disabled={busy}
-              onClick={() => void run(() => resolveDraft(true))}
-            >
-              이 초안으로 복원
-            </Button>
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => void run(() => resolveDraft(false))}
-            >
-              클라우드 글 사용
-            </Button>
-          </div>
-        </section>
+        <DraftRecovery
+          localText={recovery.text}
+          cloudText={data.workspace.draft}
+          busy={busy}
+          onRestore={() => void run(() => resolveDraft(true))}
+          onUseCloud={() => void run(() => resolveDraft(false))}
+        />
       )}
       <section className="space-y-3 rounded-xl border border-border bg-card p-5">
         <h2 className="font-semibold">{data.video ? '영상에 관해 질문하기' : '한 문장부터 써 보세요'}</h2>
@@ -990,24 +913,7 @@ export function LearningRoom({ id }: { id: string }) {
             이전 기록 더 보기
           </Button>
         )}
-        {sessions.length > 0 && (
-          <details className="rounded-xl border border-border p-4">
-            <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">
-              학습 시간 기록 {sessions.length}개
-            </summary>
-            {sessions.map((s) => (
-              <p key={s.id} className="py-2 text-sm text-muted-foreground">
-                {new Date(s.started_at).toLocaleString('ko-KR')} ·{' '}
-                {learningDuration(s.elapsed_seconds)} ·{' '}
-                {s.status === 'ENDED'
-                  ? '종료'
-                  : s.status === 'PAUSED'
-                    ? '일시 정지'
-                    : '진행 중'}
-              </p>
-            ))}
-          </details>
-        )}
+        <SessionHistory sessions={sessions} />
       </section>
     </div>
   );
