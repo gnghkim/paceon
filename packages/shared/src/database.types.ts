@@ -200,6 +200,234 @@ export type Database = {
         }
         Relationships: []
       }
+      learning_ai_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_code: string | null
+          id: string
+          input: Json
+          input_tokens: number | null
+          kind: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          model: string | null
+          output: Json | null
+          output_tokens: number | null
+          provider_response_id: string | null
+          session_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          input: Json
+          input_tokens?: number | null
+          kind: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          model?: string | null
+          output?: Json | null
+          output_tokens?: number | null
+          provider_response_id?: string | null
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          input?: Json
+          input_tokens?: number | null
+          kind?: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          model?: string | null
+          output?: Json | null
+          output_tokens?: number | null
+          provider_response_id?: string | null
+          session_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_ai_jobs_session_id_workspace_id_user_id_fkey"
+            columns: ["session_id", "workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "learning_sessions"
+            referencedColumns: ["id", "workspace_id", "user_id"]
+          },
+          {
+            foreignKeyName: "learning_ai_jobs_workspace_id_user_id_fkey"
+            columns: ["workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "learning_workspaces"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      learning_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          job_id: string | null
+          role: string
+          session_id: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          role: string
+          session_id?: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          role?: string
+          session_id?: string | null
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_messages_job_id_workspace_id_user_id_fkey"
+            columns: ["job_id", "workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "learning_ai_jobs"
+            referencedColumns: ["id", "workspace_id", "user_id"]
+          },
+          {
+            foreignKeyName: "learning_messages_session_id_workspace_id_user_id_fkey"
+            columns: ["session_id", "workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "learning_sessions"
+            referencedColumns: ["id", "workspace_id", "user_id"]
+          },
+          {
+            foreignKeyName: "learning_messages_workspace_id_user_id_fkey"
+            columns: ["workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "learning_workspaces"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      learning_sessions: {
+        Row: {
+          device_id: string
+          elapsed_seconds: number
+          ended_at: string | null
+          generation: number
+          id: string
+          last_activity_at: string
+          last_seen_at: string
+          lease_expires_at: string
+          pause_reason: string | null
+          started_at: string
+          status: string
+          timezone: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          device_id: string
+          elapsed_seconds?: number
+          ended_at?: string | null
+          generation?: number
+          id?: string
+          last_activity_at: string
+          last_seen_at: string
+          lease_expires_at: string
+          pause_reason?: string | null
+          started_at?: string
+          status: string
+          timezone: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          device_id?: string
+          elapsed_seconds?: number
+          ended_at?: string | null
+          generation?: number
+          id?: string
+          last_activity_at?: string
+          last_seen_at?: string
+          lease_expires_at?: string
+          pause_reason?: string | null
+          started_at?: string
+          status?: string
+          timezone?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_sessions_workspace_id_user_id_fkey"
+            columns: ["workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "learning_workspaces"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      learning_workspaces: {
+        Row: {
+          created_at: string
+          draft: string
+          draft_version: number
+          id: string
+          prompt: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          draft?: string
+          draft_version?: number
+          id?: string
+          prompt?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          draft?: string
+          draft_version?: number
+          id?: string
+          prompt?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pdf_imports: {
         Row: {
           attempts: number
@@ -758,6 +986,7 @@ export type Database = {
         Returns: Json
       }
       claim_ai_job: { Args: never; Returns: Json }
+      claim_learning_job: { Args: never; Returns: Json }
       claim_pdf_import: { Args: never; Returns: Json }
       confirm_pdf_import: {
         Args: { p_current_page: number; p_id: string; p_title: string }
@@ -797,6 +1026,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      finish_learning_job: {
+        Args: {
+          p_error_code: string
+          p_input_tokens: number
+          p_job_id: string
+          p_lease_token: string
+          p_model: string
+          p_output: Json
+          p_output_tokens: number
+          p_provider_response_id: string
+        }
+        Returns: boolean
+      }
       finish_pdf_import: {
         Args: {
           p_error_code: string
@@ -806,6 +1048,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      learning_command: { Args: { p_command: Json }; Returns: Json }
       queue_pdf_import: { Args: { p_id: string }; Returns: Json }
       retry_pdf_import: { Args: { p_id: string }; Returns: Json }
       submit_book_progress: {

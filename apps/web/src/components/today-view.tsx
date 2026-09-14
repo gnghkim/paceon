@@ -48,12 +48,20 @@ export function TodayView() {
             작은 진도 하나, 나의 속도로 이어가요.
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/resources/new">
-            <Plus size={16} />
-            자료 추가
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/calendar">
+              <CalendarDays size={16} aria-hidden="true" />
+              캘린더
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/resources/new">
+              <Plus size={16} />
+              자료 추가
+            </Link>
+          </Button>
+        </div>
       </header>
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0 space-y-7">

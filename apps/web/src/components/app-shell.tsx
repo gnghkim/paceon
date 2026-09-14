@@ -11,6 +11,7 @@ import {
   Plus,
   PencilLine,
   Sun,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import {
 
 const navigation = [
   { href: '/today', label: '오늘', english: 'Today', icon: Sun },
+  { href: '/learn', label: '학습실', english: 'Learn', icon: MessageSquare },
   {
     href: '/calendar',
     label: '캘린더',
@@ -113,7 +115,8 @@ function AppShellContent({ children }: { children: ReactNode }) {
   const active = (href: string) =>
     href === '/resources'
       ? pathname.startsWith(href) && pathname !== '/resources/new'
-      : pathname === href;
+      : pathname === href ||
+        (href === '/learn' && pathname.startsWith('/learn/'));
   const title =
     pathname === '/resources/new'
       ? '학습 자료 추가'
@@ -238,8 +241,8 @@ function AppShellContent({ children }: { children: ReactNode }) {
             english: 'Record',
             icon: PencilLine,
           },
-          navigation[2]!,
           navigation[3]!,
+          navigation[4]!,
         ].map(({ href, label, icon: Icon }) =>
           href === '#quick-record' ? (
             <button

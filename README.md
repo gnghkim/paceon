@@ -3,7 +3,7 @@
 **Your learning, at your pace.**  
 내 속도에 맞춰 계속 다시 짜주는 학습 계획.
 
-현재 범위는 **Phase 8 Learning Statistics**다. 책·PDF의 학습 기록에서 기간별 분량·시간·활동일과 자료별 통계를 확인할 수 있다. 정정·무효 기록과 시간 미입력을 구분하며 기존 계획·진도에 영향을 주지 않는다. 사용법은 [학습 통계](docs/STATISTICS.md), [PDF](docs/PDF.md), AI 설정은 [AI](docs/AI.md)를 따른다.
+현재 범위는 **LR1 영어 라이팅 학습실**이다. `/learn`에서 초안을 자동 저장하고 타이머·일시 정지·종료, GPT 첨삭과 학습 정리를 사용할 수 있다. 사용법과 현재 제한은 [학습실](docs/LEARNING_ROOM.md), 후속 유튜브·스피킹 범위는 [확장 명세서](docs/LEARNING_ROOM_SPEC.md)를 따른다. 기존 책·PDF 기록과 [학습 통계](docs/STATISTICS.md)는 유지한다.
 
 ## 준비
 
@@ -114,6 +114,6 @@ tests                 패키지 import · health HTTP · Auth/REST 격리·동�
 docs                  요구사항 · 설계 · 구현 준비 및 실행 계획
 ```
 
-다음 확장 후보는 학습단원 편집, OCR, 습관 추적·알림이다. 실제 AI 모델 키 설정과 실호출 검증도 남아 있다. 통계 계약은 [STATISTICS](docs/STATISTICS.md), PDF 계약은 [PDF](docs/PDF.md), AI 계약은 [AI](docs/AI.md), 화면과 기록/계획 API는 [WORKSPACE_UI](docs/WORKSPACE_UI.md), 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
+다음 확장은 LR2 유튜브 링크·계정 연결이며, 이후 스피킹·쉐도잉·표현 복습을 진행한다. 학습실 계약은 [LEARNING_ROOM](docs/LEARNING_ROOM.md), 통계 계약은 [STATISTICS](docs/STATISTICS.md), PDF 계약은 [PDF](docs/PDF.md), AI 계약은 [AI](docs/AI.md), 화면과 기록/계획 API는 [WORKSPACE_UI](docs/WORKSPACE_UI.md), 도서 API는 [BOOKS](docs/BOOKS.md), 제품 기준은 [PRD](docs/PRD.md), 계산 API는 [SCHEDULER](docs/SCHEDULER.md), DB 계약은 [DATABASE](docs/DATABASE.md), 화면 기준은 [DESIGN](docs/DESIGN.md), 책임 경계는 [ARCHITECTURE](docs/ARCHITECTURE.md)를 따른다.
 
 의존성 구성 참고: [Next.js 설치](https://nextjs.org/docs/app/getting-started/installation), [Tailwind Next.js 설정](https://tailwindcss.com/docs/installation/framework-guides/nextjs), [FastAPI Docker 구성](https://fastapi.tiangolo.com/deployment/docker/).
