@@ -3,7 +3,7 @@ create extension if not exists pgtap with schema extensions;
 set search_path=public,extensions;
 select no_plan();
 insert into auth.users(id,email) values('29000000-0000-4000-8000-000000000001','speech-quota@example.test');
-insert into learning_workspaces(id,user_id,title) values('29000000-0000-4000-8000-000000000002','29000000-0000-4000-8000-000000000001','Quota');
+insert into learning_workspaces(id,user_id,title,kind) values('29000000-0000-4000-8000-000000000002','29000000-0000-4000-8000-000000000001','Quota','LISTENING');
 insert into learning_private.job_requests(user_id,kind,created_at) select '29000000-0000-4000-8000-000000000001',case when n%2=0 then 'SPEECH_PROMPT' else 'SPEECH_RECORDING' end,clock_timestamp()-interval '2 minutes' from generate_series(1,30) n;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','29000000-0000-4000-8000-000000000001',true);

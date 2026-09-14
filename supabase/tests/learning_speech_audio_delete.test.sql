@@ -4,7 +4,7 @@ set search_path=public,extensions;
 select no_plan();
 select has_column('public','learning_speech','audio_deleted_at','Audio removal is public metadata');
 insert into auth.users(id,email) values('26000000-0000-4000-8000-000000000001','speech-audio-delete@example.test');
-insert into learning_workspaces(id,user_id,title) values('26000000-0000-4000-8000-000000000002','26000000-0000-4000-8000-000000000001','Audio');
+insert into learning_workspaces(id,user_id,title,kind) values('26000000-0000-4000-8000-000000000002','26000000-0000-4000-8000-000000000001','Audio','SPEAKING');
 insert into learning_speech(id,user_id,workspace_id,kind,status,original_text,feedback,storage_path) values('26000000-0000-4000-8000-000000000003','26000000-0000-4000-8000-000000000001','26000000-0000-4000-8000-000000000002','RECORDING','READY','Original transcript','{"summary":"Preserved"}','26000000-0000-4000-8000-000000000001/26000000-0000-4000-8000-000000000003/recording');
 insert into learning_private.speech_audio(id,storage_path) select id,storage_path from learning_speech where id='26000000-0000-4000-8000-000000000003';
 set local role authenticated;

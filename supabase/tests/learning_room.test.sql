@@ -9,7 +9,7 @@ create temporary table lr_fixture(k text primary key,v jsonb);
 grant all on lr_fixture to authenticated,service_role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','18000000-0000-4000-8000-000000000001',true);
-insert into lr_fixture values('create','{"action":"CREATE","requestId":"18000000-0000-4000-8000-000000000003","workspaceId":"28000000-0000-4000-8000-000000000001","title":"Practice","prompt":"Daily life"}');
+insert into lr_fixture values('create','{"action":"CREATE","requestId":"18000000-0000-4000-8000-000000000003","workspaceId":"28000000-0000-4000-8000-000000000001","title":"Practice","prompt":"Daily life","kind":"WRITING"}');
 insert into lr_fixture select 'workspace',learning_command(v) from lr_fixture where k='create';
 select is(learning_command((select v from lr_fixture where k='create')),(select v from lr_fixture where k='workspace'),'Identical command replay returns original result');
 select throws_ok($$select learning_command((select v||'{"title":"changed"}' from lr_fixture where k='create'))$$,'P0001','LEARNING_CONFLICT','Reused request with changed payload conflicts');

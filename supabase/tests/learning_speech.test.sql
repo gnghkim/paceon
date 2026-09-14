@@ -7,7 +7,7 @@ select has_function('public','begin_speech_upload',array['uuid','uuid','uuid','t
 select has_function('public','claim_speech_job',array[]::text[],'Speech worker claim exists');
 select has_function('public','checkpoint_speech_prompt',array['uuid','uuid','text','text'],'Prompt checkpoint exists');
 insert into auth.users(id,email) values ('24000000-0000-4000-8000-000000000001','speech-owner@example.test'),('24000000-0000-4000-8000-000000000002','speech-other@example.test');
-insert into learning_workspaces(id,user_id,title) values('24000000-0000-4000-8000-000000000003','24000000-0000-4000-8000-000000000001','Speech');
+insert into learning_workspaces(id,user_id,title,kind) values('24000000-0000-4000-8000-000000000003','24000000-0000-4000-8000-000000000001','Speech','SPEAKING');
 create temporary table speech_fixture(k text primary key,v jsonb);
 grant all on speech_fixture to authenticated,service_role;
 set local role authenticated;

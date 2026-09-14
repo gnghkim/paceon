@@ -3,7 +3,7 @@ create extension if not exists pgtap with schema extensions;
 set search_path=public,extensions;
 select no_plan();
 insert into auth.users(id,email) values('25000000-0000-4000-8000-000000000001','speech-clock@example.test');
-insert into learning_workspaces(id,user_id,title) values('25000000-0000-4000-8000-000000000002','25000000-0000-4000-8000-000000000001','Speech clock');
+insert into learning_workspaces(id,user_id,title,kind) values('25000000-0000-4000-8000-000000000002','25000000-0000-4000-8000-000000000001','Speech clock','SPEAKING');
 create temporary table tick_fixture(v jsonb);
 grant all on tick_fixture to authenticated;
 set local role authenticated;

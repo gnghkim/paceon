@@ -3,7 +3,7 @@ create extension if not exists pgtap with schema extensions;
 set search_path=public,extensions;
 select no_plan();
 insert into auth.users(id,email) values('19000000-0000-4000-8000-000000000001','lr-timing@paceon.example');
-insert into learning_workspaces(id,user_id,title) values('29000000-0000-4000-8000-000000000001','19000000-0000-4000-8000-000000000001','Timing fixture');
+insert into learning_workspaces(id,user_id,title,kind) values('29000000-0000-4000-8000-000000000001','19000000-0000-4000-8000-000000000001','Timing fixture','WRITING');
 insert into learning_sessions(id,user_id,workspace_id,status,device_id,lease_expires_at,last_seen_at,last_activity_at,timezone)
 values('39000000-0000-4000-8000-000000000001','19000000-0000-4000-8000-000000000001','29000000-0000-4000-8000-000000000001','ACTIVE',gen_random_uuid(),'2026-01-01 00:01:00+00','2026-01-01 00:00:00+00','2026-01-01 00:00:00+00','Asia/Seoul');
 select learning_private.settle('19000000-0000-4000-8000-000000000001','2026-01-01 00:00:00.6+00');

@@ -639,6 +639,7 @@ export type Database = {
           draft: string
           draft_version: number
           id: string
+          kind: string
           prompt: string
           title: string
           updated_at: string
@@ -649,6 +650,7 @@ export type Database = {
           draft?: string
           draft_version?: number
           id?: string
+          kind: string
           prompt?: string
           title: string
           updated_at?: string
@@ -659,6 +661,7 @@ export type Database = {
           draft?: string
           draft_version?: number
           id?: string
+          kind?: string
           prompt?: string
           title?: string
           updated_at?: string
