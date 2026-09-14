@@ -17,6 +17,27 @@ def response(result=None):
 
 
 class LearningWorkerTests(unittest.TestCase):
+    def test_video_sources_are_bounded_evidence_and_allow_source_only_summary(self):
+        source = {"type": "YOUTUBE", "videoId": "abcdefghijk", "transcript": "[00:01 --> 00:03] Take a walk.", "notes": [{"positionSeconds": 1.5, "content": "Meaning of take a walk"}]}
+        context = {**CONTEXT, "kind": "STUDY_SUMMARY", "messages": [], "source": source}
+        output = {**RESULT, "corrections": []}
+        worker, calls = self.worker(context=context, provider=response(output))
+        self.assertTrue(worker.run_once())
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(json.loads(calls[1][1]["input"][0]["content"])["source"], source)
+        self.assertIn("not watched", calls[1][1]["instructions"])
+        for bad in [{**context, "source": {**source, "transcript": "x" * 12001}}, {**context, "source": {**source, "access_token": "private"}}, {**context, "source": {**source, "transcript": "", "notes": []}}, {**context, "kind": "WRITING_REPLY"}, {**context, "source": {**source, "notes": [{"positionSeconds": -1, "content": "bad"}]}}]:
+            worker, calls = self.worker(context=bad)
+            worker.run_once()
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(calls[-1][1]["p_error_code"], "INVALID_INPUT")
+
+    def test_video_transcript_is_not_user_writing_for_corrections(self):
+        context = {**CONTEXT, "source": {"type": "YOUTUBE", "videoId": "abcdefghijk", "transcript": "I goed.", "notes": []}}
+        worker, calls = self.worker(context=context, provider=response({**RESULT, "corrections": [{"original": "I goed.", "revised": "I went.", "reason": "Past tense"}]}))
+        worker.run_once()
+        self.assertEqual(calls[-1][1]["p_error_code"], "INVALID_OUTPUT")
+
     def worker(self, *, enabled=True, context=None, provider=None, finish=True):
         from app.learning_worker import LearningWorker
         calls = []

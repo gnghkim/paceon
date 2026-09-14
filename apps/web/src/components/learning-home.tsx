@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, PencilLine } from 'lucide-react';
+import { LearningVideoLibrary } from './learning-video-library';
+import { YouTubeAccount } from './youtube-account';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { learningDuration, type LearningList } from './learning-types';
@@ -62,6 +64,12 @@ export function LearningHome() {
       setBusy(false);
     }
   }
+  const writing = data?.workspaces.filter((w) => !data.videos?.some((v) => v.workspace_id === w.id)) ?? [];
+  const resume = (data?.workspaces ?? [])
+    .filter((w) => !data?.videos?.some((v) => v.workspace_id === w.id && v.archived))
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    .slice(0, 3);
+  const remainingWriting = writing.filter((w) => !resume.some((item) => item.id === w.id));
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <header>
@@ -84,21 +92,23 @@ export function LearningHome() {
           </Button>
         </div>
       )}
-      {!!data?.workspaces.length && (
+      {!!resume.length && (
         <section aria-labelledby="resume-title" className="space-y-3">
           <h2 id="resume-title" className="font-semibold">
             이어서 공부하기
           </h2>
-          {data.workspaces.slice(0, 3).map((w) => (
+          {resume.map((w) => {
+            const video = data?.videos?.find((v) => v.workspace_id === w.id);
+            return (
             <Link
               key={w.id}
-              href={`/learn/${w.id}`}
+              href={video ? `/learn/items/${w.id}` : `/learn/${w.id}`}
               className="flex min-h-24 items-center justify-between gap-4 rounded-xl border border-border bg-card p-5 hover:border-primary"
             >
               <div className="min-w-0">
-                <h3 className="font-medium">{w.title}</h3>
+                <h3 className="break-words font-medium">{w.title}</h3>
                 <p className="mt-2 truncate text-sm text-muted-foreground">
-                  {w.draft || w.prompt || '이전 글과 피드백 이어 보기'}
+                  {video ? `YouTube · ${learningDuration(video.position_seconds)}에서 이어 보기` : w.draft || w.prompt || '이전 글과 피드백 이어 보기'}
                 </p>
               </div>
               <ArrowRight
@@ -106,9 +116,12 @@ export function LearningHome() {
                 aria-hidden="true"
               />
             </Link>
-          ))}
+            );
+          })}
         </section>
       )}
+      <LearningVideoLibrary data={data} reload={reload} />
+      <YouTubeAccount onSaved={() => void reload()} />
       <section className="rounded-2xl border border-border bg-primary-soft p-6 sm:p-8">
         <PencilLine className="mb-4 text-primary" aria-hidden="true" />
         <h2 className="text-xl font-semibold">영어로 한 문장 써 볼까요?</h2>
@@ -131,12 +144,12 @@ export function LearningHome() {
           수 있어요.
         </p>
       )}
-      {data && (data.workspaces.length > 3 || data.nextOffset != null) && (
+      {data && (remainingWriting.length > 0 || data.nextOffset != null) && (
         <section className="space-y-3" aria-labelledby="all-learning-title">
           <h2 id="all-learning-title" className="font-semibold">
             저장한 학습실
           </h2>
-          {data.workspaces.slice(3).map((w) => (
+          {remainingWriting.map((w) => (
             <Link
               key={w.id}
               href={`/learn/${w.id}`}
@@ -166,6 +179,7 @@ export function LearningHome() {
                     previous
                       ? {
                           ...previous,
+                          videos: [...(previous.videos ?? []), ...(page.videos ?? [])],
                           workspaces: [
                             ...new Map(
                               [...previous.workspaces, ...page.workspaces].map(

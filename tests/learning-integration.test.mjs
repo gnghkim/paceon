@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 
-test('LR1 routes preserve writing, own sessions, lease timing, AI records and isolation', {timeout:120000}, async () => {
+test('LR1/LR2 routes preserve writing, video sources, lease timing and owner isolation', {timeout:120000}, async () => {
   const status=spawnSync('supabase',['status','-o','json'],{encoding:'utf8',windowsHide:true});
   assert.equal(status.status,0,'Supabase Local available');
   const config=JSON.parse(status.stdout), base=new URL(config.API_URL);
@@ -76,6 +76,32 @@ test('LR1 routes preserve writing, own sessions, lease timing, AI records and is
     const oldId=session.id;
     ({session}=await command(alice,cmd('START',{workspaceId,deviceId,timezone:'Asia/Seoul'})));
     assert.notEqual(session.id,oldId,'resume ended workspace starts new session');
+    await command(alice,cmd('END',{...owned(),activity:false}));
+    const importBody={requestId:randomUUID(),items:[{url:'https://youtu.be/abcdefghijk?t=5'},{url:'https://example.com/no-video'}]};
+    const imported=await(await api(alice,'/api/learning/videos',importBody)).json();
+    assert.equal(imported.results.length,2);assert.ok(imported.results[1].error);
+    const videoId=imported.results[0].workspace.id;
+    assert.deepEqual(await(await api(alice,'/api/learning/videos',importBody)).json(),imported);
+    const duplicate=await(await api(alice,'/api/learning/videos',{...importBody,requestId:randomUUID()})).json();
+    assert.equal(duplicate.results[0].workspace.id,videoId);assert.equal(duplicate.results[0].duplicate,true);
+    const videoCommand=async(body,expected=200)=>{const res=await api(alice,'/api/learning/videos/commands',body);assert.equal(res.status,expected,body.action);return res.json();};
+    const source=cmd('VIDEO_SOURCE',{workspaceId:videoId,expectedVersion:0,transcript:'Take a walk means to walk for pleasure.',contextStart:0,contextEnd:38});
+    await videoCommand(source);
+    await videoCommand({...source,requestId:randomUUID()},409);
+    await videoCommand(cmd('VIDEO_NOTE',{workspaceId:videoId,noteId:randomUUID(),positionSeconds:5,content:'Practice take a walk.'}));
+    assert.equal((await api(bob,`/api/learning/workspaces/${videoId}`)).status,404);
+    ({session}=await command(alice,cmd('START',{workspaceId:videoId,deviceId,timezone:'Asia/Seoul'})));
+    const tick=playing=>cmd('VIDEO_TICK',{...owned(),positionSeconds:5,durationSeconds:100,rate:1,playing});
+    ({session}=await videoCommand(tick(true)));
+    ({session}=await videoCommand(tick(false)));assert.equal(session.status,'PAUSED','paused playback stops the shared timer');
+    const videoSnapshot=await(await api(alice,`/api/learning/workspaces/${videoId}`)).json();
+    assert.equal(videoSnapshot.video.position_seconds,5);
+    assert.equal(videoSnapshot.video.transcript,source.transcript);
+    assert.equal(videoSnapshot.videoNotes.length,1);
+    const summary=await command(alice,cmd('SUMMARY',{workspaceId:videoId,sessionId:session.id}),202);
+    assert.equal(summary.job.kind,'STUDY_SUMMARY','source-only video summary is admitted');
+    assert.equal('input' in summary.job,false);
+    await command(alice,cmd('END',{...owned(),activity:false}));
     const empty=await (await api(bob,'/api/learning/workspaces')).json();assert.equal(empty.workspaces.length,0);
   } finally {
     server.kill();

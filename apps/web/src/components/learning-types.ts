@@ -46,6 +46,9 @@ export interface LearningMessage {
   job_id: string | null;
 }
 export interface LearningSnapshot {
+  video?: LearningVideo | null;
+  videoNotes?: LearningVideoNote[];
+  videoVisits?: LearningVideoVisit[];
   page?: number;
   hasMore?: { sessions: boolean; messages: boolean; jobs: boolean };
   workspace: LearningWorkspace;
@@ -55,10 +58,37 @@ export interface LearningSnapshot {
   aiEnabled: boolean;
 }
 export interface LearningList {
+  videos?: LearningVideo[];
   nextOffset?: number | null;
   workspaces: LearningWorkspace[];
   sessions: LearningSession[];
   aiEnabled: boolean;
+}
+export interface LearningVideo {
+  workspace_id: string;
+  video_id: string;
+  start_seconds: number;
+  position_seconds: number;
+  duration_seconds: number | null;
+  favorite: boolean;
+  archived: boolean;
+  transcript: string;
+  transcript_version: number;
+  context_start: number;
+  context_end: number;
+}
+export interface LearningVideoNote {
+  id: string;
+  position_seconds: number;
+  content: string;
+  created_at: string;
+}
+export interface LearningVideoVisit {
+  id: string;
+  from_seconds: number;
+  to_seconds: number;
+  rate: number;
+  created_at: string;
 }
 export function learningDuration(seconds: number) {
   const n = Math.max(0, Math.floor(seconds));

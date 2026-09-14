@@ -58,7 +58,9 @@ export function createLearningHandlers(config: Config | undefined, aiEnabled = f
           rows(auth,'learning_workspaces',{order:'updated_at.desc,id.desc',offset:raw}),
           rows(auth,'learning_sessions',{order:'updated_at.desc,id.desc',limit:'100'}),
         ]);
-        return json({workspaces:workspaces.slice(0,100),sessions,aiEnabled,nextOffset:workspaces.length>100?Number(raw)+100:null});
+        const page=workspaces.slice(0,100);
+        const videos=page.length?await rows(auth,'learning_videos',{select:'workspace_id,video_id,start_seconds,position_seconds,duration_seconds,favorite,archived,updated_at',workspace_id:`in.(${page.map(w=>w.id).join(',')})`,limit:'100'}):[];
+        return json({workspaces:page,sessions,videos,aiEnabled,nextOffset:workspaces.length>100?Number(raw)+100:null});
       } catch(error) {return handle(error);}
     },
     async GET(request:Request,id:string) {
@@ -70,12 +72,15 @@ export function createLearningHandlers(config: Config | undefined, aiEnabled = f
         const workspaces = await rows(auth,'learning_workspaces',{id:`eq.${id}`,limit:'1'});
         const workspace=workspaces[0];
         if(!workspace) throw new ApiError(404,'학습 공간을 찾을 수 없어요.');
-        const [sessions,messages,jobs] = await Promise.all([
+        const [sessions,messages,jobs,videos,notes,visits] = await Promise.all([
           rows(auth,'learning_sessions',{workspace_id:`eq.${id}`,order:'started_at.desc,id.desc',limit:'101',offset:String(page*100)}),
           rows(auth,'learning_messages',{workspace_id:`eq.${id}`,order:'created_at.desc,id.desc',limit:'201',offset:String(page*200)}),
           rows(auth,'learning_ai_jobs',{select:'id,workspace_id,session_id,kind,status,output,error_code,created_at,updated_at',workspace_id:`eq.${id}`,order:'created_at.desc,id.desc',limit:'31',offset:String(page*30)}),
+          rows(auth,'learning_videos',{workspace_id:`eq.${id}`,limit:'1'}),
+          rows(auth,'learning_video_notes',{workspace_id:`eq.${id}`,order:'created_at.desc,id.desc',limit:'101',offset:String(page*100)}),
+          rows(auth,'learning_video_visits',{workspace_id:`eq.${id}`,order:'created_at.desc,id.desc',limit:'101',offset:String(page*100)}),
         ]);
-        return json({workspace,sessions:sessions.slice(0,100),messages:messages.slice(0,200).reverse(),jobs:jobs.slice(0,30).map(publicLearningJob),aiEnabled,page,hasMore:{sessions:sessions.length>100,messages:messages.length>200,jobs:jobs.length>30}});
+        return json({workspace,sessions:sessions.slice(0,100),messages:messages.slice(0,200).reverse(),jobs:jobs.slice(0,30).map(publicLearningJob),video:videos[0]??null,videoNotes:notes.slice(0,100),videoVisits:visits.slice(0,100),aiEnabled,page,hasMore:{sessions:sessions.length>100,messages:messages.length>200,jobs:jobs.length>30,videoNotes:notes.length>100,videoVisits:visits.length>100}});
       } catch(error) {return handle(error);}
     },
     async COMMAND(request:Request) {

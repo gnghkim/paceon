@@ -1,7 +1,10 @@
 'use client';
 import Link from 'next/link';
+import { LearningJobCard } from './learning-job';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Pause, Play, Send, Square } from 'lucide-react';
+import { LearningVideoPanel } from './learning-video-panel';
+import type { PlaybackObservation } from './youtube-player';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import {
@@ -9,7 +12,6 @@ import {
   type LearningSnapshot,
   type LearningSession,
   type LearningWorkspace,
-  type LearningJob,
   type LearningMessage,
 } from './learning-types';
 
@@ -36,6 +38,9 @@ export function LearningRoom({ id }: { id: string }) {
   const [locked, setLocked] = useState(false);
   const [current, setCurrent] = useState<LearningSession | null>(null);
   const [now, setNow] = useState(0);
+  const [stopToken, setStopToken] = useState(0);
+  const observations = useRef(Promise.resolve(true));
+  const stopPlaybackRef = useRef<(() => Promise<void>) | null>(null);
   const [view, setView] = useState({
     device: '',
     lastActivity: 0,
@@ -49,6 +54,9 @@ export function LearningRoom({ id }: { id: string }) {
     conflict: false,
     device: '',
     lastActivity: 0,
+    lastTextActivity: 0,
+    videoPlaying: false,
+    stopMedia: false,
     session: null as LearningSession | null,
     blocked: false,
     busy: false,
@@ -74,6 +82,8 @@ export function LearningRoom({ id }: { id: string }) {
   }, [key]);
   const acceptSession = useCallback((s: LearningSession) => {
     const old = state.current.session;
+    if (old && old.id !== s.id && old.started_at >= s.started_at) return;
+    if (old?.id === s.id && old.generation > s.generation) return;
     if (old?.id === s.id && old.updated_at > s.updated_at) return;
     state.current.session = s;
     state.current.blocked =
@@ -275,6 +285,7 @@ export function LearningRoom({ id }: { id: string }) {
     [command, id, acceptSession],
   );
   const activity = () => {
+    state.current.lastTextActivity = Date.now();
     state.current.lastActivity = Date.now();
     const s = state.current.session;
     if (
@@ -391,6 +402,7 @@ export function LearningRoom({ id }: { id: string }) {
       const s = state.current.session;
       if (
         s?.status !== 'ACTIVE' ||
+        state.current.videoPlaying ||
         state.current.pendingEnd ||
         document.visibilityState !== 'visible'
       )
@@ -404,10 +416,13 @@ export function LearningRoom({ id }: { id: string }) {
     }, 15000);
     const hide = () => {
       if (document.visibilityState === 'hidden') {
+        state.current.stopMedia = true;
+        state.current.videoPlaying = false;
+        setStopToken((value) => value + 1);
         local();
         void flush();
         if (state.current.session?.status === 'ACTIVE')
-          void transition('PAUSE', 'HIDDEN').catch(() => {});
+          void (async () => { await stopPlaybackRef.current?.(); await transition('PAUSE', 'HIDDEN'); })().catch(() => {});
       }
     };
     const unload = (e: BeforeUnloadEvent) => {
@@ -429,8 +444,13 @@ export function LearningRoom({ id }: { id: string }) {
       document.removeEventListener('visibilitychange', hide);
       window.removeEventListener('beforeunload', unload);
       local();
-      if (runtime.session?.status === 'ACTIVE')
-        void transition('PAUSE', 'HIDDEN').catch(() => {});
+      if (runtime.session?.status === 'ACTIVE') {
+        runtime.stopMedia = true;
+        runtime.videoPlaying = false;
+        // This imperative controller is installed after the snapshot loads.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        void (async () => { await stopPlaybackRef.current?.(); await transition('PAUSE', 'HIDDEN'); })().catch(() => {});
+      }
     };
   }, [auth?.user.id, key, reload, flush, transition, local, acceptSession]);
   useEffect(() => {
@@ -440,6 +460,44 @@ export function LearningRoom({ id }: { id: string }) {
     }, 3000);
     return () => clearTimeout(timeout);
   }, [draft, flush]);
+  const observeVideo = (observation: PlaybackObservation): Promise<boolean> => {
+    // Only a new visible player event may resume a hidden-tab pause.
+    // Already queued observations cannot clear a subsequent explicit stop.
+    if (observation.playing && document.visibilityState === 'visible' &&
+        state.current.session?.pause_reason === 'HIDDEN' && !state.current.busy)
+      state.current.stopMedia = false;
+    const operation = observations.current.then(async () => {
+      const runtime = state.current;
+      runtime.videoPlaying = observation.playing && document.visibilityState === 'visible';
+      if (runtime.blocked || (observation.playing && (runtime.stopMedia || runtime.pendingEnd || runtime.session?.pause_reason === 'MANUAL'))) {
+        runtime.videoPlaying = false;
+        return false;
+      }
+      let session = runtime.session;
+      if (runtime.videoPlaying) {
+        runtime.lastActivity = Date.now();
+        if (!session || session.status !== 'ACTIVE') session = await start();
+      } else runtime.lastActivity = runtime.lastTextActivity;
+      if (!session || session.status === 'ENDED') return !observation.playing;
+      try {
+        if (!runtime.stopMedia && !runtime.videoPlaying && Date.now() - runtime.lastTextActivity < 60000)
+          await transition('HEARTBEAT');
+        const response = await apiFetch('/api/learning/videos/commands', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: !observation.playing,
+          body: JSON.stringify({ action: 'VIDEO_TICK', requestId: crypto.randomUUID(), sessionId: session.id, deviceId: runtime.device, generation: session.generation, ...observation, playing: runtime.videoPlaying }),
+        });
+        const body = await response.json();
+        if (!response.ok) {
+          if (response.status === 409) { runtime.blocked = true; setLocked(true); }
+          throw new Error(body.error ?? '영상 위치를 동기화하지 못했어요. 연결을 확인해 주세요.');
+        }
+        acceptSession(body.session);
+        return !runtime.blocked && body.session.pause_reason !== 'MANUAL';
+      } catch (e) { runtime.videoPlaying = false; setError((e as Error).message); return false; }
+    });
+    observations.current = operation.catch(() => false);
+    return observations.current;
+  };
   async function run(action: () => Promise<void>) {
     if (state.current.busy) return;
     state.current.busy = true;
@@ -592,7 +650,7 @@ export function LearningRoom({ id }: { id: string }) {
                 : view.pendingEnd
                   ? '종료 동기화 대기'
                   : !current
-                    ? '글을 쓰면 시작돼요'
+                    ? (data.video ? '재생하거나 글을 쓰면 시작돼요' : '글을 쓰면 시작돼요')
                     : current.status === 'ENDED'
                       ? '학습 종료 · 기록됨'
                       : current.status === 'PAUSED' || stale
@@ -607,6 +665,10 @@ export function LearningRoom({ id }: { id: string }) {
                 disabled={busy || locked}
                 onClick={() =>
                   void run(async () => {
+                    setStopToken((value) => value + 1);
+                    state.current.stopMedia = true;
+                    state.current.videoPlaying = false;
+                    await stopPlaybackRef.current?.();
                     await flush();
                     await transition('PAUSE', 'MANUAL');
                   })
@@ -622,6 +684,7 @@ export function LearningRoom({ id }: { id: string }) {
                 onClick={() =>
                   void run(async () => {
                     state.current.lastActivity = Date.now();
+                    state.current.stopMedia = false;
                     await start();
                   })
                 }
@@ -639,6 +702,10 @@ export function LearningRoom({ id }: { id: string }) {
               }
               onClick={() =>
                 void run(async () => {
+                  setStopToken((value) => value + 1);
+                  state.current.stopMedia = true;
+                  state.current.videoPlaying = false;
+                  await stopPlaybackRef.current?.();
                   if (!(await flush()))
                     throw new Error('초안 저장을 확인한 뒤 종료해 주세요.');
                   state.current.pendingEnd = true;
@@ -680,6 +747,7 @@ export function LearningRoom({ id }: { id: string }) {
             onClick={() =>
               void run(async () => {
                 state.current.lastActivity = Date.now();
+                state.current.stopMedia = false;
                 await start(true);
               })
             }
@@ -688,6 +756,13 @@ export function LearningRoom({ id }: { id: string }) {
           </Button>
         </div>
       )}
+      {data.video && <LearningVideoPanel
+        video={data.video} title={data.workspace.title}
+        notes={[...new Map(pages.flatMap((p) => p.videoNotes ?? []).map((n) => [n.id, n])).values()]}
+        visits={[...new Map(pages.flatMap((p) => p.videoVisits ?? []).map((v) => [v.id, v])).values()]}
+        stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'}
+        stopToken={stopToken} stopPlaybackRef={stopPlaybackRef} onObservation={observeVideo} activity={activity} reload={reload}
+      />}
       {recovery && (
         <section className="space-y-3 rounded-xl border border-primary p-4">
           <h2 className="font-semibold">저장하지 못한 초안이 있어요</h2>
@@ -728,9 +803,9 @@ export function LearningRoom({ id }: { id: string }) {
         </section>
       )}
       <section className="space-y-3 rounded-xl border border-border bg-card p-5">
-        <h2 className="font-semibold">한 문장부터 써 보세요</h2>
+        <h2 className="font-semibold">{data.video ? '영상에 관해 질문하기' : '한 문장부터 써 보세요'}</h2>
         <p className="text-sm leading-6 text-muted-foreground">
-          {data.workspace.prompt ||
+          {data.video ? 'AI는 저장한 선택 자막과 메모에 근거해 답해요. 영상을 직접 시청하지 않으며, 자막이 없으면 내 메모와 질문만 참고해요.' : data.workspace.prompt ||
             '오늘 있었던 일이나 떠오르는 생각을 영어로 적어 보세요.'}
         </p>
         <label htmlFor="learning-draft" className="sr-only">
@@ -751,7 +826,7 @@ export function LearningRoom({ id }: { id: string }) {
           onKeyDown={activity}
           onPointerDown={activity}
           className="min-h-56 w-full resize-y rounded-lg border border-border bg-background p-4 text-base leading-7 focus-visible:outline-2 focus-visible:outline-primary"
-          placeholder="Today, I…"
+          placeholder={data.video ? '이 표현은 어떤 뜻인가요?' : 'Today, I…'}
         />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p role="status" className="text-xs text-muted-foreground">
@@ -808,7 +883,7 @@ export function LearningRoom({ id }: { id: string }) {
               busy ||
               !data.aiEnabled ||
               !current ||
-              !data.messages.some(
+              !(data.video && (data.video.context_end > data.video.context_start || !!data.videoNotes?.length)) && !data.messages.some(
                 (m) => m.role === 'USER' && m.session_id === current.id,
               )
             }
@@ -825,7 +900,7 @@ export function LearningRoom({ id }: { id: string }) {
               })
             }
           >
-            이번 학습 정리하기
+            {data.video ? (data.video.context_end > data.video.context_start ? '선택 원문 정리하기' : '내 메모 정리하기') : '이번 학습 정리하기'}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -853,7 +928,7 @@ export function LearningRoom({ id }: { id: string }) {
             </article>
           ))}
         {jobs.map((j) => (
-          <Job
+          <LearningJobCard
             key={j.id}
             job={j}
             disabled={busy || !data.aiEnabled}
@@ -904,77 +979,5 @@ export function LearningRoom({ id }: { id: string }) {
         )}
       </section>
     </div>
-  );
-}
-
-function Job({
-  job,
-  retry,
-  disabled,
-}: {
-  job: LearningJob;
-  retry: () => void;
-  disabled: boolean;
-}) {
-  const output = job.output;
-  return (
-    <article className="space-y-3 rounded-xl bg-surface-subtle p-5">
-      <h3 className="text-sm font-semibold">
-        {job.kind === 'STUDY_SUMMARY' ? '학습 정리' : 'AI 피드백'}
-      </h3>
-      {job.status === 'QUEUED' || job.status === 'RUNNING' ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          {job.status === 'QUEUED'
-            ? '순서를 기다리고 있어요.'
-            : '피드백을 준비하고 있어요.'}{' '}
-          다른 화면으로 이동해도 결과가 저장돼요.
-        </p>
-      ) : job.status === 'FAILED' ? (
-        <div className="space-y-3">
-          <p className="text-sm">
-            AI 응답을 만들지 못했어요. 원문은 저장되어 있어요.
-          </p>
-          <Button variant="outline" disabled={disabled} onClick={retry}>
-            응답 다시 요청
-          </Button>
-        </div>
-      ) : (
-        output && (
-          <>
-            <p className="whitespace-pre-wrap text-sm leading-7">
-              {output.summary}
-            </p>
-            {output.corrections.map((c, i) => (
-              <div
-                key={i}
-                className="space-y-2 rounded-lg border border-border p-3 text-sm"
-              >
-                <p className="text-muted-foreground">원문: {c.original}</p>
-                <p>수정: {c.revised}</p>
-                <p className="text-muted-foreground">{c.reason}</p>
-              </div>
-            ))}
-            {!!output.expressions.length && (
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium">기억할 표현</h4>
-                {output.expressions.map((e, i) => (
-                  <div key={i} className="text-sm leading-6">
-                    <p>
-                      <strong>{e.phrase}</strong> · {e.meaning}
-                    </p>
-                    <p className="text-muted-foreground">{e.example}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-            {output.nextPrompt && (
-              <p className="rounded-lg border border-border p-3 text-sm leading-6">
-                다음 연습: {output.nextPrompt}
-              </p>
-            )}
-          </>
-        )
-      )}
-    </article>
   );
 }

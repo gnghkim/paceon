@@ -395,6 +395,145 @@ export type Database = {
           },
         ]
       }
+      learning_video_notes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          position_seconds: number
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id: string
+          position_seconds: number
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          position_seconds?: number
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_video_notes_workspace_id_user_id_fkey"
+            columns: ["workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "learning_videos"
+            referencedColumns: ["workspace_id", "user_id"]
+          },
+        ]
+      }
+      learning_video_visits: {
+        Row: {
+          created_at: string
+          from_seconds: number
+          id: string
+          rate: number
+          session_id: string
+          to_seconds: number
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_seconds: number
+          id?: string
+          rate: number
+          session_id: string
+          to_seconds: number
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          from_seconds?: number
+          id?: string
+          rate?: number
+          session_id?: string
+          to_seconds?: number
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_video_visits_session_id_workspace_id_user_id_fkey"
+            columns: ["session_id", "workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "learning_sessions"
+            referencedColumns: ["id", "workspace_id", "user_id"]
+          },
+          {
+            foreignKeyName: "learning_video_visits_workspace_id_user_id_fkey"
+            columns: ["workspace_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "learning_videos"
+            referencedColumns: ["workspace_id", "user_id"]
+          },
+        ]
+      }
+      learning_videos: {
+        Row: {
+          archived: boolean
+          context_end: number
+          context_start: number
+          duration_seconds: number | null
+          favorite: boolean
+          position_seconds: number
+          start_seconds: number
+          transcript: string
+          transcript_version: number
+          updated_at: string
+          user_id: string
+          video_id: string
+          workspace_id: string
+        }
+        Insert: {
+          archived?: boolean
+          context_end?: number
+          context_start?: number
+          duration_seconds?: number | null
+          favorite?: boolean
+          position_seconds?: number
+          start_seconds?: number
+          transcript?: string
+          transcript_version?: number
+          updated_at?: string
+          user_id: string
+          video_id: string
+          workspace_id: string
+        }
+        Update: {
+          archived?: boolean
+          context_end?: number
+          context_start?: number
+          duration_seconds?: number | null
+          favorite?: boolean
+          position_seconds?: number
+          start_seconds?: number
+          transcript?: string
+          transcript_version?: number
+          updated_at?: string
+          user_id?: string
+          video_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_videos_workspace_id_user_id_fkey"
+            columns: ["workspace_id", "user_id"]
+            isOneToOne: true
+            referencedRelation: "learning_workspaces"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       learning_workspaces: {
         Row: {
           created_at: string
@@ -1049,6 +1188,7 @@ export type Database = {
         Returns: boolean
       }
       learning_command: { Args: { p_command: Json }; Returns: Json }
+      learning_video_command: { Args: { p_command: Json }; Returns: Json }
       queue_pdf_import: { Args: { p_id: string }; Returns: Json }
       retry_pdf_import: { Args: { p_id: string }; Returns: Json }
       submit_book_progress: {
@@ -1063,6 +1203,7 @@ export type Database = {
         }
         Returns: Json
       }
+      youtube_connection_command: { Args: { p_command: Json }; Returns: Json }
     }
     Enums: {
       plan_mode: "DEADLINE" | "PACE" | "BALANCED"
