@@ -142,7 +142,7 @@ route group `app/(workspace)/learn/(areas)`에 공통 레이아웃을 둔다.
 | --- | --- |
 | pgTAP | 분류 규칙 5가지(섞인 공간, 제목만 있는 스피킹 공간 포함), `not null`·`check`, `kind` 없는 `CREATE` 거부, `VIDEO_ADD` → `LISTENING`, 4.4 허용표 전체, 명령 실행 후 종류 불변 |
 | Node 단위 | 목록 `kind` 검증(잘못된 값·중복·모르는 파라미터 400), `POST` `kind` 누락 400, 세 API의 `LEARNING_KIND` → 409, OAuth 완료 후 `/settings` 이동 |
-| 순수 함수 | 탭 결정(저장값 없음·잘못됨 → 리스닝), `learningRoomFeatures` 종류×기존 음성 유무 |
+| 순수 함수 | 탭 결정(저장값 없음·잘못됨 → 리스닝), `learningRoomFeatures` 종류별 표시 기능 |
 | 통합 | `learning-integration`·`speech-integration`에 `kind` 전달, 영역별 목록, 영역 밖 명령 409 |
 | 브라우저 수동 | 390px에서 탭 전환, 종류별 공간 화면, 섞인 기존 공간의 읽기 전용 기록, 설정에서 연결·해제 후 리스닝 탭 가져오기 |
 
