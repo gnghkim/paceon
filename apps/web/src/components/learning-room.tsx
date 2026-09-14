@@ -19,6 +19,7 @@ import {
   type LearningSession,
   type LearningWorkspace,
   type LearningMessage,
+  type LearningKind,
 } from './learning-types';
 
 type Draft = { text: string; version: number };
@@ -62,6 +63,7 @@ export function LearningRoom({ id }: { id: string }) {
     saved: '',
     ready: false,
     conflict: false,
+    kind: null as LearningKind | null,
     device: '',
     lastActivity: 0,
     lastTextActivity: 0,
@@ -168,6 +170,7 @@ export function LearningRoom({ id }: { id: string }) {
       );
     const body = (await res.json()) as LearningSnapshot;
     setData(body);
+    state.current.kind = body.workspace.kind;
     if (!state.current.ready) {
       state.current.ready = true;
       state.current.version = body.workspace.draft_version;
@@ -175,20 +178,24 @@ export function LearningRoom({ id }: { id: string }) {
       state.current.draft = body.workspace.draft;
       setDraft(body.workspace.draft);
       setSaveStatus('저장됨');
-      try {
-        const raw = localStorage.getItem(key);
-        const saved = raw ? (JSON.parse(raw) as Draft) : null;
-        if (
-          saved &&
-          typeof saved.text === 'string' &&
-          saved.text !== body.workspace.draft
-        ) {
-          state.current.conflict = true;
-          setRecovery(saved);
-          setSaveStatus('이 기기의 초안 확인 필요');
+      // Rooms without a writing feature never show DraftRecovery, so a stale
+      // local draft there must not block END/flush behind an invisible prompt.
+      if (learningRoomFeatures(body.workspace.kind).writing) {
+        try {
+          const raw = localStorage.getItem(key);
+          const saved = raw ? (JSON.parse(raw) as Draft) : null;
+          if (
+            saved &&
+            typeof saved.text === 'string' &&
+            saved.text !== body.workspace.draft
+          ) {
+            state.current.conflict = true;
+            setRecovery(saved);
+            setSaveStatus('이 기기의 초안 확인 필요');
+          }
+        } catch {
+          /* Invalid local data never replaces cloud content. */
         }
-      } catch {
-        /* Invalid local data never replaces cloud content. */
       }
     }
     const latest = body.sessions
@@ -208,6 +215,11 @@ export function LearningRoom({ id }: { id: string }) {
         await saving.current;
         return flushDraft();
       }
+      // Rooms without a writing feature have no draft to flush and must
+      // never be blocked by draft state (e.g. a pre-split SPEAKING room
+      // that still has an unsynced localStorage draft).
+      if (state.current.kind && !learningRoomFeatures(state.current.kind).writing)
+        return true;
       if (!state.current.ready || state.current.conflict) return false;
       if (state.current.draft === state.current.saved) return true;
       const text = state.current.draft;
@@ -907,27 +919,27 @@ export function LearningRoom({ id }: { id: string }) {
             }
           />
         ))}
-        {hasMore && (
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={() =>
-              void run(async () => {
-                const res = await apiFetch(
-                  `/api/learning/workspaces/${id}?page=${history.length + 1}`,
-                  { cache: 'no-store' },
-                );
-                if (!res.ok) throw new Error('이전 기록을 불러오지 못했어요.');
-                const page = (await res.json()) as LearningSnapshot;
-                setHistory((previous) => [...previous, page]);
-              })
-            }
-          >
-            이전 기록 더 보기
-          </Button>
-        )}
       </section>
       </>)}
+      {hasMore && (
+        <Button
+          variant="outline"
+          disabled={busy}
+          onClick={() =>
+            void run(async () => {
+              const res = await apiFetch(
+                `/api/learning/workspaces/${id}?page=${history.length + 1}`,
+                { cache: 'no-store' },
+              );
+              if (!res.ok) throw new Error('이전 기록을 불러오지 못했어요.');
+              const page = (await res.json()) as LearningSnapshot;
+              setHistory((previous) => [...previous, page]);
+            })
+          }
+        >
+          이전 기록 더 보기
+        </Button>
+      )}
       <SessionHistory sessions={sessions} />
     </div>
   );
