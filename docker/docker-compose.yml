@@ -1,0 +1,28 @@
+name: paceon
+
+services:
+  ai-worker:
+    build:
+      context: ../services/ai-worker
+    ports:
+      - "127.0.0.1:8000:8000"
+    init: true
+    stop_grace_period: 180s
+    environment:
+      AI_ENABLED: ${AI_ENABLED:-false}
+      PDF_ENABLED: ${PDF_ENABLED:-false}
+      SUPABASE_URL: ${SUPABASE_URL:-http://host.docker.internal:55321}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-mini-transcribe}
+      OPENAI_TTS_MODEL: ${OPENAI_TTS_MODEL:-gpt-4o-mini-tts}
+      OPENAI_TTS_VOICE: ${OPENAI_TTS_VOICE:-marin}
+      AI_POLL_SECONDS: ${AI_POLL_SECONDS:-3}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5

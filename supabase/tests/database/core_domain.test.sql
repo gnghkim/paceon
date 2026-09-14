@@ -1,0 +1,15 @@
+begin;
+create extension if not exists pgtap with schema extensions;
+set search_path = public, extensions;
+select plan(9);
+select has_table('public', 'resources', 'resources exist');
+select has_table('public', 'resource_units', 'resource units exist');
+select has_table('public', 'goals', 'goals exist');
+select has_table('public', 'plans', 'plans exist');
+select has_table('public', 'availability_rules', 'availability rules exist');
+select has_table('public', 'schedule_sessions', 'sessions exist');
+select has_table('public', 'progress_events', 'progress events exist');
+select has_table('public', 'replan_runs', 'replan history exists');
+select has_table('public', 'learner_profiles', 'learner profiles exist');
+select * from finish();
+rollback;

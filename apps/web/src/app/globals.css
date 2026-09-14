@@ -1,0 +1,78 @@
+@import "tailwindcss";
+@import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+
+:root {
+  color-scheme: light;
+  --background: #fafaf8;
+  --foreground: #252629;
+  --primary: #5965e8;
+  --primary-foreground: #ffffff;
+  --secondary: #eeeeea;
+  --secondary-foreground: #44464e;
+  --muted: #f2f2ef;
+  --muted-foreground: #62646e;
+  --card: #ffffff;
+  --card-foreground: #252629;
+  --popover: #ffffff;
+  --popover-foreground: #252629;
+  --accent: #eeeffd;
+  --accent-foreground: #424dc3;
+  --destructive: #b42318;
+  --border: #e3e3de;
+  --input: #d2d3d9;
+  --ring: #5965e8;
+  --radius: 0.75rem;
+  --surface: #ffffff;
+  --surface-muted: #efefed;
+  --surface-subtle: #f5f5f2;
+  --primary-hover: #4d58d6;
+  --primary-soft: #eef0ff;
+  --warning-soft: #fbf2e4;
+  --danger-soft: #fbecec;
+  --success-soft: #eaf6f0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-danger: var(--destructive);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger-soft: var(--danger-soft);
+  --color-success-soft: var(--success-soft);
+  --color-success: #287552;
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --font-sans: "Pretendard Variable", "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+}
+
+@layer base {
+  body { background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+  ::selection { background: var(--accent); }
+  button:not(:disabled), a { -webkit-tap-highlight-color: transparent; }
+  button:not(:disabled) { cursor: pointer; }
+  input, select, textarea { min-width: 0; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+}
