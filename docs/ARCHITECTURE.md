@@ -1,5 +1,35 @@
 # PaceOn Architecture
 
+## 현재 런타임 구성 (LR3 기준)
+
+아래 Phase별 절은 각 단계를 추가한 시점의 경계를 기록한다. 현재 구성은 다음과 같다.
+
+```text
+Browser -> Supabase Auth                      로그인·세션 토큰
+Browser -> Next.js :3000 API Route
+  -> Supabase REST/RPC (사용자 토큰, RLS)       도서·계획·진도·통계·학습실 명령과 조회
+  -> Supabase Storage (비공개)                  PDF 원본, 학습실 음성
+  -> Supabase RPC (service role)                YouTube 연결 토큰 저장 전용
+  -> Google Books / YES24                       도서 검색
+  -> Google OAuth / YouTube Data API            계정 연결·목록 조회 (서버 전용)
+
+Worker :8000 -> Supabase RPC (service role)     작업 claim/finish, 음성 보관 정리
+Worker -> OpenAI                                Responses, TTS, 음성 인식
+```
+
+Worker는 한 프로세스에서 소비자를 스레드로 실행한다.
+
+| 소비자 | 처리 | 실행 조건 |
+| --- | --- | --- |
+| `Worker` | 도서 분석·학습 코칭 (Phase 6) | `AI_ENABLED=true`, Supabase URL·service role 키, OpenAI 키·모델 |
+| `LearningWorker` | 학습실 글쓰기 답변·요약 (LR1·LR2) | 위와 같음 |
+| `SpeechWorker` | 연습 문장·TTS·전사·피드백 (LR3), 음성 보관 기간·계정 삭제 정리 | Supabase URL·service role 키. 음성 AI 작업은 `AI_ENABLED`가 켜진 경우에만 가져간다 |
+| `PdfWorker` | PDF 페이지·목차 추출 (Phase 7) | `PDF_ENABLED=true`, Supabase URL·service role 키 |
+
+웹의 `AI_ENABLED`, `PDF_ENABLED`는 요청 접수 여부만 정한다. 처리는 Worker 설정을 따르므로 두 쪽을 함께 맞춘다. 학습실 계약은 [LEARNING_ROOM](LEARNING_ROOM.md), YouTube 연결은 [YOUTUBE_SETUP](YOUTUBE_SETUP.md)을 따른다.
+
+단위 테스트는 `scripts/test-unit.mjs`가 `tests/*.test.mjs`에서 인프라가 필요한 `*-integration`, `database-*`, `health` 테스트를 제외하고 실행한다. GitHub Actions(`.github/workflows/ci.yml`)는 웹 검사·빌드, Worker 단위 테스트, Supabase Local pgTAP와 DB 타입 일치를 확인한다. 실제 Auth/API 통합 테스트는 로컬에서 실행한다.
+
 ## Phase 0 경계
 
 웹은 호스트에서 실행하는 Next.js App Router다. 한국어 Light UI, Pretendard 자체 호스팅 subset, Tailwind 의미 토큰과 shadcn의 `components.json`·`cn` 기반을 갖춘다. 시작 화면은 준비 상태를 표시한다. 앱 업무 화면이나 작동하지 않는 등록 버튼을 제공하지 않는다.
@@ -20,7 +50,7 @@ Host -> Docker Worker :8000/health (Worker liveness)
 Host -> Supabase :55321 API / :55322 DB / :55323 Studio
 ```
 
-현재 웹은 DB·Worker에 요청하지 않는다. 외부 연결을 확인하지 않고 health 결과에 ready 상태를 표시하지 않는다. 실제 HTTP smoke test와 DB `pg_isready`, Auth health 요청을 별도로 검증한다. 외부 API 키는 Phase 0의 설치·빌드·실행에 필요하지 않다.
+Phase 0 시점의 웹은 DB·Worker에 요청하지 않았다(현재 구성은 문서 상단 참고). health는 외부 연결을 확인하지 않고 health 결과에 ready 상태를 표시하지 않는다. 실제 HTTP smoke test와 DB `pg_isready`, Auth health 요청을 별도로 검증한다. 외부 API 키는 Phase 0의 설치·빌드·실행에 필요하지 않다.
 
 ## 후속 도메인 흐름
 

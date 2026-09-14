@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { mergeYouTubeLibraryItems } from '../apps/web/src/lib/youtube-library.ts';
 import { test } from 'node:test';
 import { normalizeYouTubeUrl, normalizeTranscript, videoCommandSchema } from '../apps/web/src/lib/youtube.ts';
 const id='dQw4w9WgXcQ';
@@ -25,4 +26,23 @@ test('video commands validate ownership fields, limits and preserve original not
  const note={action:'VIDEO_NOTE',requestId:uuid,workspaceId:uuid,noteId:uuid,positionSeconds:0,content:'  Hello\n'};
  assert.equal(videoCommandSchema.parse(note).content,note.content);
  assert.equal(videoCommandSchema.safeParse({...note,content:' '}).success,false);
+});
+
+test('YouTube library first page displays each video once while preserving order',()=>{
+ const first={id:'TFnThlz9gaQ',title:'First occurrence',kind:'video'};
+ const other={id:'abcdefghijk',title:'Another video',kind:'video'};
+ const page=[first,other,{...first,title:'Repeated playlist entry'}];
+ assert.deepEqual(mergeYouTubeLibraryItems([],page),[first,other]);
+ assert.equal(page.length,3,'provider page is not mutated');
+});
+
+test('YouTube library pagination and repeated pages preserve unique selections and item kinds',()=>{
+ const video={id:'TFnThlz9gaQ',title:'Video',kind:'video'};
+ const channel={id:video.id,title:'Channel',kind:'channel'};
+ const next={id:'abcdefghijk',title:'Next',kind:'video'};
+ const merged=mergeYouTubeLibraryItems([video],[video,next,next,channel]);
+ assert.deepEqual(merged,[video,next,channel]);
+ assert.deepEqual(mergeYouTubeLibraryItems(merged,[video,next,next,channel]),merged);
+ assert.deepEqual(merged.filter(item=>item.kind==='video').map(item=>item.id),[video.id,next.id]);
+ assert.deepEqual(mergeYouTubeLibraryItems([],[next]),[next],'new list replaces previous results');
 });
