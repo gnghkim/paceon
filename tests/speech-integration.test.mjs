@@ -21,7 +21,7 @@ test('real Auth/Storage speech upload, retry, owner isolation and audio-only del
  try {
   const alice=await user(),bob=await user(),workspaceId=randomUUID(),id=randomUUID();
   const speech=createSpeechHandlers(config,true),learning=createLearningHandlers(config,false);
-  const made=await learning.COMMAND(request(alice,'/api/learning/commands',{action:'CREATE',requestId:randomUUID(),workspaceId,title:'Storage integration',prompt:''}));assert.equal(made.status,201);
+  const made=await learning.COMMAND(request(alice,'/api/learning/commands',{action:'CREATE',requestId:randomUUID(),workspaceId,title:'Storage integration',prompt:'',kind:'SPEAKING'}));assert.equal(made.status,201);
   // Recognizable container but no valid frames: worker rejects before any paid provider call.
   const bytes=Buffer.alloc(44);bytes.write('RIFF');bytes.writeUInt32LE(36,4);bytes.write('WAVE',8);
   const upload=()=>new Request('http://local/api/learning/speech/upload',{method:'POST',headers:{...alice.headers,'Content-Type':'audio/wav','x-speech-id':id,'x-workspace-id':workspaceId},body:bytes});

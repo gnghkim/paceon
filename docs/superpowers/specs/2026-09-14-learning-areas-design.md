@@ -64,7 +64,9 @@ route group `app/(workspace)/learn/(areas)`에 공통 레이아웃을 둔다.
 
 - 리스닝 공간을 `/learn/[id]`로 열면 `/learn/items/[id]`로 이동한다.
 - 공간 화면의 뒤로 가기 링크는 해당 영역 탭으로 연결한다.
-- 표시 기능은 순수 함수 `learningRoomFeatures(kind, hasLegacySpeech)`로 결정한다.
+- 표시 기능은 순수 함수 `learningRoomFeatures(kind)`로 결정한다. 종류만 받으며, 이전 말하기 기록(`LegacySpeechRecords`)은 스스로 불러오고 기록이 없으면 아무것도 렌더링하지 않는다.
+- 이전 말하기 기록 목록은 `RECORDING` 항목만 보여준다. AI 예시 음성(`PROMPT`)은 보관 기한 정리에 맡긴다.
+- 스피킹 공간의 타이머 시작 안내 문구는 `녹음하거나 음성을 들으면 시작돼요`다.
 
 ### 3.3 설정
 
@@ -131,7 +133,7 @@ route group `app/(workspace)/learn/(areas)`에 공통 레이아웃을 둔다.
 
 - `GET /api/learning/workspaces/[id]`는 `workspace.kind`를 포함한다.
 - 라이팅 공간의 기존 음성은 `GET /api/learning/speech?workspaceId=`로 불러온다.
-- 세 오류 매핑에 `LEARNING_KIND: [409, '이 영역에서는 사용할 수 없는 기능이에요.']`를 추가한다. 화면은 이 오류를 받으면 공간 정보를 다시 불러온다.
+- 세 오류 매핑에 `LEARNING_KIND: [409, '이 영역에서는 사용할 수 없는 기능이에요.']`를 추가한다.
 - YouTube API는 바꾸지 않고 OAuth 완료 후 이동 주소만 `/settings`로 바꾼다.
 
 ## 6. 테스트

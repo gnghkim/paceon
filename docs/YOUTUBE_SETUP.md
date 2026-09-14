@@ -45,8 +45,8 @@ OAuth state는 10분 유효하고 서버에서 해시로 저장됩니다. HttpOn
 
 ## 확인 절차
 
-1. 테스트 사용자로 PaceOn 로그인 후 YouTube 연결을 누릅니다. Google 동의 화면에서 읽기 권한만 확인하고 승인합니다.
-2. 고정 callback으로 돌아온 뒤 채널 이름·아이콘을 확인합니다. 재생목록 및 구독 채널을 조회하고 다음 페이지, 채널 업로드 목록, 최대 20개 선택 저장을 확인합니다.
+1. 테스트 사용자로 PaceOn 로그인 후 헤더 톱니 아이콘으로 `/settings`를 열고 YouTube 연결을 누릅니다. Google 동의 화면에서 읽기 권한만 확인하고 승인합니다.
+2. 고정 callback으로 `/settings?youtube=connected`에 돌아온 뒤 채널 이름·아이콘을 확인합니다. 리스닝 탭의 **YouTube에서 가져오기**를 열어 재생목록 및 구독 채널을 조회하고 다음 페이지, 채널 업로드 목록, 최대 20개 선택 저장을 확인합니다.
 3. 동의 취소, 채널 없는 계정, 만료/철회, quota 초과, 연결 해제 후 재연결을 확인합니다. 기존 학습 자료는 계속 사용할 수 있어야 합니다.
 4. Google 계정에서 권한을 철회한 뒤 재연결 안내를 확인합니다. 테스트 모드의 외부 앱에서 이 scope로 발급된 refresh token은 일반적으로 7일 후 만료됩니다. 테스트 모드를 벗어나 공개 운영하기 전에 Google의 OAuth 검증 및 개인정보처리방침·YouTube API 정책 요구사항을 확인합니다.
 
@@ -60,7 +60,7 @@ OAuth state는 10분 유효하고 서버에서 해시로 저장됩니다. HttpOn
 | --- | --- |
 | GET `/api/youtube/status` | `{configured,connected,channel?:{id,title,thumbnail},error?}` |
 | POST `/api/youtube/connect` | `{url}` 및 HttpOnly callback 쿠키 |
-| GET `/api/youtube/callback` | 고정 `/learn?youtube=connected\|denied\|failed`로 303 |
+| GET `/api/youtube/callback` | 고정 `/settings?youtube=connected\|denied\|failed`로 303 |
 | POST `/api/youtube/disconnect` | `{disconnected:true,revoked:boolean}` |
 | GET `/api/youtube/library?kind=playlists\|subscriptions` | `{items:[{id,title,kind}],nextPageToken?}` |
 | GET `/api/youtube/library?kind=videos&playlistId=...` 또는 `&channelId=...` | 동일한 페이지 응답, 항목 kind는 `video` |

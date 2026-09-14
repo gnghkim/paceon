@@ -31,10 +31,16 @@ test('LR1/LR2 routes preserve writing, video sources, lease timing and owner iso
     for(let n=0;n<100&&!origin;n++) await new Promise(r=>setTimeout(r,100));
     assert.ok(origin,'production server running');
     const alice=await user(),bob=await user(),workspaceId=randomUUID(),deviceId=randomUUID();
-    const create=cmd('CREATE',{workspaceId,title:'Temporary LR1',prompt:'Write about today.'});
+    const create=cmd('CREATE',{workspaceId,title:'Temporary LR1',prompt:'Write about today.',kind:'WRITING'});
     assert.equal((await api(null,'/api/learning/workspaces')).status,401);
     const first=await command(alice,create,201),repeat=await command(alice,create,201);assert.deepEqual(first,repeat);
     assert.equal((await api(bob,`/api/learning/workspaces/${workspaceId}`)).status,404);
+    const writingList=await (await api(alice,'/api/learning/workspaces?kind=WRITING')).json();
+    assert.ok(writingList.workspaces.some(w=>w.id===workspaceId&&w.kind==='WRITING'),'writing tab lists writing workspace');
+    assert.equal((await (await api(alice,'/api/learning/workspaces?kind=SPEAKING')).json()).workspaces.some(w=>w.id===workspaceId),false,'speaking tab excludes writing workspace');
+    const speakingId=randomUUID();
+    await command(alice,cmd('CREATE',{workspaceId:speakingId,title:'Temporary speaking',prompt:'',kind:'SPEAKING'}),201);
+    await command(alice,cmd('SAVE_DRAFT',{workspaceId:speakingId,expectedVersion:0,draft:'Not here.'}),409);
     const draft=cmd('SAVE_DRAFT',{workspaceId,expectedVersion:0,draft:'I goed to the park.'});
     const saved=await command(alice,draft);assert.equal(saved.workspace.draft_version,1);
     assert.deepEqual(await command(alice,draft),saved);
@@ -81,6 +87,7 @@ test('LR1/LR2 routes preserve writing, video sources, lease timing and owner iso
     const imported=await(await api(alice,'/api/learning/videos',importBody)).json();
     assert.equal(imported.results.length,2);assert.ok(imported.results[1].error);
     const videoId=imported.results[0].workspace.id;
+    assert.equal(imported.results[0].workspace.kind,'LISTENING');
     assert.deepEqual(await(await api(alice,'/api/learning/videos',importBody)).json(),imported);
     const duplicate=await(await api(alice,'/api/learning/videos',{...importBody,requestId:randomUUID()})).json();
     assert.equal(duplicate.results[0].workspace.id,videoId);assert.equal(duplicate.results[0].duplicate,true);

@@ -30,6 +30,8 @@ Worker는 한 프로세스에서 소비자를 스레드로 실행한다.
 
 단위 테스트는 `scripts/test-unit.mjs`가 `tests/*.test.mjs`에서 인프라가 필요한 `*-integration`, `database-*`, `health` 테스트를 제외하고 실행한다. GitHub Actions(`.github/workflows/ci.yml`)는 웹 검사·빌드, Worker 단위 테스트, Supabase Local pgTAP와 DB 타입 일치를 확인한다. 실제 Auth/API 통합 테스트는 로컬에서 실행한다.
 
+학습실 공간은 `kind`(LISTENING·SPEAKING·WRITING)를 갖는다. 공개 명령 RPC가 영역별 허용 명령을 검사하고(`LEARNING_KIND`), 새 공간의 종류는 트랜잭션 설정 `paceon.workspace_kind`를 insert 트리거가 채운다.
+
 ## Phase 0 경계
 
 웹은 호스트에서 실행하는 Next.js App Router다. 한국어 Light UI, Pretendard 자체 호스팅 subset, Tailwind 의미 토큰과 shadcn의 `components.json`·`cn` 기반을 갖춘다. 시작 화면은 준비 상태를 표시한다. 앱 업무 화면이나 작동하지 않는 등록 버튼을 제공하지 않는다.
