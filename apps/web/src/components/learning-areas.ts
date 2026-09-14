@@ -11,7 +11,7 @@ export const learningAreas: readonly { kind: LearningKind; slug: LearningAreaSlu
 export const resolveLearningArea = (stored: string | null): LearningAreaSlug =>
   learningAreas.find(area => area.slug === stored)?.slug ?? 'listening';
 
-export const areaForKind = (kind: LearningKind) => learningAreas.find(area => area.kind === kind) ?? learningAreas[0];
+export const areaForKind = (kind: LearningKind) => learningAreas.find(area => area.kind === kind) ?? learningAreas[0]!;
 
 export const workspaceHref = (workspace: { id: string; kind: LearningKind }) =>
   workspace.kind === 'LISTENING' ? `/learn/items/${workspace.id}` : `/learn/${workspace.id}`;

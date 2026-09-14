@@ -1,4 +1,5 @@
-import { LearningHome } from '@/components/learning-home';
+import { LearnRedirect } from '@/components/learn-redirect';
+
 export default function Page() {
-  return <LearningHome />;
+  return <LearnRedirect />;
 }
