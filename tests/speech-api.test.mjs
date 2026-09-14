@@ -59,3 +59,9 @@ test('speech audio refuses foreign paths and hides storage/provider failures',as
  const fail=fixture(url=>url.pathname.endsWith('learning_speech_command')?Response.json({message:'LEARNING_LIMIT',detail:'private-provider-data'},{status:400}):null);
  const response=await fail.handlers.COMMAND(command({action:'DELETE',requestId:id,id}));assert.equal(response.status,429);assert.doesNotMatch(await response.text(),/private-provider/);
 });
+test('speech area violations map to a safe conflict',async()=>{
+ const {handlers}=fixture(parsed=>parsed.pathname.endsWith('learning_speech_command')?Response.json({message:'LEARNING_KIND',details:'secret'},{status:400}):null);
+ const response=await handlers.COMMAND(command({action:'PROMPT',requestId:id,id,workspaceId:id,level:'EASY',topic:''}));
+ assert.equal(response.status,409);
+ assert.deepEqual(await response.json(),{error:'이 영역에서는 사용할 수 없는 기능이에요.'});
+});

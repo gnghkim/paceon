@@ -1,3 +1,4 @@
+export type LearningKind = 'LISTENING' | 'SPEAKING' | 'WRITING';
 export interface LearningWorkspace {
   id: string;
   user_id: string;
@@ -5,6 +6,7 @@ export interface LearningWorkspace {
   prompt: string;
   draft: string;
   draft_version: number;
+  kind: LearningKind;
   created_at: string;
   updated_at: string;
 }

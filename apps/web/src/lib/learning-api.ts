@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { ApiError, createBookHandlers, json, readBody, type Config } from './books-api.ts';
-import { parseLearningCommand, publicLearningJob, type LearningCommand } from './learning.ts';
+import { parseLearningCommand, parseLearningListQuery, publicLearningJob, type LearningCommand } from './learning.ts';
 
 const errors: Record<string, [number, string]> = {
   LEARNING_NOT_FOUND:[404,'학습 기록을 찾을 수 없어요.'],
   LEARNING_CONFLICT:[409,'다른 기기에서 학습 중이거나 내용이 변경되었어요. 최신 상태를 확인해 주세요.'],
   LEARNING_INVALID:[400,'학습 내용과 요청 정보를 확인해 주세요.'],
   LEARNING_LIMIT:[429,'진행 중인 요청이나 사용 한도를 확인하고 잠시 후 다시 시도해 주세요.'],
+  LEARNING_KIND:[409,'이 영역에서는 사용할 수 없는 기능이에요.'],
 };
 export function createLearningHandlers(config: Config | undefined, aiEnabled = false, fetcher: typeof fetch = globalThis.fetch) {
   const authenticate = createBookHandlers(config, fetcher).authenticate;
@@ -51,16 +52,17 @@ export function createLearningHandlers(config: Config | undefined, aiEnabled = f
     async LIST(request:Request) {
       try {
         const auth = await authenticate(request);
-        const url=new URL(request.url);
-        const raw = url.searchParams.get('offset') ?? '0';
-        if(!/^\d+$/.test(raw) || Number(raw)>100000 || [...url.searchParams.keys()].some(k=>k!=='offset') || url.searchParams.getAll('offset').length>1) throw new ApiError(400,'목록 조회 범위를 확인해 주세요.');
-        const [workspaces,sessions] = await Promise.all([
-          rows(auth,'learning_workspaces',{order:'updated_at.desc,id.desc',offset:raw}),
-          rows(auth,'learning_sessions',{order:'updated_at.desc,id.desc',limit:'100'}),
+        const query = parseLearningListQuery(new URL(request.url).searchParams);
+        if(!query) throw new ApiError(400,'목록 조회 범위를 확인해 주세요.');
+        const [workspaces,sessionRows] = await Promise.all([
+          rows(auth,'learning_workspaces',{order:'updated_at.desc,id.desc',offset:query.offset,...(query.kind?{kind:`eq.${query.kind}`}:{})}),
+          rows(auth,'learning_sessions',{order:'updated_at.desc,id.desc',limit:'100',...(query.kind?{select:'*,learning_workspaces!inner(kind)','learning_workspaces.kind':`eq.${query.kind}`}:{})}),
         ]);
+        const sessions=sessionRows.map(row=>{const {learning_workspaces:joined,...session}=row;void joined;return session;});
         const page=workspaces.slice(0,100);
-        const videos=page.length?await rows(auth,'learning_videos',{select:'workspace_id,video_id,start_seconds,position_seconds,duration_seconds,favorite,archived,updated_at',workspace_id:`in.(${page.map(w=>w.id).join(',')})`,limit:'100'}):[];
-        return json({workspaces:page,sessions,videos,aiEnabled,nextOffset:workspaces.length>100?Number(raw)+100:null});
+        const withVideos=!query.kind||query.kind==='LISTENING';
+        const videos=withVideos&&page.length?await rows(auth,'learning_videos',{select:'workspace_id,video_id,start_seconds,position_seconds,duration_seconds,favorite,archived,updated_at',workspace_id:`in.(${page.map(w=>w.id).join(',')})`,limit:'100'}):[];
+        return json({workspaces:page,sessions,videos,aiEnabled,nextOffset:workspaces.length>100?Number(query.offset)+100:null});
       } catch(error) {return handle(error);}
     },
     async GET(request:Request,id:string) {

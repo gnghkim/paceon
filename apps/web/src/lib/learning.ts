@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export const learningKindSchema = z.enum(['LISTENING', 'SPEAKING', 'WRITING']);
+export type LearningKind = z.infer<typeof learningKindSchema>;
 const uuid = z.uuid();
 const base = { requestId: uuid };
 const workspace = { ...base, workspaceId: uuid };
@@ -9,7 +11,7 @@ const timezone = z.string().min(1).max(100).refine(value => {
   catch { return false; }
 });
 export const learningCommandSchema = z.discriminatedUnion('action', [
-  z.strictObject({ action:z.literal('CREATE'), ...workspace, title:z.string().trim().min(1).max(120), prompt:z.string().max(1000).default('') }),
+  z.strictObject({ action:z.literal('CREATE'), ...workspace, title:z.string().trim().min(1).max(120), prompt:z.string().max(1000).default(''), kind:z.enum(['SPEAKING','WRITING']) }),
   z.strictObject({ action:z.literal('SAVE_DRAFT'), ...workspace, expectedVersion:z.number().int().min(0), draft:z.string().max(8000) }),
   z.strictObject({ action:z.literal('START'), ...workspace, deviceId:uuid, timezone }),
   z.strictObject({ action:z.literal('TAKEOVER'), ...workspace, deviceId:uuid, timezone }),
@@ -43,4 +45,12 @@ export function publicLearningJob(row: Record<string, unknown>) {
     error_code:invalid ? 'INVALID_OUTPUT' : typeof row.error_code === 'string' ? (safeCodes.has(row.error_code) ? row.error_code : 'PROVIDER_ERROR') : null,
     created_at:row.created_at, updated_at:row.updated_at,
   };
+}
+
+export function parseLearningListQuery(params: URLSearchParams): { offset: string; kind: LearningKind | null } | null {
+  if ([...params.keys()].some(key => key !== 'offset' && key !== 'kind') || params.getAll('offset').length > 1 || params.getAll('kind').length > 1) return null;
+  const offset = params.get('offset') ?? '0', kind = params.get('kind');
+  if (!/^\d+$/.test(offset) || Number(offset) > 100000) return null;
+  if (kind !== null && !learningKindSchema.safeParse(kind).success) return null;
+  return { offset, kind: kind as LearningKind | null };
 }

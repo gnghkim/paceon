@@ -13,6 +13,7 @@ const messages:Record<string,[number,string]>={
   LEARNING_CONFLICT:[409,'다른 기기에서 수정했거나 학습 상태가 바뀌었어요. 최신 상태를 확인해 주세요.'],
   LEARNING_INVALID:[400,'영상 위치와 입력 내용을 확인해 주세요.'],
   LEARNING_LIMIT:[429,'저장 또는 요청 한도를 넘었어요. 입력 범위를 줄여 주세요.'],
+  LEARNING_KIND:[409,'이 영역에서는 사용할 수 없는 기능이에요.'],
 };
 export function createVideoHandlers(config:Config|undefined,fetcher:typeof fetch=globalThis.fetch) {
   const authenticate=createBookHandlers(config,fetcher).authenticate;

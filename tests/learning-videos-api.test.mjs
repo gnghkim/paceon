@@ -28,3 +28,8 @@ test('video API caps batch and source payloads and strips database failure detai
  assert.equal((await handler.COMMAND(req(source))).status,400);
  const res=await fixture('LEARNING_CONFLICT').handler.COMMAND(req({...source,contextEnd:5}));assert.equal(res.status,409);assert.equal(JSON.stringify(await res.json()).includes('secret'),false);
 });
+test('video area violations are reported per item without raw details',async()=>{
+ const {handler}=fixture('LEARNING_KIND');
+ const result=await (await handler.POST(req({requestId:id,items:[{url:'https://youtu.be/dQw4w9WgXcQ'}]}))).json();
+ assert.equal(result.results[0].error,'이 영역에서는 사용할 수 없는 기능이에요.');
+});

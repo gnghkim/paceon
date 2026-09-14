@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseLearningCommand, learningOutputSchema } from '../apps/web/src/lib/learning.ts';
+import { parseLearningCommand, learningOutputSchema, parseLearningListQuery } from '../apps/web/src/lib/learning.ts';
 import { createLearningHandlers } from '../apps/web/src/lib/learning-api.ts';
 const id = '12345678-1234-4234-9234-123456789abc';
 const other = '22345678-1234-4234-9234-123456789abc';
 const request = body => new Request('http://localhost/api/learning', { headers: { Authorization:'Bearer owner', 'Content-Type':'application/json' }, ...(body ? {method:'POST',body:JSON.stringify(body)} : {}) });
-const create = {action:'CREATE',requestId:id,workspaceId:id,title:'영어 한 문장',prompt:''};
+const create = {action:'CREATE',requestId:id,workspaceId:id,title:'영어 한 문장',prompt:'',kind:'WRITING'};
 const output = {summary:'문장을 정리했어요.',corrections:[],expressions:[],nextPrompt:'다음 문장을 써보세요.'};
 function fixture({enabled=true,missing=false,sqlError=null,jobOutput=output}={}) {
  const writes=[];
@@ -26,7 +26,7 @@ function fixture({enabled=true,missing=false,sqlError=null,jobOutput=output}={})
 }
 test('learning commands reject unknown fields, bad timezone, untrusted seconds and oversized drafts',()=>{
  assert.equal(parseLearningCommand(create).title,create.title);
- for(const c of [{...create,user_id:other},{...create,title:''},{action:'START',requestId:id,workspaceId:id,deviceId:id,timezone:'Fake/Zone'},{action:'HEARTBEAT',requestId:id,sessionId:id,deviceId:id,generation:1,activity:true,elapsed_seconds:500},{action:'SAVE_DRAFT',requestId:id,workspaceId:id,expectedVersion:0,draft:'x'.repeat(8001)}]) assert.throws(()=>parseLearningCommand(c));
+ for(const c of [{...create,user_id:other},{...create,title:''},{...create,kind:'LISTENING'},(({kind,...rest})=>rest)(create),{action:'START',requestId:id,workspaceId:id,deviceId:id,timezone:'Fake/Zone'},{action:'HEARTBEAT',requestId:id,sessionId:id,deviceId:id,generation:1,activity:true,elapsed_seconds:500},{action:'SAVE_DRAFT',requestId:id,workspaceId:id,expectedVersion:0,draft:'x'.repeat(8001)}]) assert.throws(()=>parseLearningCommand(c));
  assert.equal(learningOutputSchema.safeParse({...output,unknown:true}).success,false);
  const original='\n  I went home.  \n';
  assert.equal(parseLearningCommand({action:'MESSAGE',requestId:id,workspaceId:id,sessionId:id,deviceId:id,generation:1,content:original}).content,original);
@@ -54,9 +54,47 @@ test('AI off still permits draft/room writes and rejects AI commands before DB c
  assert.equal(writes.length,1);
 });
 test('database failures map to safe HTTP status without exposing raw details',async()=>{
- for(const [error,status] of [['LEARNING_CONFLICT',409],['LEARNING_NOT_FOUND',404],['LEARNING_INVALID',400],['LEARNING_LIMIT',429],['unrecognized internal secret',503]]) {
+ for(const [error,status] of [['LEARNING_CONFLICT',409],['LEARNING_NOT_FOUND',404],['LEARNING_INVALID',400],['LEARNING_LIMIT',429],['LEARNING_KIND',409],['unrecognized internal secret',503]]) {
   const response=await fixture({sqlError:error}).handlers.COMMAND(request(create));
   assert.equal(response.status,status);
   assert.equal(JSON.stringify(await response.json()).includes('private'),false);
  }
+});
+test('list query accepts one known kind and offset only',()=>{
+ const q=s=>parseLearningListQuery(new URLSearchParams(s));
+ assert.deepEqual(q(''),{offset:'0',kind:null});
+ assert.deepEqual(q('kind=SPEAKING&offset=100'),{offset:'100',kind:'SPEAKING'});
+ for(const bad of ['kind=READING','kind=writing','kind=WRITING&kind=SPEAKING','offset=1&offset=2','offset=-1','offset=100001','surprise=1']) assert.equal(q(bad),null,bad);
+});
+test('workspace list filters workspaces and sessions by kind without exposing the join',async()=>{
+ const urls=[];
+ const handlers=createLearningHandlers({url:'http://127.0.0.1:55321',key:'public'},true,async(url)=>{
+  const u=new URL(url);
+  if(u.pathname.endsWith('/auth/v1/user'))return Response.json({id});
+  urls.push(u);
+  if(u.pathname.endsWith('/learning_sessions'))return Response.json([{id:other,workspace_id:id,learning_workspaces:{kind:'WRITING'}}]);
+  if(u.pathname.endsWith('/learning_workspaces'))return Response.json([{id,kind:'WRITING'}]);
+  return Response.json([]);
+ });
+ const list=query=>handlers.LIST(new Request(`http://localhost/api/learning/workspaces${query}`,{headers:{Authorization:'Bearer owner'}}));
+ const body=await (await list('?kind=WRITING')).json();
+ assert.equal(urls.find(u=>u.pathname.endsWith('/learning_workspaces')).searchParams.get('kind'),'eq.WRITING');
+ const sessions=urls.find(u=>u.pathname.endsWith('/learning_sessions'));
+ assert.equal(sessions.searchParams.get('select'),'*,learning_workspaces!inner(kind)');
+ assert.equal(sessions.searchParams.get('learning_workspaces.kind'),'eq.WRITING');
+ assert.deepEqual(body.sessions,[{id:other,workspace_id:id}]);
+ assert.equal(urls.some(u=>u.pathname.endsWith('/learning_videos')),false,'writing list skips videos');
+ assert.equal((await list('?kind=READING')).status,400);
+ urls.length=0;
+ await list('');
+ assert.equal(urls.find(u=>u.pathname.endsWith('/learning_workspaces')).searchParams.has('kind'),false);
+ assert.equal(urls.some(u=>u.pathname.endsWith('/learning_videos')),true,'all-area list keeps videos for resume links');
+});
+test('workspace creation requires a speaking or writing kind',async()=>{
+ const {handlers,writes}=fixture();
+ const post=body=>handlers.POST(request(body));
+ assert.equal((await post({requestId:id,workspaceId:id,title:'x',prompt:''})).status,400);
+ assert.equal((await post({requestId:id,workspaceId:id,title:'x',prompt:'',kind:'LISTENING'})).status,400);
+ assert.equal((await post({requestId:id,workspaceId:id,title:'x',prompt:'',kind:'SPEAKING'})).status,201);
+ assert.equal(writes.at(-1).p_command.kind,'SPEAKING');
 });

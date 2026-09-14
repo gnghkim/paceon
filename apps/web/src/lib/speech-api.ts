@@ -19,6 +19,7 @@ const errorMessages: Record<string, [number, string]> = {
   LEARNING_CONFLICT: [409, '녹음 또는 학습 상태가 바뀌었어요. 최신 상태를 확인해 주세요.'],
   LEARNING_INVALID: [400, '녹음과 입력 내용을 확인해 주세요.'],
   LEARNING_LIMIT: [429, '음성 요청 한도에 도달했어요. 잠시 후 다시 시도해 주세요.'],
+  LEARNING_KIND: [409, '이 영역에서는 사용할 수 없는 기능이에요.'],
 };
 
 async function boundedBytes(body: ReadableStream<Uint8Array> | null): Promise<Uint8Array<ArrayBuffer>> {
