@@ -43,13 +43,13 @@ test('connect uses fixed redirect readonly PKCE and a single-use browser bound s
  assert.equal(url.searchParams.get('redirect_uri'),'http://localhost:3000/api/youtube/callback');assert.equal(url.searchParams.get('scope'),'https://www.googleapis.com/auth/youtube.readonly');assert.equal(url.searchParams.get('code_challenge_method'),'S256');
  const callback=`callback?state=${url.searchParams.get('state')}&code=code`;
  assert.match((await f.handlers.CALLBACK(req(callback,'GET','youtube_oauth=wrong'))).headers.get('location'),/failed/);
- assert.match((await f.handlers.CALLBACK(req(callback,'GET',cookie))).headers.get('location'),/connected/);
+ assert.match((await f.handlers.CALLBACK(req(callback,'GET',cookie))).headers.get('location'),/^http:\/\/localhost:3000\/settings\?youtube=connected$/);
  assert.match((await f.handlers.CALLBACK(req(callback,'GET',cookie))).headers.get('location'),/failed/);
  assert.equal(f.calls.filter(c=>c.url.pathname==='/token').length,1);
 });
 test('denial consumes state without exchanging; missing config is honest',async()=>{
  const f=fixture(),{url,cookie}=await connect(f);
- assert.match((await f.handlers.CALLBACK(req(`callback?state=${url.searchParams.get('state')}&error=access_denied`,'GET',cookie))).headers.get('location'),/denied/);
+ assert.match((await f.handlers.CALLBACK(req(`callback?state=${url.searchParams.get('state')}&error=access_denied`,'GET',cookie))).headers.get('location'),/\/settings\?youtube=denied$/);
  assert.equal(f.calls.some(c=>c.url.pathname==='/token'),false);
  assert.equal((await createYouTubeHandlers(undefined).CONNECT(req('connect','POST'))).status,503);
 });

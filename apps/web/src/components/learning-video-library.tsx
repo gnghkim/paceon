@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
+import { YouTubeImport } from './youtube-import';
 import { learningDuration, type LearningList, type LearningWorkspace } from './learning-types';
 
 type ImportResult = { index: number; workspace?: LearningWorkspace; duplicate?: boolean; error?: string };
@@ -39,6 +40,7 @@ export function LearningVideoLibrary({ data, reload }: { data: LearningList | nu
       {lines.length > 20 && <p role="alert" className="text-sm text-danger">한 번에 20개까지 저장할 수 있어요.</p>}
       <ul aria-live="polite" className="space-y-2 text-sm">{results.map((r) => <li key={r.index}>{r.index + 1}. {r.workspace ? <Link className="text-primary underline" href={`/learn/items/${r.workspace.id}`}>{r.duplicate ? '이미 저장된 영상 열기' : '저장 완료'} · {r.workspace.title}</Link> : <span className="text-danger">{r.error ?? '저장 실패'}</span>}</li>)}</ul>
       {results.some((r) => r.error) && <Button variant="outline" onClick={() => { setUrls(results.filter((r) => r.error).map((r) => submitted[r.index]).filter(Boolean).join('\n')); setResults([]); request.current = null; }}>실패한 링크만 다시 입력</Button>}
+      <YouTubeImport onSaved={() => void reload()} />
     </div>
     <div className="flex flex-wrap gap-4 text-sm"><label><input type="checkbox" checked={favorites} onChange={(e) => setFavorites(e.target.checked)} /> 즐겨찾기만</label><label><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> 보관한 영상 포함</label></div>
     <div className="grid gap-3 sm:grid-cols-2">{videos.map((v) => <Link key={v.workspace_id} href={`/learn/items/${v.workspace_id}`} className="min-w-0 space-y-2 rounded-xl border border-border bg-card p-5 hover:border-primary">

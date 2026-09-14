@@ -10,6 +10,7 @@ import {
   LogOut,
   Plus,
   PencilLine,
+  Settings,
   Sun,
   MessageSquare,
 } from 'lucide-react';
@@ -120,7 +121,9 @@ function AppShellContent({ children }: { children: ReactNode }) {
   const title =
     pathname === '/resources/new'
       ? '학습 자료 추가'
-      : (navigation.find((item) => active(item.href))?.label ?? '서재');
+      : pathname === '/settings'
+        ? '설정'
+        : (navigation.find((item) => active(item.href))?.label ?? '서재');
 
   return (
     <div className="min-h-dvh bg-background">
@@ -195,6 +198,11 @@ function AppShellContent({ children }: { children: ReactNode }) {
               <Link href="/resources/new">
                 <Plus aria-hidden="true" />
                 자료 추가
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="icon" aria-label="설정">
+              <Link href="/settings" aria-current={pathname === '/settings' ? 'page' : undefined}>
+                <Settings aria-hidden="true" />
               </Link>
             </Button>
             <Button

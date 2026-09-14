@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, PencilLine } from 'lucide-react';
 import { LearningVideoLibrary } from './learning-video-library';
-import { YouTubeAccount } from './youtube-account';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { learningDuration, type LearningList } from './learning-types';
@@ -121,7 +120,6 @@ export function LearningHome() {
         </section>
       )}
       <LearningVideoLibrary data={data} reload={reload} />
-      <YouTubeAccount onSaved={() => void reload()} />
       <section className="rounded-2xl border border-border bg-primary-soft p-6 sm:p-8">
         <PencilLine className="mb-4 text-primary" aria-hidden="true" />
         <h2 className="text-xl font-semibold">영어로 한 문장 써 볼까요?</h2>

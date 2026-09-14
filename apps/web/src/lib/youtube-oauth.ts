@@ -119,7 +119,7 @@ export function createYouTubeHandlers(config: Config | undefined, fetcher: typeo
     }
     return result.json();
   }
-  const redirect = (status: string) => new Response(null, { status: 303, headers: { Location: `${config?.appUrl ?? ''}/learn?youtube=${status}`, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'Set-Cookie': `youtube_oauth=; Path=/api/youtube/callback; HttpOnly; SameSite=Lax; Max-Age=0${config?.appUrl.startsWith('https:') ? '; Secure' : ''}` } });
+  const redirect = (status: string) => new Response(null, { status: 303, headers: { Location: `${config?.appUrl ?? ''}/settings?youtube=${status}`, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'Set-Cookie': `youtube_oauth=; Path=/api/youtube/callback; HttpOnly; SameSite=Lax; Max-Age=0${config?.appUrl.startsWith('https:') ? '; Secure' : ''}` } });
   return {
     async STATUS(request: Request) {
       try {
