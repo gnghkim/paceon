@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
+import { mergeYouTubeLibraryItems, type YouTubeLibraryItem } from '@/lib/youtube-library';
 
-type Item = { id: string; title: string; kind: 'playlist' | 'channel' | 'video' };
+type Item = YouTubeLibraryItem;
 type Status = { configured: boolean; connected: boolean; channel?: { id: string; title: string; thumbnail?: string }; error?: string };
 type Page = { items: Item[]; nextPageToken?: string };
 const button = 'rounded-md border px-3 py-2 text-sm disabled:opacity-50';
@@ -39,7 +40,7 @@ export function YouTubeAccount({ onSaved }: { onSaved?: () => void }) {
     const requestGeneration = ++generation.current;
     const page = await api<Page>(`/api/youtube/library?${value}${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`);
     if (generation.current !== requestGeneration) return;
-    setItems(previous => pageToken ? [...previous, ...page.items].filter((item, index, all) => all.findIndex(other => other.id === item.id) === index) : page.items);
+    setItems(previous => mergeYouTubeLibraryItems(pageToken ? previous : [], page.items));
     setQuery(value); setNext(page.nextPageToken);
     if (!pageToken) setSelected([]);
   }
@@ -66,9 +67,9 @@ export function YouTubeAccount({ onSaved }: { onSaved?: () => void }) {
       </div>
       {query && items.length === 0 && !busy && <p className="text-sm">조회 가능한 항목이 없습니다.</p>}
       <ul className="max-h-80 space-y-2 overflow-auto">
-        {items.map(item => <li key={item.id}>
+        {items.map(item => <li key={`${item.kind}:${item.id}`}>
           {item.kind === 'video' ? <label className="flex items-start gap-2 rounded border p-2 text-sm">
-            <input type="checkbox" checked={selected.includes(item.id)} disabled={busy || (!selected.includes(item.id) && selected.length >= 20)} onChange={event => setSelected(previous => event.target.checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} />
+            <input type="checkbox" checked={selected.includes(item.id)} disabled={busy || (!selected.includes(item.id) && selected.length >= 20)} onChange={event => setSelected(previous => event.target.checked ? [...new Set([...previous, item.id])] : previous.filter(id => id !== item.id))} />
             <span>{item.title}</span>
           </label> : <button className={`${button} w-full text-left`} disabled={busy} onClick={() => void run(() => load(`kind=videos&${item.kind === 'playlist' ? 'playlistId' : 'channelId'}=${encodeURIComponent(item.id)}`))}>{item.title} →</button>}
         </li>)}
