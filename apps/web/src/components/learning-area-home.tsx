@@ -68,6 +68,9 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
         </div>
       )}
       {kind === 'LISTENING' && <LearningVideoLibrary data={data} reload={reload} />}
+      {kind === 'LISTENING' && data?.nextOffset != null && (
+        <Button variant="outline" disabled={busy} onClick={() => void more()}>영상 더 보기</Button>
+      )}
       {creator && kind !== 'LISTENING' && (
         <section className="rounded-2xl border border-border bg-primary-soft p-6 sm:p-8">
           <creator.icon className="mb-4 text-primary" aria-hidden="true" />
