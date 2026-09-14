@@ -32,10 +32,12 @@ test('only the owning device counts provisional seconds, capped at the heartbeat
 });
 
 test('timer label prefers lock and pending end over session state', () => {
- const base = { locked: false, pendingEnd: false, current: session(), stale: false, hasVideo: false };
+ const base = { locked: false, pendingEnd: false, current: session(), stale: false, kind: 'WRITING' };
  assert.equal(timerStatusLabel({ ...base, locked: true, pendingEnd: true }), '다른 기기에서 학습 중');
  assert.equal(timerStatusLabel({ ...base, pendingEnd: true }), '종료 동기화 대기');
- assert.equal(timerStatusLabel({ ...base, current: null, hasVideo: true }), '재생하거나 글을 쓰면 시작돼요');
+ assert.equal(timerStatusLabel({ ...base, current: null, kind: 'LISTENING' }), '재생하거나 글을 쓰면 시작돼요');
+ assert.equal(timerStatusLabel({ ...base, current: null, kind: 'SPEAKING' }), '녹음하거나 음성을 들으면 시작돼요');
+ assert.equal(timerStatusLabel({ ...base, current: null }), '글을 쓰면 시작돼요');
  assert.equal(timerStatusLabel({ ...base, stale: true }), '일시 정지');
  assert.equal(timerStatusLabel({ ...base, current: session({ status: 'ENDED' }) }), '학습 종료 · 기록됨');
  assert.equal(timerStatusLabel(base), '학습 중 · 시간 동기화 중');

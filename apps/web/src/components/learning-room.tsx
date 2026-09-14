@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { SpeechPanel } from './speech-panel';
 import { LearningJobCard } from './learning-job';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -10,6 +11,8 @@ import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { DraftRecovery, SessionHistory } from './learning-room-sections';
 import { mergeLearningPages, sessionTiming, timerStatusLabel } from './learning-room-view';
+import { areaForKind, learningRoomFeatures, workspaceHref } from './learning-areas';
+import { LegacySpeechRecords } from './legacy-speech-records';
 import {
   learningDuration,
   type LearningSnapshot,
@@ -31,6 +34,8 @@ class LearningError extends Error {
 
 export function LearningRoom({ id }: { id: string }) {
   const { apiFetch, session: auth } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
   const [data, setData] = useState<LearningSnapshot | null>(null);
   const [history, setHistory] = useState<LearningSnapshot[]>([]);
   const [draft, setDraft] = useState('');
@@ -584,6 +589,10 @@ export function LearningRoom({ id }: { id: string }) {
     setSaveStatus('저장 대기');
     await flush();
   }
+  const canonical = data ? workspaceHref(data.workspace) : null;
+  useEffect(() => {
+    if (canonical && pathname !== canonical) router.replace(canonical);
+  }, [canonical, pathname, router]);
   if (!data)
     return (
       <div className="space-y-4">
@@ -600,6 +609,8 @@ export function LearningRoom({ id }: { id: string }) {
         )}
       </div>
     );
+  const features = learningRoomFeatures(data.workspace.kind);
+  const area = areaForKind(data.workspace.kind);
   const { provisional, stale } = sessionTiming(current, view, now);
   const inflight = data.jobs.some(
     (j) =>
@@ -611,11 +622,11 @@ export function LearningRoom({ id }: { id: string }) {
     <div className="mx-auto max-w-3xl space-y-6">
       <header>
         <Link
-          href="/learn"
+          href={`/learn/${area.slug}`}
           className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground"
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          학습실
+          {area.label}
         </Link>
         <h1 className="text-2xl font-semibold">{data.workspace.title}</h1>
       </header>
@@ -635,7 +646,7 @@ export function LearningRoom({ id }: { id: string }) {
                 pendingEnd: view.pendingEnd,
                 current,
                 stale,
-                hasVideo: !!data.video,
+                kind: data.workspace.kind,
               })}
             </p>
           </div>
@@ -739,14 +750,16 @@ export function LearningRoom({ id }: { id: string }) {
           </Button>
         </div>
       )}
-      {data.video && <LearningVideoPanel
+      {features.video && data.video && <LearningVideoPanel
         video={data.video} title={data.workspace.title}
         notes={videoNotes}
         visits={videoVisits}
         stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'}
         stopToken={stopToken} stopPlaybackRef={stopPlaybackRef} onObservation={observeVideo} activity={activity} reload={reload}
       />}
-      <SpeechPanel workspaceId={id} ownerId={auth!.user.id} stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'} stopToken={stopToken} stopSpeechRef={stopSpeechRef} onMedia={observeSpeech} stopVideo={async () => { await stopPlaybackRef.current?.(); }} />
+      {features.speech && <SpeechPanel workspaceId={id} ownerId={auth!.user.id} stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'} stopToken={stopToken} stopSpeechRef={stopSpeechRef} onMedia={observeSpeech} stopVideo={async () => { await stopPlaybackRef.current?.(); }} writingLink={features.writing} />}
+      {features.legacySpeech && <LegacySpeechRecords workspaceId={id} />}
+      {features.writing && (<>
       {recovery && (
         <DraftRecovery
           localText={recovery.text}
@@ -913,8 +926,9 @@ export function LearningRoom({ id }: { id: string }) {
             이전 기록 더 보기
           </Button>
         )}
-        <SessionHistory sessions={sessions} />
       </section>
+      </>)}
+      <SessionHistory sessions={sessions} />
     </div>
   );
 }

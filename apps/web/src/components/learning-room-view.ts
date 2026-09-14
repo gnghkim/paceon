@@ -1,4 +1,4 @@
-import type { LearningSession, LearningSnapshot } from './learning-types';
+import type { LearningKind, LearningSession, LearningSnapshot } from './learning-types';
 
 const IDLE_MS = 60_000;
 
@@ -33,12 +33,18 @@ export function sessionTiming(current: LearningSession | null, view: TimerView, 
   };
 }
 
-export function timerStatusLabel({ locked, pendingEnd, current, stale, hasVideo }: {
-  locked: boolean; pendingEnd: boolean; current: LearningSession | null; stale: boolean; hasVideo: boolean;
+const startHints: Record<LearningKind, string> = {
+  LISTENING: '재생하거나 글을 쓰면 시작돼요',
+  SPEAKING: '녹음하거나 음성을 들으면 시작돼요',
+  WRITING: '글을 쓰면 시작돼요',
+};
+
+export function timerStatusLabel({ locked, pendingEnd, current, stale, kind }: {
+  locked: boolean; pendingEnd: boolean; current: LearningSession | null; stale: boolean; kind: LearningKind;
 }) {
   if (locked) return '다른 기기에서 학습 중';
   if (pendingEnd) return '종료 동기화 대기';
-  if (!current) return hasVideo ? '재생하거나 글을 쓰면 시작돼요' : '글을 쓰면 시작돼요';
+  if (!current) return startHints[kind];
   if (current.status === 'ENDED') return '학습 종료 · 기록됨';
   if (current.status === 'PAUSED' || stale) return '일시 정지';
   return '학습 중 · 시간 동기화 중';
