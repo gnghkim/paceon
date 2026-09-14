@@ -4,7 +4,7 @@ set search_path=public,extensions;
 select no_plan();
 select has_column('public','learning_workspaces','kind','Workspace kind exists');
 select col_not_null('public','learning_workspaces','kind','Workspace kind is required');
-insert into auth.users(id,email) values('30000000-0000-4000-8000-000000000001','kind-owner@paceon.example');
+insert into auth.users(id,email) values('30000000-0000-4000-8000-000000000001','kind-owner@paceon.example'),('30000000-0000-4000-8000-000000000002','kind-owner2@paceon.example');
 insert into learning_workspaces(id,user_id,title,kind,draft) values
 ('31000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','Video','LISTENING',''),
 ('31000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000001','Mixed','WRITING',''),
@@ -18,6 +18,8 @@ insert into learning_speech(id,user_id,workspace_id,kind,status,storage_path) va
 ('32000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','31000000-0000-4000-8000-000000000002','RECORDING','READY','30000000-0000-4000-8000-000000000001/32000000-0000-4000-8000-000000000001/recording'),
 ('32000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000001','31000000-0000-4000-8000-000000000004','RECORDING','READY','30000000-0000-4000-8000-000000000001/32000000-0000-4000-8000-000000000002/recording');
 insert into learning_ai_jobs(id,user_id,workspace_id,kind,status,input,attempts) values('36000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','31000000-0000-4000-8000-000000000006','WRITING_REPLY','FAILED','{}',1);
+-- Mirrors the SPEAKING job fixture above for a WRITING workspace that already has a USER message, so a RETRY that passes the kind check also passes the core's own admission checks.
+insert into learning_ai_jobs(id,user_id,workspace_id,kind,status,input,attempts) values('36000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000001','31000000-0000-4000-8000-000000000002','WRITING_REPLY','FAILED','{}',1);
 select is(learning_private.classify_workspace_kind(w),'LISTENING','Video workspace is listening') from learning_workspaces w where id='31000000-0000-4000-8000-000000000001';
 select is(learning_private.classify_workspace_kind(w),'WRITING','Messages win over speech records') from learning_workspaces w where id='31000000-0000-4000-8000-000000000002';
 select is(learning_private.classify_workspace_kind(w),'WRITING','A non-empty draft is writing') from learning_workspaces w where id='31000000-0000-4000-8000-000000000003';
@@ -42,6 +44,9 @@ select throws_ok($$select learning_command('{"action":"SAVE_DRAFT","requestId":"
 select lives_ok($$select learning_command('{"action":"SAVE_DRAFT","requestId":"33000000-0000-4000-8000-000000000011","workspaceId":"34000000-0000-4000-8000-000000000003","expectedVersion":0,"draft":"x"}')$$,'Writing accepts drafts');
 select lives_ok($$select learning_command('{"action":"SAVE_DRAFT","requestId":"33000000-0000-4000-8000-000000000012","workspaceId":"34000000-0000-4000-8000-000000000004","expectedVersion":0,"draft":"x"}')$$,'Listening accepts drafts');
 select throws_ok($$select learning_command('{"action":"RETRY","requestId":"33000000-0000-4000-8000-000000000013","jobId":"36000000-0000-4000-8000-000000000001"}')$$,'P0001','LEARNING_KIND','Speaking rejects writing job retry');
+select throws_ok($$select learning_command('{"action":"MESSAGE","requestId":"33000000-0000-4000-8000-000000000014","workspaceId":"34000000-0000-4000-8000-000000000002"}')$$,'P0001','LEARNING_KIND','Speaking rejects messages');
+select throws_ok($$select learning_command('{"action":"SUMMARY","requestId":"33000000-0000-4000-8000-000000000015","workspaceId":"34000000-0000-4000-8000-000000000002"}')$$,'P0001','LEARNING_KIND','Speaking rejects summaries');
+select lives_ok($$select learning_command('{"action":"RETRY","requestId":"33000000-0000-4000-8000-000000000016","jobId":"36000000-0000-4000-8000-000000000002"}')$$,'Writing accepts writing job retry');
 -- Speech commands
 select throws_ok($$select learning_speech_command('{"action":"PROMPT","requestId":"33000000-0000-4000-8000-000000000020","id":"37000000-0000-4000-8000-000000000001","workspaceId":"34000000-0000-4000-8000-000000000003","level":"EASY","topic":""}')$$,'P0001','LEARNING_KIND','Writing rejects new prompts');
 select lives_ok($$select learning_speech_command('{"action":"PROMPT","requestId":"33000000-0000-4000-8000-000000000021","id":"37000000-0000-4000-8000-000000000002","workspaceId":"34000000-0000-4000-8000-000000000002","level":"EASY","topic":""}')$$,'Speaking accepts prompts');
@@ -54,8 +59,23 @@ select lives_ok($$select learning_speech_command('{"action":"DELETE_AUDIO","requ
 select lives_ok($$select learning_speech_command('{"action":"DELETE","requestId":"33000000-0000-4000-8000-000000000026","id":"32000000-0000-4000-8000-000000000002"}')$$,'Speech records in any workspace can be deleted');
 insert into kind_fixture select 'writing_session',learning_command('{"action":"START","requestId":"33000000-0000-4000-8000-000000000030","workspaceId":"34000000-0000-4000-8000-000000000003","deviceId":"35000000-0000-4000-8000-000000000001","timezone":"UTC"}');
 select throws_ok(format($$select learning_speech_command('{"action":"SPEECH_TICK","requestId":"33000000-0000-4000-8000-000000000031","sessionId":"%s","deviceId":"35000000-0000-4000-8000-000000000001","generation":1,"playing":true}')$$,(select v->'session'->>'id' from kind_fixture where k='writing_session')),'P0001','LEARNING_KIND','Writing rejects speech ticks');
+select throws_ok(format($$select learning_video_command('{"action":"VIDEO_TICK","requestId":"33000000-0000-4000-8000-000000000032","sessionId":"%s","deviceId":"35000000-0000-4000-8000-000000000001","generation":1,"positionSeconds":0,"durationSeconds":10,"playing":true,"rate":1}')$$,(select v->'session'->>'id' from kind_fixture where k='writing_session')),'P0001','LEARNING_KIND','Writing session rejects video ticks by sessionId');
 -- Video commands
 select throws_ok($$select learning_video_command('{"action":"VIDEO_NOTE","requestId":"33000000-0000-4000-8000-000000000040","workspaceId":"34000000-0000-4000-8000-000000000003"}')$$,'P0001','LEARNING_KIND','Writing rejects video commands');
+select throws_ok($$select learning_video_command('{"action":"VIDEO_NOTE","requestId":"33000000-0000-4000-8000-000000000041","workspaceId":"34000000-0000-4000-8000-000000000002"}')$$,'P0001','LEARNING_KIND','Speaking rejects video commands');
+-- A second user isolates the sessionId-resolved kind checks (VIDEO_TICK/SPEECH_TICK) for SPEAKING and LISTENING from the first user's live WRITING session (only one ACTIVE session per user).
+select set_config('request.jwt.claim.sub','30000000-0000-4000-8000-000000000002',true);
+select is(learning_command('{"action":"CREATE","requestId":"33000000-0000-4000-8000-000000000050","workspaceId":"34000000-0000-4000-8000-000000000005","title":"Speak2","prompt":"","kind":"SPEAKING"}')->'workspace'->>'kind','SPEAKING','Second user creates a speaking workspace');
+insert into kind_fixture select 'speaking_session2',learning_command('{"action":"START","requestId":"33000000-0000-4000-8000-000000000051","workspaceId":"34000000-0000-4000-8000-000000000005","deviceId":"35000000-0000-4000-8000-000000000002","timezone":"UTC"}');
+select throws_ok(format($$select learning_video_command('{"action":"VIDEO_TICK","requestId":"33000000-0000-4000-8000-000000000052","sessionId":"%s","deviceId":"35000000-0000-4000-8000-000000000002","generation":1,"positionSeconds":0,"durationSeconds":10,"playing":true,"rate":1}')$$,(select v->'session'->>'id' from kind_fixture where k='speaking_session2')),'P0001','LEARNING_KIND','Speaking session rejects video ticks by sessionId');
+select lives_ok(format($$select learning_speech_command('{"action":"SPEECH_TICK","requestId":"33000000-0000-4000-8000-000000000053","sessionId":"%s","deviceId":"35000000-0000-4000-8000-000000000002","generation":1,"playing":true}')$$,(select v->'session'->>'id' from kind_fixture where k='speaking_session2')),'Speaking session accepts speech ticks');
+select learning_command(jsonb_build_object('action','END','requestId',gen_random_uuid(),'sessionId',(select v->'session'->>'id' from kind_fixture where k='speaking_session2'),'deviceId','35000000-0000-4000-8000-000000000002','generation',1,'activity',true));
+select is(learning_video_command('{"action":"VIDEO_ADD","requestId":"33000000-0000-4000-8000-000000000055","workspaceId":"34000000-0000-4000-8000-000000000006","videoId":"abcdefghijk","startSeconds":0,"title":"Clip2"}')->'workspace'->>'kind','LISTENING','Second user creates a listening workspace');
+-- The second user's in-flight AI/speech job quota is still empty here, unlike the first user's by this point in the file.
+select lives_ok($$select learning_speech_command('{"action":"PROMPT","requestId":"33000000-0000-4000-8000-000000000058","id":"37000000-0000-4000-8000-000000000005","workspaceId":"34000000-0000-4000-8000-000000000006","level":"EASY","topic":""}')$$,'Listening accepts prompts');
+select lives_ok($$select begin_speech_upload('37000000-0000-4000-8000-000000000006','34000000-0000-4000-8000-000000000006',null,'','audio/webm',100,repeat('a',64))$$,'Listening accepts uploads');
+insert into kind_fixture select 'listening_session2',learning_command('{"action":"START","requestId":"33000000-0000-4000-8000-000000000056","workspaceId":"34000000-0000-4000-8000-000000000006","deviceId":"35000000-0000-4000-8000-000000000002","timezone":"UTC"}');
+select lives_ok(format($$select learning_speech_command('{"action":"SPEECH_TICK","requestId":"33000000-0000-4000-8000-000000000057","sessionId":"%s","deviceId":"35000000-0000-4000-8000-000000000002","generation":1,"playing":true}')$$,(select v->'session'->>'id' from kind_fixture where k='listening_session2')),'Listening session accepts speech ticks');
 reset role;
 -- Immutability
 select throws_ok($$update learning_workspaces set kind='SPEAKING' where id='34000000-0000-4000-8000-000000000003'$$,'P0001','LEARNING_KIND','Kind cannot change');

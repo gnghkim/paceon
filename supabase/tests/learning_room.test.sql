@@ -13,7 +13,7 @@ insert into lr_fixture values('create','{"action":"CREATE","requestId":"18000000
 insert into lr_fixture select 'workspace',learning_command(v) from lr_fixture where k='create';
 select is(learning_command((select v from lr_fixture where k='create')),(select v from lr_fixture where k='workspace'),'Identical command replay returns original result');
 select throws_ok($$select learning_command((select v||'{"title":"changed"}' from lr_fixture where k='create'))$$,'P0001','LEARNING_CONFLICT','Reused request with changed payload conflicts');
-select throws_ok($$select learning_command('{"action":"CREATE","requestId":"invalid","workspaceId":"28000000-0000-4000-8000-000000000001","title":"x","prompt":""}')$$,'P0001','LEARNING_INVALID','Malformed UUID gets safe error');
+select throws_ok($$select learning_command('{"action":"CREATE","requestId":"invalid","workspaceId":"28000000-0000-4000-8000-000000000001","title":"x","prompt":"","kind":"WRITING"}')$$,'P0001','LEARNING_INVALID','Malformed UUID gets safe error');
 select throws_ok($$select learning_command((select v||'{"extra":true}' from lr_fixture where k='create'))$$,'P0001','LEARNING_INVALID','Unknown fields rejected directly at RPC');
 select throws_ok($$select learning_command((select v||'{"prompt":null}' from lr_fixture where k='create'))$$,'P0001','LEARNING_INVALID','Null string rejected');
 select lives_ok($$select learning_command('{"action":"SAVE_DRAFT","requestId":"18000000-0000-4000-8000-000000000004","workspaceId":"28000000-0000-4000-8000-000000000001","expectedVersion":0,"draft":"I went home."}')$$,'Draft CAS succeeds');
