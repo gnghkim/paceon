@@ -1322,6 +1322,13 @@ export type Database = {
         Returns: boolean
       }
       learning_command: { Args: { p_command: Json }; Returns: Json }
+      learning_daily_minutes: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          minutes: number
+          study_date: string
+        }[]
+      }
       learning_speech_command: { Args: { p_command: Json }; Returns: Json }
       learning_video_command: { Args: { p_command: Json }; Returns: Json }
       queue_pdf_import: { Args: { p_id: string }; Returns: Json }
