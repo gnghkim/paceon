@@ -158,4 +158,11 @@ route group `app/(workspace)/learn/(areas)`에 공통 레이아웃을 둔다.
 
 - migration 적용 후에는 `kind` 없는 `CREATE`가 실패하므로 DB와 웹을 함께 배포한다. 개인용 로컬 환경이라 전환용 호환 코드는 두지 않는다.
 - 적용 전 백업: `supabase db dump --local --data-only`.
-- 되돌리기: `kind` 컬럼 제거 migration과 이전 웹 코드. 기록 데이터는 삭제하지 않으므로 손실이 없다.
+- 되돌리기: 되돌리기 migration은 다음을 수행해야 한다.
+  - 트리거 `learning_workspaces_kind_immutable`, `learning_workspaces_kind_default` 삭제.
+  - `public` 래퍼 함수 네 개(`learning_command`·`learning_speech_command`·`begin_speech_upload`·`learning_video_command`) 삭제.
+  - 코어 함수를 `learning_private`에서 `public`으로 되돌려 원래 이름으로 바꾼다: `learning_command_admission`→`learning_command`, `speech_retention_command`→`learning_speech_command`, `begin_speech_upload_core`→`begin_speech_upload`, `learning_video_command_core`→`learning_video_command`. 각 함수에 `authenticated` 실행 권한을 복원한다.
+  - `learning_private.require_workspace_kind`, `workspace_kind_default`, `workspace_kind_immutable`, `classify_workspace_kind` 삭제.
+  - 인덱스 `learning_workspaces_kind_recent`, `kind` check 제약, `kind` 컬럼 삭제.
+  - 이전 웹 코드를 배포한다.
+  - 기록 데이터는 삭제하지 않으므로 손실이 없다.
