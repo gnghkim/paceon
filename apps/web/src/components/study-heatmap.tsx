@@ -1,14 +1,9 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import type { HeatmapDay } from '@/lib/study-heatmap';
+import { heatmapWeeks, type HeatmapDay } from '@/lib/study-heatmap';
 
 const LEVEL_CLASS = ['bg-muted', 'bg-primary/25', 'bg-primary/50', 'bg-primary/75', 'bg-primary'] as const;
 const WEEKDAY_LABEL = ['월', '', '수', '', '금', '', ''] as const;
-
-function mondayIndex(date: string): number {
-  // 0=월..6=일. 날짜 문자열을 UTC 자정으로 해석해 요일만 뽑아낸다(시간대 변환 없음).
-  return (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
-}
 
 export function StudyHeatmap({ days, weeks, onSelectDay }: {
   days: readonly HeatmapDay[];
@@ -22,27 +17,25 @@ export function StudyHeatmap({ days, weeks, onSelectDay }: {
     if (el) el.scrollLeft = el.scrollWidth;
   }, [visible.length]);
   if (!visible.length) return null;
-  const leadingBlanks = mondayIndex(visible[0]!.date);
-  const cells: (HeatmapDay | null)[] = [...Array.from({ length: leadingBlanks }, () => null), ...visible];
-  const weekCount = Math.ceil(cells.length / 7);
-  const columns: (HeatmapDay | null)[][] = Array.from({ length: weekCount }, (_, week) => cells.slice(week * 7, week * 7 + 7));
-  const monthLabel = (column: (HeatmapDay | null)[]) => {
-    const firstOfMonth = column.find((day): day is HeatmapDay => day !== null && Number(day.date.slice(8, 10)) <= 7);
-    return firstOfMonth ? `${Number(firstOfMonth.date.slice(5, 7))}월` : '';
-  };
+  const columns = heatmapWeeks(visible);
 
   return (
     <div className="space-y-2">
-      <div ref={scrollRef} className="flex gap-1 overflow-x-auto pb-1">
+      <div className="flex gap-1">
+        {/* Weekday labels stay outside the scroller so they remain visible at the "today" end. */}
         <div className="grid shrink-0 grid-rows-7 gap-1 pt-4 text-[10px] text-muted-foreground">
           {WEEKDAY_LABEL.map((label, row) => <span key={row} className="flex h-3 items-center">{label}</span>)}
         </div>
-        <div className="grid grid-flow-col gap-1">
+        <div ref={scrollRef} className="min-w-0 overflow-x-auto pb-1">
+          <div className="grid w-max grid-flow-col gap-1">
           {columns.map((column, weekIndex) => (
-            <div key={weekIndex} className="space-y-1">
-              <div className="h-3 text-[10px] text-muted-foreground">{monthLabel(column)}</div>
+            <div key={weekIndex} className="w-3 space-y-1">
+              {/* The label overflows to the right so a wide month name never widens its week column. */}
+              <div className="relative h-3 text-[10px] text-muted-foreground">
+                <span className="absolute left-0 top-0 whitespace-nowrap leading-3">{column.label}</span>
+              </div>
               <div className="grid grid-rows-7 gap-1">
-                {column.map((cell, row) =>
+                {column.cells.map((cell, row) =>
                   cell ? (
                     onSelectDay ? (
                       <button
@@ -68,6 +61,7 @@ export function StudyHeatmap({ days, weeks, onSelectDay }: {
               </div>
             </div>
           ))}
+          </div>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

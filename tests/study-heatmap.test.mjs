@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { heatmapLevel, buildHeatmap, computeStreak, formatStudyDuration } from '../apps/web/src/lib/study-heatmap.ts';
+import { heatmapLevel, buildHeatmap, computeStreak, formatStudyDuration, heatmapWeeks } from '../apps/web/src/lib/study-heatmap.ts';
 
 const day = (date, learningMinutes, recordedMinutes = 0, untimedEvents = 0) => ({
   date, learningMinutes, recordedMinutes, untimedEvents,
@@ -31,6 +31,29 @@ test('streak counts backward from today, or from yesterday when today has no rec
   assert.deepEqual(computeStreak(days, '2026-09-13'), { current: 2, longest: 2, asOf: '2026-09-13' });
   assert.deepEqual(computeStreak(days.slice(0, 4), '2026-09-13'), { current: 1, longest: 2, asOf: '2026-09-12' });
   assert.deepEqual(computeStreak([], '2026-09-13'), { current: 0, longest: 0, asOf: '2026-09-12' });
+});
+test('heatmapWeeks pads to Monday-start weeks and labels each month once, on the week holding its 1st', () => {
+  const span = (from, count) => Array.from({ length: count }, (_, i) => {
+    const date = new Date(`${from}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + i);
+    return { date: date.toISOString().slice(0, 10), minutes: 0, level: 0 };
+  });
+  // 2026-09-28 is a Monday; Oct 1 falls in the first week and Oct 5-7 in the second.
+  const aligned = heatmapWeeks(span('2026-09-28', 21));
+  assert.deepEqual(aligned.map(w => w.label), ['10월', '', '']);
+  assert.equal(aligned[0].cells[0].date, '2026-09-28');
+  // 2026-10-02 is a Friday: four leading blanks, no 1st anywhere, so the first week takes its month.
+  const padded = heatmapWeeks(span('2026-10-02', 17));
+  assert.deepEqual(padded[0].cells.slice(0, 4), [null, null, null, null]);
+  assert.deepEqual(padded.map(w => w.label), ['10월', '', '']);
+  // A first week with no 1st stays unlabeled when the next week already starts a month.
+  // 2026-11-24 is a Tuesday: week one ends Sunday Nov 29, week two holds Dec 1.
+  const nextStarts = heatmapWeeks(span('2026-11-24', 13));
+  assert.deepEqual(nextStarts.map(w => w.label), ['', '12월']);
+  // Across two months each month name appears exactly once.
+  const twoMonths = heatmapWeeks(span('2026-09-28', 42)).map(w => w.label).filter(Boolean);
+  assert.deepEqual(twoMonths, ['10월', '11월']);
+  assert.deepEqual(heatmapWeeks([]), []);
 });
 test('formatStudyDuration writes hours and minutes in Korean, omitting a zero part', () => {
   assert.equal(formatStudyDuration(0), '0분');

@@ -19,6 +19,31 @@ export function buildHeatmap(days: readonly DailyMetrics[]): HeatmapDay[] {
   });
 }
 
+export type HeatmapWeek = { cells: (HeatmapDay | null)[]; label: string };
+
+/**
+ * 월요일 시작 주 단위로 나눈다. 첫 날짜의 요일 앞은 null로 채운다.
+ * 달 이름은 그 달 1일이 들어 있는 주에만 붙여 한 달이 두 주에 걸쳐도 한 번만 나온다.
+ * 첫 주에 1일이 없으면, 다음 주가 곧바로 새 달을 시작하지 않을 때만 첫 날짜의 달을 붙인다.
+ */
+export function heatmapWeeks(days: readonly HeatmapDay[]): HeatmapWeek[] {
+  if (!days.length) return [];
+  // 0=월..6=일. 날짜 문자열을 UTC 자정으로 해석해 요일만 뽑는다(시간대 변환 없음).
+  const leading = (new Date(`${days[0]!.date}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const cells: (HeatmapDay | null)[] = [...Array.from({ length: leading }, () => null), ...days];
+  const weeks: HeatmapWeek[] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push({ cells: cells.slice(i, i + 7), label: '' });
+  const month = (date: string) => `${Number(date.slice(5, 7))}월`;
+  const firstOfMonth = (week: HeatmapWeek) => week.cells.find((cell): cell is HeatmapDay => cell !== null && cell.date.endsWith('-01'));
+  for (const week of weeks) {
+    const first = firstOfMonth(week);
+    if (first) week.label = month(first.date);
+  }
+  const opening = weeks[0]!;
+  if (!opening.label && !(weeks[1] && firstOfMonth(weeks[1]))) opening.label = month(days[0]!.date);
+  return weeks;
+}
+
 /** level>0인 날만 "학습한 날"로 센다(시간 미입력만 있어 level=1인 날 포함). */
 export function computeStreak(days: readonly HeatmapDay[], today: string): { current: number; longest: number; asOf: string } {
   let longest = 0;
