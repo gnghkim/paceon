@@ -8,6 +8,8 @@ import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import type { StatisticsData } from '@/lib/statistics';
+import { buildHeatmap, computeStreak, formatStudyDuration, type HeatmapDay } from '@/lib/study-heatmap';
+import { StudyHeatmap } from './study-heatmap';
 import { WORKSPACE_CHANGED } from '@/lib/quick-record';
 
 const number = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 });
@@ -77,6 +79,32 @@ function StatisticsContent() {
     return () => controller.abort();
   }, [apiFetch, session, key, query]);
 
+  const [heatmap, setHeatmap] = useState<{ key: string; data: StatisticsData | null; error: string | null } | null>(null);
+  const heatmapKey = `${session?.user.id ?? ''}:${context?.today ?? ''}:${revision}`;
+  useEffect(() => {
+    if (!session || !context) return;
+    const controller = new AbortController();
+    void apiFetch(`/api/statistics?from=${addDays(context.today, -365)}&to=${context.today}`, {
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error ?? '학습 잔디를 불러오지 못했어요.');
+        if (!controller.signal.aborted) setHeatmap({ key: heatmapKey, data: body as StatisticsData, error: null });
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted)
+          setHeatmap({
+            key: heatmapKey,
+            data: null,
+            error: error instanceof Error && !(error instanceof TypeError) ? error.message : '연결을 확인하고 다시 시도해 주세요.',
+          });
+      });
+    return () => controller.abort();
+  }, [apiFetch, session, context, heatmapKey]);
+  const currentHeatmap = heatmap?.key === heatmapKey ? heatmap : null;
+
   const current = result?.key === key ? result : null;
   function selectPeriod(days: number) {
     if (!context) return;
@@ -126,6 +154,20 @@ function StatisticsContent() {
           포함하지 않아요.
         </p>
       </header>
+      <section aria-labelledby="study-heatmap-heading" className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+        <h2 id="study-heatmap-heading" className="font-semibold">
+          최근 1년 학습 잔디
+        </h2>
+        {!currentHeatmap ? (
+          <Skeleton className="h-24 w-full" />
+        ) : currentHeatmap.error ? (
+          <p role="alert" className="text-sm text-danger">
+            {currentHeatmap.error}
+          </p>
+        ) : currentHeatmap.data ? (
+          <StudyHeatmapSection data={currentHeatmap.data} />
+        ) : null}
+      </section>
       <section
         aria-label="통계 기간 선택"
         className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5"
@@ -215,6 +257,33 @@ function StatisticsContent() {
         <StatisticsReport data={current.data} />
       ) : null}
     </div>
+  );
+}
+
+function StudyHeatmapSection({ data }: { data: StatisticsData }) {
+  const [selected, setSelected] = useState<HeatmapDay | null>(null);
+  const heatmapDays = buildHeatmap(data.days);
+  // buildStatistics의 summary.activeDays는 도서 기록 기준이라 학습실만 있는 날을 놓친다.
+  const activeDays = heatmapDays.filter((day) => day.level > 0).length;
+  const streak = computeStreak(heatmapDays, data.today);
+  const totalMinutes = data.summary.learningMinutes + data.summary.recordedMinutes;
+  const detail = selected ? data.days.find((day) => day.date === selected.date) : null;
+  return (
+    <>
+      <p className="text-sm text-muted-foreground">
+        최근 1년 {formatStudyDuration(totalMinutes)} · 학습한 날 {activeDays}일 · 연속 {streak.current}일 · 최장 연속{' '}
+        {streak.longest}일
+      </p>
+      <StudyHeatmap days={heatmapDays} onSelectDay={setSelected} />
+      {detail && (
+        <p role="status" className="text-sm">
+          <time dateTime={detail.date}>{detail.date}</time> · {formatStudyDuration(detail.learningMinutes + detail.recordedMinutes)}
+          {detail.learningMinutes || detail.recordedMinutes
+            ? ` · 도서 ${detail.recordedMinutes}분 · 학습실 ${detail.learningMinutes}분`
+            : ' · 기록 없음'}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -316,7 +385,7 @@ function StatisticsReport({ data }: { data: StatisticsData }) {
           <table className="w-full min-w-[500px] text-sm tabular-nums">
             <caption className="sr-only">
               {data.from}부터 {data.to}까지 날짜별 학습과 복습 분량, 입력된
-              시간, 시간 미입력 건수
+              시간, 학습실 시간, 시간 미입력 건수
             </caption>
             <thead className="sticky top-0 bg-surface-subtle text-xs text-muted-foreground">
               <tr>
@@ -331,6 +400,9 @@ function StatisticsReport({ data }: { data: StatisticsData }) {
                 </th>
                 <th scope="col" className="p-3 text-right">
                   기록 시간
+                </th>
+                <th scope="col" className="p-3 text-right">
+                  학습실
                 </th>
                 <th scope="col" className="p-3 text-right">
                   시간 미입력
@@ -368,6 +440,9 @@ function StatisticsReport({ data }: { data: StatisticsData }) {
                   </td>
                   <td className="p-3 text-right">
                     {number.format(day.recordedMinutes)}분
+                  </td>
+                  <td className="p-3 text-right">
+                    {number.format(day.learningMinutes)}분
                   </td>
                   <td className="p-3 text-right">
                     {number.format(day.untimedEvents)}건
