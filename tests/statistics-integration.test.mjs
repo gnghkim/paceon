@@ -76,7 +76,7 @@ test('production statistics reflect real corrected records and isolate users wit
     const response = await api('/api/statistics', alice);
     assert.match(response.headers.get('cache-control'), /no-store/);
     const stats = await response.json();
-    assert.deepEqual(stats.summary, { learningPages: 5, reviewPages: 5, recordedMinutes: 3, events: 2, timedEvents: 1, untimedEvents: 1, activeDays: 1, minutesPerPage: null });
+    assert.deepEqual(stats.summary, { learningPages: 5, reviewPages: 5, recordedMinutes: 3, events: 2, timedEvents: 1, untimedEvents: 1, activeDays: 1, minutesPerPage: null, learningMinutes: 0 });
     assert.equal(JSON.stringify(stats).includes('private statistics memo'), false);
     assert.equal(stats.resources[0].id, resource.id);
     const previous = await data(`/api/statistics?from=${yesterday}&to=${yesterday}`, alice);
@@ -86,6 +86,34 @@ test('production statistics reflect real corrected records and isolate users wit
     assert.equal((await data('/api/statistics', bob)).summary.events, 0);
     assert.equal((await api(`/api/statistics?to=${addDays(today, 1)}`, alice)).status, 400);
     assert.deepEqual(await read(), workspace, 'statistics never mutate progress, plans or sessions');
+    // A real learning-room session's settled time must show up in statistics for its local date.
+    // (Midnight-crossing date math is Postgres-only and already covered by pgTAP; here we only
+    // verify the live session -> settle() -> RPC -> API wiring for the common same-day case.)
+    const workspaceId = randomUUID();
+    const deviceId = randomUUID();
+    const learningCommand = (action, fields, expected = 200) =>
+      data('/api/learning/commands', alice, { action, requestId: randomUUID(), ...fields }, expected);
+    await learningCommand('CREATE', { workspaceId, title: 'Statistics room check', prompt: '', kind: 'WRITING' }, 201);
+    let { session } = await learningCommand('START', { workspaceId, deviceId, timezone: 'Asia/Seoul' });
+    // settle() caps each interval at last_activity_at + 60s (idle pause), so accumulate
+    // ~20 minutes as 24 backdated 50-second heartbeats instead of one long jump.
+    for (let beat = 0; beat < 24; beat++) {
+      const back = new Date(Date.now() - 50 * 1000).toISOString();
+      const patch = await fetch(new URL(`/rest/v1/learning_sessions?id=eq.${session.id}`, base), {
+        method: 'PATCH',
+        headers: { apikey: config.SERVICE_ROLE_KEY, Authorization: `Bearer ${config.SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ last_seen_at: back, last_activity_at: back }),
+        signal: AbortSignal.timeout(10000),
+      });
+      assert.ok(patch.ok, 'backdate the session for settle() to accumulate elapsed time');
+      ({ session } = await learningCommand('HEARTBEAT', { sessionId: session.id, deviceId, generation: session.generation, activity: true }));
+    }
+    assert.ok(session.elapsed_seconds >= 1195 && session.elapsed_seconds <= 1260, `server settled about 20 minutes (got ${session.elapsed_seconds}s)`);
+    // Yesterday..today so a run near Asia/Seoul midnight still sees the whole session.
+    const withRoom = await data(`/api/statistics?from=${yesterday}&to=${today}`, alice);
+    assert.ok(withRoom.days.some((day) => day.date === today && day.learningMinutes > 0), 'today carries room minutes');
+    assert.ok(Math.abs(withRoom.summary.learningMinutes - Math.round(session.elapsed_seconds / 60)) <= 1, `room minutes match the settled session (got ${withRoom.summary.learningMinutes}, session ${session.elapsed_seconds}s)`);
+    await learningCommand('END', { sessionId: session.id, deviceId, generation: session.generation, activity: false });
   } finally {
     try { for (const id of users) await auth(`/auth/v1/admin/users/${id}`, undefined, true, 'DELETE'); }
     finally { if (server.exitCode === null) { const ended = once(server, 'exit'); server.kill(); await ended; } }
