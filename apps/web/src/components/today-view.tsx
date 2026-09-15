@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import {
   ArrowRight,
   BookOpen,
@@ -7,14 +8,20 @@ import {
   Plus,
   Sunrise,
 } from 'lucide-react';
+import { addDays } from '@paceon/scheduler';
 import {
   useWorkspace,
   WorkspaceLoading,
   WorkspaceError,
 } from './workspace-data';
+import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
+import { Skeleton } from './ui/skeleton';
 import { SessionCard } from './session-card';
+import { StudyHeatmap } from './study-heatmap';
 import { formatDate } from '@/lib/planning';
+import { buildHeatmap, computeStreak } from '@/lib/study-heatmap';
+import type { StatisticsData } from '@/lib/statistics';
 import { RecordButton } from './quick-record';
 
 export function TodayView() {
@@ -217,6 +224,7 @@ export function TodayView() {
               <ArrowRight size={15} />
             </Link>
           </section>
+          <StudyStreakCard today={data.today} />
           <section className="rounded-xl bg-muted p-6">
             <CalendarDays size={21} className="text-muted-foreground" />
             <h2 className="mt-3 font-medium">꾸준함을 위한 여유</h2>
@@ -228,5 +236,53 @@ export function TodayView() {
         </aside>
       </div>
     </div>
+  );
+}
+
+function StudyStreakCard({ today }: { today: string }) {
+  const { apiFetch } = useAuth();
+  const [state, setState] = useState<{ data: StatisticsData; error: null } | { data: null; error: string } | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void apiFetch(`/api/statistics?from=${addDays(today, -365)}&to=${today}`, { signal: controller.signal, cache: 'no-store' })
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error ?? '학습 기록을 불러오지 못했어요.');
+        if (!controller.signal.aborted) setState({ data: body as StatisticsData, error: null });
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted)
+          setState({
+            data: null,
+            error: error instanceof Error && !(error instanceof TypeError) ? error.message : '연결을 확인하고 다시 시도해 주세요.',
+          });
+      });
+    return () => controller.abort();
+  }, [apiFetch, today]);
+  if (!state) return <Skeleton className="h-40 w-full" />;
+  // 조용한 카드: 이 위젯이 실패해도 오늘 화면의 나머지 기능은 그대로 동작한다.
+  if (state.error || !state.data) return null;
+  const heatmapDays = buildHeatmap(state.data.days);
+  const streak = computeStreak(heatmapDays, today);
+  return (
+    <section className="rounded-xl border border-border bg-card p-6">
+      <p className="text-sm text-muted-foreground">학습 잔디</p>
+      <p className="mt-3 text-3xl font-semibold tabular-nums">
+        {streak.current}
+        <span className="ml-1 text-base font-normal text-muted-foreground">
+          일 연속{streak.asOf !== today ? ' · 어제까지' : ''}
+        </span>
+      </p>
+      <div className="mt-4">
+        <StudyHeatmap days={heatmapDays} weeks={12} />
+      </div>
+      <Link
+        href="/statistics"
+        className="mt-4 inline-flex min-h-10 items-center gap-2 text-sm font-medium text-primary"
+      >
+        통계에서 1년 전체 보기
+        <ArrowRight size={15} />
+      </Link>
+    </section>
   );
 }
