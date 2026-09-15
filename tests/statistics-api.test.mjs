@@ -10,6 +10,7 @@ function fixture({ missing = false, corrupt = false, unavailable = false, corrup
     calls.push(url);
     assert.equal(init.headers.Authorization, 'Bearer user-token');
     assert.equal(init.cache, 'no-store');
+    if (url.pathname.endsWith('/rpc/learning_daily_minutes')) return Response.json([]);
     assert.equal(init.method ?? 'GET', 'GET');
     if (url.pathname.endsWith('/user')) return Response.json({ id });
     assert.equal(url.searchParams.get('user_id'), `eq.${id}`);
@@ -65,6 +66,7 @@ test('statistics page through histories and refuse truncated totals at the row c
       if (url.pathname.endsWith('/user')) return Response.json({ id });
       if (url.pathname.endsWith('/learner_profiles')) return Response.json([]);
       if (url.pathname.endsWith('/resources')) return Response.json([{ id, title: 'Book', source: 'MANUAL', type: 'BOOK', workload_unit: 'PAGE', total_pages: 100, initial_completed_workload: 10 }]);
+      if (url.pathname.endsWith('/rpc/learning_daily_minutes')) return Response.json([]);
       const offset = Number(url.searchParams.get('offset'));
       pages++;
       return Response.json(Array.from({ length: endless || offset === 0 ? 500 : 1 }, (_, i) => ({ id: `review-${offset + i}`, resource_id: id, event_type: 'REVIEW', start_page: 1, end_page: 1, completed_workload: 1, duration_minutes: null, study_date: '2026-09-13' })));
@@ -73,4 +75,37 @@ test('statistics page through histories and refuse truncated totals at the row c
     if (endless) { assert.equal(response.status, 503); assert.equal(pages, 40); }
     else { assert.equal(response.status, 200); assert.equal((await response.json()).summary.reviewPages, 501); assert.equal(pages, 2); }
   }
+});
+test('learning room minutes merge into every day and the summary, requested for the full range regardless of resourceId', async () => {
+  const calls = [];
+  const GET = createStatisticsHandler(config, async (url, init) => {
+    url = new URL(url);
+    if (url.pathname.endsWith('/user')) return Response.json({ id });
+    if (url.pathname.endsWith('/learner_profiles')) return Response.json([{ timezone: 'Asia/Seoul' }]);
+    if (url.pathname.endsWith('/resources')) return Response.json([{ id, title: 'Book', source: 'MANUAL', type: 'BOOK', workload_unit: 'PAGE', total_pages: 100, initial_completed_workload: 10 }]);
+    if (url.pathname.endsWith('/progress_events')) return Response.json([]);
+    if (url.pathname.endsWith('/rpc/learning_daily_minutes')) {
+      calls.push(JSON.parse(init.body));
+      return Response.json([{ study_date: '2026-09-12', minutes: 45.4 }, { study_date: '2026-09-13', minutes: 10 }]);
+    }
+    return Response.json([]);
+  }, () => new Date('2026-09-12T16:00:00Z'));
+  const request = query => new Request(`http://localhost/api/statistics${query ?? ''}`, { headers: { authorization: 'Bearer user-token' } });
+  const data = await (await GET(request(`?resourceId=${id}`))).json();
+  assert.deepEqual(calls[0], { p_from: '2026-08-15', p_to: '2026-09-13' });
+  assert.equal(data.days.find(d => d.date === '2026-09-12').learningMinutes, 45);
+  assert.equal(data.days.find(d => d.date === '2026-09-13').learningMinutes, 10);
+  assert.equal(data.summary.learningMinutes, 55);
+});
+test('learning room minutes fetch failure fails the whole request with 503', async () => {
+  const GET = createStatisticsHandler(config, async (url) => {
+    url = new URL(url);
+    if (url.pathname.endsWith('/user')) return Response.json({ id });
+    if (url.pathname.endsWith('/learner_profiles')) return Response.json([]);
+    if (url.pathname.endsWith('/resources')) return Response.json([]);
+    if (url.pathname.endsWith('/rpc/learning_daily_minutes')) return Response.json({ message: 'down' }, { status: 500 });
+    return Response.json([]);
+  }, () => new Date('2026-09-12T16:00:00Z'));
+  const response = await GET(new Request('http://localhost/api/statistics', { headers: { authorization: 'Bearer user-token' } }));
+  assert.equal(response.status, 503);
 });

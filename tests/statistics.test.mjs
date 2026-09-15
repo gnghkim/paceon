@@ -18,7 +18,7 @@ test('new pages, reviews, explicit zero and missing duration remain distinct', (
     event('a'), event('b', { event_type: 'REVIEW', duration_minutes: null }),
     event('c', { start_page: 21, end_page: 25, completed_workload: 5, study_date: '2026-09-13', duration_minutes: 0 }),
   ]));
-  assert.deepEqual(result.summary, { learningPages: 15, reviewPages: 10, recordedMinutes: 5, events: 3, timedEvents: 2, untimedEvents: 1, activeDays: 2, minutesPerPage: 0.5 });
+  assert.deepEqual(result.summary, { learningPages: 15, reviewPages: 10, recordedMinutes: 5, events: 3, timedEvents: 2, untimedEvents: 1, activeDays: 2, minutesPerPage: 0.5, learningMinutes: 0 });
   assert.equal(result.resources[0].title, 'PDF book');
   assert.equal(result.days[0].events, 0);
   assert.equal(result.days[2].minutesPerPage, null);
@@ -46,6 +46,12 @@ test('multiple books keep per-resource totals while activity dates count once an
   assert.equal(result.summary.recordedMinutes, 10);
   assert.equal(result.days[1].events, 3);
   assert.equal(result.resources.find(row => row.id === 'second').reviewPages, 20);
+});
+test('learning room minutes merge per day and sum into the summary without touching resources', () => {
+  const result = buildStatistics(input([], { learningMinutesByDay: { '2026-09-11': 12, '2026-09-13': 8 } }));
+  assert.deepEqual(result.days.map(d => d.learningMinutes), [12, 0, 8]);
+  assert.equal(result.summary.learningMinutes, 20);
+  assert.equal(result.resources.length, 0);
 });
 test('ranges are real inclusive study dates and limited to 366 days', () => {
   assert.deepEqual(statisticsRange(undefined, undefined, '2026-09-13'), { from: '2026-08-15', to: '2026-09-13' });

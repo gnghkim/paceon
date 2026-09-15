@@ -12,13 +12,20 @@ export interface StatisticsMetrics {
   activeDays: number;
   minutesPerPage: number | null;
 }
+export interface DailyMetrics extends StatisticsMetrics {
+  date: string;
+  learningMinutes: number;
+}
+export interface SummaryMetrics extends StatisticsMetrics {
+  learningMinutes: number;
+}
 export interface StatisticsData {
   from: string;
   to: string;
   today: string;
   timezone: string;
-  summary: StatisticsMetrics;
-  days: (StatisticsMetrics & { date: string })[];
+  summary: SummaryMetrics;
+  days: DailyMetrics[];
   resources: (StatisticsMetrics & { id: string; title: string; source: string })[];
 }
 
@@ -58,8 +65,10 @@ export function buildStatistics(input: {
   to: string;
   today: string;
   timezone: string;
+  learningMinutesByDay?: Readonly<Record<string, number>>;
 }): StatisticsData {
   const { from, to } = statisticsRange(input.from, input.to, input.today);
+  const learningMinutesByDay = input.learningMinutesByDay ?? {};
   const histories = new Map<string, ProgressEvent[]>();
   for (const event of input.events) {
     const history = histories.get(event.resource_id) ?? [];
@@ -88,8 +97,10 @@ export function buildStatistics(input: {
     day.push(event);
     dates.set(event.study_date, day);
   }
-  const days: StatisticsData['days'] = [];
-  for (let date = from; date <= to; date = addDays(date, 1)) days.push({ date, ...metrics(dates.get(date) ?? []) });
+  const days: DailyMetrics[] = [];
+  for (let date = from; date <= to; date = addDays(date, 1))
+    days.push({ date, learningMinutes: learningMinutesByDay[date] ?? 0, ...metrics(dates.get(date) ?? []) });
   resources.sort((a, b) => b.learningPages - a.learningPages || a.id.localeCompare(b.id));
-  return { from, to, today: input.today, timezone: input.timezone, summary: metrics(selected), days, resources };
+  const summary: SummaryMetrics = { learningMinutes: days.reduce((sum, day) => sum + day.learningMinutes, 0), ...metrics(selected) };
+  return { from, to, today: input.today, timezone: input.timezone, summary, days, resources };
 }
