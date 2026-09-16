@@ -56,6 +56,7 @@ export function LearningAreasShell({ children }: { children: ReactNode }) {
           })}
         </section>
       )}
+      <ReviewLink />
       <nav aria-label="학습 영역" className="flex gap-1 overflow-x-auto border-b border-border">
         {learningAreas.map((area) => {
           const current = pathname === `/learn/${area.slug}`;
@@ -69,5 +70,32 @@ export function LearningAreasShell({ children }: { children: ReactNode }) {
       </nav>
       {children}
     </div>
+  );
+}
+
+/** 오늘 복습할 표현이 있을 때만 보여 준다. 없으면 자리를 차지하지 않는다. */
+function ReviewLink() {
+  const { apiFetch } = useAuth();
+  const [due, setDue] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      void apiFetch('/api/learning/expressions', { signal: controller.signal, cache: 'no-store' })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((body: { due: number } | null) => {
+          if (!controller.signal.aborted && body) setDue(body.due);
+        })
+        .catch(() => { /* 복습 안내는 보조 정보다. */ });
+    }, 0);
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [apiFetch]);
+  if (due === 0) return null;
+  return (
+    <Link href="/learn/review" className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 hover:border-primary">
+      <span className="text-sm">
+        오늘의 복습 <span className="font-medium text-primary">{due}개</span>
+      </span>
+      <ArrowRight size={16} className="shrink-0 text-primary" aria-hidden="true" />
+    </Link>
   );
 }
