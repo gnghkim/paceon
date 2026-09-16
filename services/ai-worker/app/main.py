@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app.worker import Settings, Worker
 from app.learning_worker import LearningWorker
 from app.speech_worker import SpeechWorker
+from app.notify_worker import NotifySettings, NotifyWorker
 from app.pdf_worker import PdfSettings, PdfWorker
 
 
@@ -29,6 +30,10 @@ async def lifespan(app: FastAPI):
         consumers.append(SpeechWorker(settings))
     if pdf_settings.enabled:
         consumers.append(PdfWorker(pdf_settings))
+    # Reminders do not depend on AI. They need only the database and the VAPID pair.
+    notify_settings = NotifySettings.from_env()
+    if notify_settings.enabled:
+        consumers.append(NotifyWorker(notify_settings))
     tasks = [asyncio.create_task(asyncio.to_thread(consumer.run, stop)) for consumer in consumers]
     try:
         yield

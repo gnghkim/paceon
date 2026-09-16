@@ -19,6 +19,11 @@ services:
       OPENAI_TTS_MODEL: ${OPENAI_TTS_MODEL:-gpt-4o-mini-tts}
       OPENAI_TTS_VOICE: ${OPENAI_TTS_VOICE:-marin}
       AI_POLL_SECONDS: ${AI_POLL_SECONDS:-3}
+      # 매일 알림. 키가 비어 있으면 발송기는 아예 돌지 않고 나머지는 그대로 동작한다.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      NOTIFY_POLL_SECONDS: ${NOTIFY_POLL_SECONDS:-60}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
