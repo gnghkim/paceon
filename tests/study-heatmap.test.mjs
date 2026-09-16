@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { heatmapLevel, buildHeatmap, computeStreak, formatStudyDuration, heatmapWeeks } from '../apps/web/src/lib/study-heatmap.ts';
+import { heatmapLevel, buildHeatmap, computeStreak, countActiveDays, formatStudyDuration, heatmapWeeks } from '../apps/web/src/lib/study-heatmap.ts';
 
 const day = (date, learningMinutes, recordedMinutes = 0, untimedEvents = 0) => ({
   date, learningMinutes, recordedMinutes, untimedEvents,
@@ -55,6 +55,19 @@ test('heatmapWeeks pads to Monday-start weeks and labels each month once, on the
   assert.deepEqual(twoMonths, ['10월', '11월']);
   assert.deepEqual(heatmapWeeks([]), []);
 });
+test('active days count a day studied from either source and skip empty days', () => {
+  const days = buildHeatmap([
+    day('2026-09-11', 0, 10),
+    day('2026-09-12', 25, 0),
+    day('2026-09-13', 5, 5),
+    day('2026-09-14', 0, 0),
+    day('2026-09-15', 0, 0, 2),
+  ]);
+  assert.equal(countActiveDays(days), 4, '도서만·영어학습만·둘 다·시간 미입력 기록만 있는 날을 모두 센다');
+  assert.equal(countActiveDays([day('2026-09-16', 0, 0)].map(d => ({ date: d.date, minutes: 0, level: 0 }))), 0);
+  assert.equal(countActiveDays([]), 0);
+});
+
 test('formatStudyDuration writes hours and minutes in Korean, omitting a zero part', () => {
   assert.equal(formatStudyDuration(0), '0분');
   assert.equal(formatStudyDuration(45), '45분');

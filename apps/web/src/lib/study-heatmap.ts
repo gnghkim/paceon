@@ -44,6 +44,13 @@ export function heatmapWeeks(days: readonly HeatmapDay[]): HeatmapWeek[] {
   return weeks;
 }
 
+/**
+ * 도서 기록과 영어학습 시간을 함께 본 "학습한 날" 수.
+ * statistics의 summary.activeDays는 도서 기록만 세므로 영어학습만 한 날을 놓친다.
+ */
+export const countActiveDays = (days: readonly HeatmapDay[]) =>
+  days.filter(day => day.level > 0).length;
+
 /** level>0인 날만 "학습한 날"로 센다(시간 미입력만 있어 level=1인 날 포함). */
 export function computeStreak(days: readonly HeatmapDay[], today: string): { current: number; longest: number; asOf: string } {
   let longest = 0;

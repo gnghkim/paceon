@@ -264,6 +264,7 @@ function StudyStreakCard({ today }: { today: string }) {
   if (state.error || !state.data) return null;
   const heatmapDays = buildHeatmap(state.data.days);
   const streak = computeStreak(heatmapDays, today);
+  const todayEntry = state.data.days.find((day) => day.date === today);
   return (
     <section className="rounded-xl border border-border bg-card p-6">
       <p className="text-sm text-muted-foreground">학습 잔디</p>
@@ -272,6 +273,10 @@ function StudyStreakCard({ today }: { today: string }) {
         <span className="ml-1 text-base font-normal text-muted-foreground">
           일 연속{streak.asOf !== today ? ' · 어제까지' : ''}
         </span>
+      </p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        오늘 · 도서 {todayEntry?.recordedMinutes ?? 0}분 · 영어학습{' '}
+        {todayEntry?.learningMinutes ?? 0}분
       </p>
       <div className="mt-4">
         <StudyHeatmap days={heatmapDays} weeks={12} />

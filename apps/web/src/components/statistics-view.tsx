@@ -8,7 +8,7 @@ import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import type { StatisticsData } from '@/lib/statistics';
-import { buildHeatmap, computeStreak, formatStudyDuration, type HeatmapDay } from '@/lib/study-heatmap';
+import { buildHeatmap, computeStreak, countActiveDays, formatStudyDuration, type HeatmapDay } from '@/lib/study-heatmap';
 import { StudyHeatmap } from './study-heatmap';
 import { WORKSPACE_CHANGED } from '@/lib/quick-record';
 
@@ -264,7 +264,7 @@ function StudyHeatmapSection({ data }: { data: StatisticsData }) {
   const [selected, setSelected] = useState<HeatmapDay | null>(null);
   const heatmapDays = buildHeatmap(data.days);
   // buildStatistics의 summary.activeDays는 도서 기록 기준이라 영어학습만 있는 날을 놓친다.
-  const activeDays = heatmapDays.filter((day) => day.level > 0).length;
+  const activeDays = countActiveDays(heatmapDays);
   const streak = computeStreak(heatmapDays, data.today);
   const totalMinutes = data.summary.learningMinutes + data.summary.recordedMinutes;
   const detail = selected ? data.days.find((day) => day.date === selected.date) : null;
@@ -303,18 +303,21 @@ function StatisticsReport({ data }: { data: StatisticsData }) {
     1,
     ...data.days.map((day) => day.learningPages + day.reviewPages),
   );
+  // 도서 기록만 세는 summary.activeDays 대신, 잔디와 같은 기준으로 영어학습만 한 날도 센다.
+  const activeDays = countActiveDays(buildHeatmap(data.days));
   return (
     <div className="space-y-7">
       <p className="text-sm text-muted-foreground" role="status">
         {data.from} ~ {data.to} · 학습 기록 {number.format(summary.events)}건
       </p>
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {[
-          ['새로 학습한 분량', `${number.format(summary.learningPages)}쪽`],
-          ['복습한 분량', `${number.format(summary.reviewPages)}쪽`],
-          ['기록된 시간', `${number.format(summary.recordedMinutes)}분`],
-          ['학습한 날', `${number.format(summary.activeDays)}일`],
-        ].map(([label, value]) => (
+          ['새로 학습한 분량', `${number.format(summary.learningPages)}쪽`, '도서 기록 기준'],
+          ['복습한 분량', `${number.format(summary.reviewPages)}쪽`, '도서 기록 기준'],
+          ['기록된 시간', `${number.format(summary.recordedMinutes)}분`, '도서에 직접 입력한 시간'],
+          ['영어학습 시간', `${number.format(summary.learningMinutes)}분`, '타이머로 잰 시간'],
+          ['학습한 날', `${number.format(activeDays)}일`, '도서·영어학습 합쳐서'],
+        ].map(([label, value, note]) => (
           <div
             key={label}
             className="rounded-xl border border-border bg-card p-4 sm:p-5"
@@ -325,6 +328,7 @@ function StatisticsReport({ data }: { data: StatisticsData }) {
             <dd className="mt-3 text-2xl font-semibold tabular-nums">
               {value}
             </dd>
+            <p className="mt-2 text-xs text-muted-foreground">{note}</p>
           </div>
         ))}
       </dl>
@@ -337,8 +341,9 @@ function StatisticsReport({ data }: { data: StatisticsData }) {
           {number.format(summary.untimedEvents)}건
         </p>
         <p className="text-muted-foreground">
-          기록된 시간은 입력한 분만 합산했어요. 미입력 기록의 소요 시간은 알 수
-          없어요.
+          기록된 시간은 도서에 입력한 분만 합산했어요. 미입력 기록의 소요 시간은
+          알 수 없어요. 영어학습 시간은 타이머가 잰 값이라 따로 표시하며, 두
+          시간이 겹칠 수 있어 합계를 순수 집중 시간으로 보지 않아요.
         </p>
         <p className="mt-3 font-medium">
           기간 내 기록 속도:{' '}
