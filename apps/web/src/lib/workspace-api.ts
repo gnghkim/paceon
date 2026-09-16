@@ -98,15 +98,17 @@ export function createWorkspaceHandlers(
       availability,
       timezone: profiles[0]?.timezone ?? 'Asia/Seoul',
       dailyLearningMinutes: profiles[0]?.daily_learning_minutes ?? null,
+      // Postgres time comes back as HH:MM:SS; the form and the input want HH:MM.
+      notifyAt: profiles[0]?.notify_at ? profiles[0].notify_at.slice(0, 5) : null,
     };
   }
-  /** Writes only the goal so a stale client cannot overwrite the shared timezone. */
-  async function saveLearningGoal(auth: Auth, minutes: number | null) {
+  /** Writes only the named settings so a stale client cannot overwrite the shared timezone. */
+  async function saveProfile(auth: Auth, patch: Record<string, unknown>) {
     await rest(
       auth,
       'learner_profiles',
       { on_conflict: 'user_id' },
-      { user_id: auth.userId, daily_learning_minutes: minutes },
+      { user_id: auth.userId, ...patch },
       { headers: { Prefer: 'resolution=merge-duplicates,return=minimal' } },
     );
   }
@@ -124,7 +126,7 @@ export function createWorkspaceHandlers(
     rest,
     rows,
     settings,
-    saveLearningGoal,
+    saveProfile,
     async GET(request: Request) {
       try {
         const auth = await authenticate(request);
@@ -195,21 +197,34 @@ export function createWorkspaceHandlers(
         const auth = await authenticate(request);
         const input = z
           .object({
-            dailyLearningMinutes: z
-              .number()
-              .int()
-              .min(1)
-              .max(1440)
-              .nullable(),
+            dailyLearningMinutes: z.number().int().min(1).max(1440).nullable().optional(),
+            // 24시간제 HH:MM. null이면 알림을 끈다.
+            notifyAt: z
+              .string()
+              .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+              .nullable()
+              .optional(),
           })
           .strict()
+          .refine(
+            value => value.dailyLearningMinutes !== undefined || value.notifyAt !== undefined,
+            '바꿀 설정을 알려 주세요.',
+          )
           .parse(await readBody(request));
-        await saveLearningGoal(auth, input.dailyLearningMinutes);
-        return json({ dailyLearningMinutes: input.dailyLearningMinutes });
+        const patch: Record<string, unknown> = {};
+        if (input.dailyLearningMinutes !== undefined)
+          patch.daily_learning_minutes = input.dailyLearningMinutes;
+        if (input.notifyAt !== undefined) {
+          patch.notify_at = input.notifyAt;
+          // 시각을 바꾸면 오늘 이미 보냈다는 표시를 지운다. 새 시각으로 오늘부터 받는다.
+          patch.notify_last_sent_on = null;
+        }
+        await saveProfile(auth, patch);
+        return json(input);
       } catch (error) {
         if (error instanceof z.ZodError)
           return json(
-            { error: '목표 시간은 1분에서 1440분 사이로 정해 주세요.' },
+            { error: '목표 시간은 1분에서 1440분 사이로, 알림 시각은 HH:MM으로 정해 주세요.' },
             400,
           );
         return handle(error);

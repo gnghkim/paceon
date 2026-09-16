@@ -4,6 +4,8 @@ version = "0.0.0"
 description = "PaceOn AI worker foundation"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    # Web Push needs ECDH, HKDF and AES-GCM; the standard library has none of them.
+    "cryptography==46.0.3",
     "fastapi==0.141.1",
     "pydantic==2.13.5",
     "pypdf==6.18.0",

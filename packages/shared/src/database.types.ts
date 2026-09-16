@@ -164,6 +164,8 @@ export type Database = {
           completion_rate: number | null
           created_at: string
           daily_learning_minutes: number | null
+          notify_at: string | null
+          notify_last_sent_on: string | null
           pages_per_minute: number | null
           preferred_time: string | null
           speed_sample_count: number
@@ -178,6 +180,8 @@ export type Database = {
           completion_rate?: number | null
           created_at?: string
           daily_learning_minutes?: number | null
+          notify_at?: string | null
+          notify_last_sent_on?: string | null
           pages_per_minute?: number | null
           preferred_time?: string | null
           speed_sample_count?: number
@@ -192,6 +196,8 @@ export type Database = {
           completion_rate?: number | null
           created_at?: string
           daily_learning_minutes?: number | null
+          notify_at?: string | null
+          notify_last_sent_on?: string | null
           pages_per_minute?: number | null
           preferred_time?: string | null
           speed_sample_count?: number
@@ -942,6 +948,42 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          failure_count: number
+          id: string
+          p256dh: string
+          timezone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          failure_count?: number
+          id?: string
+          p256dh: string
+          timezone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          failure_count?: number
+          id?: string
+          p256dh?: string
+          timezone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       replan_runs: {
         Row: {
           after_snapshot: Json
@@ -1251,6 +1293,18 @@ export type Database = {
         Returns: boolean
       }
       claim_ai_job: { Args: never; Returns: Json }
+      claim_due_notifications: {
+        Args: { p_limit?: number }
+        Returns: {
+          auth: string
+          due_pages: number
+          endpoint: string
+          goal_minutes: number
+          p256dh: string
+          subscription_id: string
+          user_id: string
+        }[]
+      }
       claim_learning_job: { Args: never; Returns: Json }
       claim_pdf_import: { Args: never; Returns: Json }
       claim_speech_job: { Args: never; Returns: Json }
@@ -1304,6 +1358,10 @@ export type Database = {
           p_provider_response_id: string
         }
         Returns: boolean
+      }
+      finish_notification: {
+        Args: { p_gone: boolean; p_subscription_id: string }
+        Returns: undefined
       }
       finish_pdf_import: {
         Args: {
