@@ -35,7 +35,7 @@ export function RecordButton({
   return (
     <Button type="button" onClick={() => open(bookId)} className={className}>
       <PencilLine size={18} aria-hidden="true" />
-      {children ?? '학습 기록'}
+      {children ?? '독서 기록'}
     </Button>
   );
 }
@@ -140,7 +140,7 @@ function RecordDialog({
     >
       <header className="mb-3 flex items-center justify-between gap-3">
         <h2 id="quick-record-title" className="text-xl font-semibold">
-          간편 학습 기록
+          독서 기록
         </h2>
         <Button
           type="button"
@@ -218,6 +218,13 @@ function RecordContent({
           <p>
             지금 기록할 수 있는 책이 없어요. 도서를 추가하고 학습 계획을 만들어
             주세요. 일시 정지한 계획은 먼저 재개해 주세요.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            영어 학습 시간은{' '}
+            <Link href="/learn" className="underline" onClick={onClose}>
+              영어학습
+            </Link>
+            에서 자동으로 기록돼요.
           </p>
           <Button asChild>
             <Link

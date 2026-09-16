@@ -263,7 +263,7 @@ function StatisticsContent() {
 function StudyHeatmapSection({ data }: { data: StatisticsData }) {
   const [selected, setSelected] = useState<HeatmapDay | null>(null);
   const heatmapDays = buildHeatmap(data.days);
-  // buildStatistics의 summary.activeDays는 도서 기록 기준이라 학습실만 있는 날을 놓친다.
+  // buildStatistics의 summary.activeDays는 도서 기록 기준이라 영어학습만 있는 날을 놓친다.
   const activeDays = heatmapDays.filter((day) => day.level > 0).length;
   const streak = computeStreak(heatmapDays, data.today);
   const totalMinutes = data.summary.learningMinutes + data.summary.recordedMinutes;
@@ -279,7 +279,7 @@ function StudyHeatmapSection({ data }: { data: StatisticsData }) {
         <p role="status" className="text-sm">
           <time dateTime={detail.date}>{detail.date}</time> · {formatStudyDuration(detail.learningMinutes + detail.recordedMinutes)}
           {detail.learningMinutes || detail.recordedMinutes
-            ? ` · 도서 ${detail.recordedMinutes}분 · 학습실 ${detail.learningMinutes}분`
+            ? ` · 도서 ${detail.recordedMinutes}분 · 영어학습 ${detail.learningMinutes}분`
             : ' · 기록 없음'}
         </p>
       )}
@@ -385,7 +385,7 @@ function StatisticsReport({ data }: { data: StatisticsData }) {
           <table className="w-full min-w-[500px] text-sm tabular-nums">
             <caption className="sr-only">
               {data.from}부터 {data.to}까지 날짜별 학습과 복습 분량, 입력된
-              시간, 학습실 시간, 시간 미입력 건수
+              시간, 영어학습 시간, 시간 미입력 건수
             </caption>
             <thead className="sticky top-0 bg-surface-subtle text-xs text-muted-foreground">
               <tr>
@@ -402,7 +402,7 @@ function StatisticsReport({ data }: { data: StatisticsData }) {
                   기록 시간
                 </th>
                 <th scope="col" className="p-3 text-right">
-                  학습실
+                  영어학습
                 </th>
                 <th scope="col" className="p-3 text-right">
                   시간 미입력

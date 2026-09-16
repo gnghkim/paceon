@@ -7,7 +7,7 @@ export default async function Page({
 }) {
   const { id } = await params;
   return (
-    <Suspense fallback={<p role="status">학습실을 불러오는 중…</p>}>
+    <Suspense fallback={<p role="status">영어학습을 불러오는 중…</p>}>
       <LearningRoom key={id} id={id} />
     </Suspense>
   );

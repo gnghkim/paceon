@@ -16,9 +16,9 @@ export function createStatisticsHandler(config: Config | undefined, fetcher: typ
     try {
       rows = await workspace.rest(auth, 'rpc/learning_daily_minutes', {}, { p_from: from, p_to: to });
     } catch {
-      throw new ApiError(503, '학습실 기록을 불러오지 못했어요. 같은 요청으로 다시 시도해 주세요.');
+      throw new ApiError(503, '영어학습 기록을 불러오지 못했어요. 같은 요청으로 다시 시도해 주세요.');
     }
-    if (!Array.isArray(rows)) throw new ApiError(503, '학습실 기록을 불러오지 못했어요. 같은 요청으로 다시 시도해 주세요.');
+    if (!Array.isArray(rows)) throw new ApiError(503, '영어학습 기록을 불러오지 못했어요. 같은 요청으로 다시 시도해 주세요.');
     const result: Record<string, number> = {};
     for (const row of rows as { study_date?: unknown; minutes?: unknown }[]) {
       if (typeof row.study_date === 'string' && typeof row.minutes === 'number') result[row.study_date] = Math.round(row.minutes);

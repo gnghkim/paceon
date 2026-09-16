@@ -26,7 +26,7 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
   const reload = useCallback(async () => {
     try {
       const res = await apiFetch(`/api/learning/workspaces?kind=${kind}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error('학습실을 불러오지 못했어요. 다시 시도해 주세요.');
+      if (!res.ok) throw new Error('영어학습을 불러오지 못했어요. 다시 시도해 주세요.');
       setData(await res.json());
       setError('');
     } catch (e) { setError((e as Error).message); }
@@ -38,7 +38,7 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
     creation.current ??= { requestId: crypto.randomUUID(), workspaceId: crypto.randomUUID() };
     try {
       const res = await apiFetch('/api/learning/workspaces', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...creation.current, kind: target, title: start[target].name, prompt: start[target].prompt }) });
-      if (!res.ok) throw new Error('학습실을 만들지 못했어요. 다시 시도하면 같은 요청을 이어갑니다.');
+      if (!res.ok) throw new Error('영어학습을 만들지 못했어요. 다시 시도하면 같은 요청을 이어갑니다.');
       const body = await res.json();
       router.push(`/learn/${body.workspace.id}`);
     } catch (e) { setError((e as Error).message); setBusy(false); }
@@ -48,7 +48,7 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
     setBusy(true);
     try {
       const res = await apiFetch(`/api/learning/workspaces?kind=${kind}&offset=${data.nextOffset}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error('이전 학습실을 불러오지 못했어요.');
+      if (!res.ok) throw new Error('이전 기록을 불러오지 못했어요.');
       const page = (await res.json()) as LearningList;
       setData((previous) => previous ? {
         ...previous,
@@ -77,7 +77,7 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
           <h2 className="text-xl font-semibold">{creator.title}</h2>
           <p className="mt-2 mb-5 text-sm leading-6 text-muted-foreground">{creator.body}</p>
           <Button className="min-h-11" disabled={busy} onClick={() => void create(kind)}>
-            {busy ? '학습실 여는 중…' : creator.action}
+            {busy ? '여는 중…' : creator.action}
             <ArrowRight aria-hidden="true" />
           </Button>
         </section>
@@ -87,14 +87,14 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
       )}
       {kind !== 'LISTENING' && data && (data.workspaces.length > 0 || data.nextOffset != null) && (
         <section className="space-y-3" aria-labelledby="area-workspaces-title">
-          <h2 id="area-workspaces-title" className="font-semibold">저장한 학습실</h2>
+          <h2 id="area-workspaces-title" className="font-semibold">저장한 학습</h2>
           {data.workspaces.map((w) => (
             <Link key={w.id} href={workspaceHref(w)} className="block min-h-16 rounded-xl border border-border p-4 text-sm">
               <p className="font-medium">{w.title}</p>
               {(w.draft || w.prompt) && <p className="mt-1 truncate text-muted-foreground">{w.draft || w.prompt}</p>}
             </Link>
           ))}
-          {data.nextOffset != null && <Button variant="outline" disabled={busy} onClick={() => void more()}>학습실 더 보기</Button>}
+          {data.nextOffset != null && <Button variant="outline" disabled={busy} onClick={() => void more()}>더 보기</Button>}
         </section>
       )}
       <section aria-labelledby="area-records-title" className="space-y-3">

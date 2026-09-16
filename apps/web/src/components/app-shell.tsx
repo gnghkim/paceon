@@ -26,7 +26,7 @@ import {
 
 const navigation = [
   { href: '/today', label: '오늘', english: 'Today', icon: Sun },
-  { href: '/learn', label: '학습실', english: 'Learn', icon: MessageSquare },
+  { href: '/learn', label: '영어학습', english: 'Learn', icon: MessageSquare },
   {
     href: '/calendar',
     label: '캘린더',
@@ -245,7 +245,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
           navigation[1]!,
           {
             href: '#quick-record',
-            label: '기록',
+            label: '독서',
             english: 'Record',
             icon: PencilLine,
           },
@@ -257,12 +257,10 @@ function AppShellContent({ children }: { children: ReactNode }) {
               key={href}
               type="button"
               onClick={() => openRecord()}
-              aria-label="학습 기록"
-              className="flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-semibold text-primary"
+              aria-label="독서 기록"
+              className="flex min-h-16 flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
             >
-              <span className="flex h-8 w-12 items-center justify-center rounded-full bg-primary text-white">
-                <Icon size={20} aria-hidden="true" />
-              </span>
+              <Icon size={20} aria-hidden="true" />
               <span>{label}</span>
             </button>
           ) : (

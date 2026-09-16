@@ -11,5 +11,5 @@ export function LearnRedirect() {
     try { stored = localStorage.getItem(LAST_AREA_KEY); } catch { /* Default area when storage is blocked. */ }
     router.replace(`/learn/${resolveLearningArea(stored)}`);
   }, [router]);
-  return <p role="status" className="text-sm text-muted-foreground">학습실을 여는 중…</p>;
+  return <p role="status" className="text-sm text-muted-foreground">영어학습을 여는 중…</p>;
 }

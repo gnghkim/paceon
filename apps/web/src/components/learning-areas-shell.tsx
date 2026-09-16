@@ -33,7 +33,7 @@ export function LearningAreasShell({ children }: { children: ReactNode }) {
     <div className="mx-auto max-w-3xl space-y-6">
       <header>
         <p className="mb-2 text-sm font-medium text-primary">나만의 작은 영어 연습</p>
-        <h1 className="text-3xl font-semibold">학습실</h1>
+        <h1 className="text-3xl font-semibold">영어학습</h1>
         <p className="mt-3 text-muted-foreground">한 문장부터, 내 속도로 이어가요.</p>
       </header>
       {resume.length > 0 && (
