@@ -35,7 +35,7 @@ const navigation = [
   },
   {
     href: '/resources',
-    label: '라이브러리',
+    label: '서재',
     english: 'Library',
     icon: BookOpen,
   },
@@ -120,7 +120,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
         (href === '/learn' && pathname.startsWith('/learn/'));
   const title =
     pathname === '/resources/new'
-      ? '학습 자료 추가'
+      ? '책 추가'
       : pathname === '/settings'
         ? '설정'
         : (navigation.find((item) => active(item.href))?.label ?? '서재');
@@ -164,7 +164,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
           <Button asChild className="w-full">
             <Link href="/resources/new">
               <Plus aria-hidden="true" />
-              학습 자료 추가
+              책 추가
             </Link>
           </Button>
         </div>
@@ -194,12 +194,6 @@ function AppShellContent({ children }: { children: ReactNode }) {
           <p className="hidden text-sm font-medium md:block">{title}</p>
           <div className="flex items-center gap-2">
             <RecordButton className="hidden md:inline-flex" />
-            <Button asChild variant="outline">
-              <Link href="/resources/new">
-                <Plus aria-hidden="true" />
-                자료 추가
-              </Link>
-            </Button>
             <Button asChild variant="ghost" size="icon" aria-label="설정">
               <Link href="/settings" aria-current={pathname === '/settings' ? 'page' : undefined}>
                 <Settings aria-hidden="true" />
@@ -215,9 +209,6 @@ function AppShellContent({ children }: { children: ReactNode }) {
             >
               <LogOut aria-hidden="true" />
             </Button>
-            <span className="hidden text-xs text-muted-foreground md:block">
-              나만의 속도로, 꾸준하게
-            </span>
           </div>
         </header>
         {signOutError && (

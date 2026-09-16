@@ -5,6 +5,13 @@ import { heatmapWeeks, type HeatmapDay } from '@/lib/study-heatmap';
 const LEVEL_CLASS = ['bg-muted', 'bg-primary/25', 'bg-primary/50', 'bg-primary/75', 'bg-primary'] as const;
 const WEEKDAY_LABEL = ['월', '', '수', '', '금', '', ''] as const;
 
+/** 기록된 분과 시간을 적지 않은 분량을 구분해 말한다. 추정값을 분으로 말하지 않는다. */
+function dayLabel(day: HeatmapDay) {
+  if (day.untimedPages > 0)
+    return `${day.date} · ${day.minutes}분 · 시간 미입력 ${day.untimedPages}쪽`;
+  return `${day.date} · ${day.minutes}분`;
+}
+
 export function StudyHeatmap({ days, weeks, onSelectDay }: {
   days: readonly HeatmapDay[];
   weeks?: number;
@@ -42,15 +49,15 @@ export function StudyHeatmap({ days, weeks, onSelectDay }: {
                         key={cell.date}
                         type="button"
                         onClick={() => onSelectDay(cell)}
-                        aria-label={`${cell.date} · ${cell.minutes}분`}
-                        title={`${cell.date} · ${cell.minutes}분`}
+                        aria-label={dayLabel(cell)}
+                        title={dayLabel(cell)}
                         className={`h-3 w-3 rounded-sm ${LEVEL_CLASS[cell.level]}`}
                       />
                     ) : (
                       <span
                         key={cell.date}
-                        aria-label={`${cell.date} · ${cell.minutes}분`}
-                        title={`${cell.date} · ${cell.minutes}분`}
+                        aria-label={dayLabel(cell)}
+                        title={dayLabel(cell)}
                         className={`h-3 w-3 rounded-sm ${LEVEL_CLASS[cell.level]}`}
                       />
                     )
@@ -68,7 +75,7 @@ export function StudyHeatmap({ days, weeks, onSelectDay }: {
         <span>적음</span>
         {LEVEL_CLASS.map((cls, level) => <span key={level} className={`h-3 w-3 rounded-sm ${cls}`} aria-hidden="true" />)}
         <span>많음</span>
-        <span>· 0 / &lt;15 / 15–29 / 30–59 / 60분+</span>
+        <span>· 0 / &lt;15 / 15–29 / 30–59 / 60분+ · 시간 미입력 기록은 분량으로 추정</span>
       </div>
     </div>
   );

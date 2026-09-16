@@ -5,6 +5,7 @@ import {
   ArrowRight,
   BookOpen,
   CalendarDays,
+  Check,
   Plus,
   Sunrise,
 } from 'lucide-react';
@@ -20,28 +21,46 @@ import { Skeleton } from './ui/skeleton';
 import { SessionCard } from './session-card';
 import { StudyHeatmap } from './study-heatmap';
 import { formatDate } from '@/lib/planning';
-import { buildHeatmap, computeStreak } from '@/lib/study-heatmap';
+import {
+  buildHeatmap,
+  computeStreak,
+  countWeekDays,
+  currentWeek,
+} from '@/lib/study-heatmap';
+import { summarizeDay } from '@/lib/session-state';
+import type { WorkspaceData } from '@/lib/workspace-types';
 import type { StatisticsData } from '@/lib/statistics';
-import { RecordButton } from './quick-record';
+import type { HeatmapDay } from '@/lib/study-heatmap';
+import { cn } from '@/lib/utils';
+import { LearningToday } from './learning-today';
+import { CatchUpNotice } from './catch-up-notice';
+import { WORKSPACE_CHANGED } from '@/lib/quick-record';
 
 export function TodayView() {
   const { data, error, reload } = useWorkspace();
   if (error) return <WorkspaceError error={error} reload={reload} />;
   if (!data) return <WorkspaceLoading />;
+  return <TodayContent data={data} />;
+}
+
+function TodayContent({ data }: { data: WorkspaceData }) {
+  const statistics = useYearStatistics(data.today);
   const sessions = data.sessions.filter(
     (s) => s.study_date === data.today && s.status !== 'SKIPPED',
   );
-  const minutes = sessions.reduce(
-    (sum, s) => sum + (s.estimated_minutes ?? 0),
-    0,
-  );
+  const day = summarizeDay(sessions, data.progress, data.today);
   const upcoming = data.sessions
     .filter((s) => s.study_date > data.today && s.status !== 'SKIPPED')
     .slice(0, 3);
+  // 멈춘 계획도 계획이다. 일시 정지한 책이 "계획을 기다리는 책"으로 보이면 안 된다.
   const withoutPlan = data.resources.filter(
     (r) =>
       r.status === 'ACTIVE' &&
-      !data.plans.some((p) => p.resource_id === r.id && p.status === 'ACTIVE'),
+      !data.plans.some(
+        (p) =>
+          p.resource_id === r.id &&
+          (p.status === 'ACTIVE' || p.status === 'PAUSED'),
+      ),
   );
   return (
     <div className="space-y-9">
@@ -62,14 +81,16 @@ export function TodayView() {
               캘린더
             </Link>
           </Button>
-          <Button asChild variant="outline">
-            <Link href="/resources/new">
-              <Plus size={16} />
-              자료 추가
-            </Link>
-          </Button>
+          {!data.resources.length && (
+            <Button asChild>
+              <Link href="/resources/new">
+                <Plus size={16} />책 추가
+              </Link>
+            </Button>
+          )}
         </div>
       </header>
+      <CatchUpNotice data={data} />
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0 space-y-7">
           <section aria-labelledby="focus-heading">
@@ -82,16 +103,32 @@ export function TodayView() {
                 오늘의 분량
               </h2>
               <span className="text-sm text-muted-foreground">
-                {sessions.length}개 일정 · 약 {minutes}분
+                {day.total}개 일정 ·{' '}
+                {day.allDone
+                  ? `${day.donePages}쪽 완료`
+                  : `약 ${day.remainingMinutes}분 남음`}
               </span>
             </div>
             {sessions.length ? (
               <div className="space-y-3">
+                {day.allDone && (
+                  <p
+                    role="status"
+                    className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm font-medium text-success"
+                  >
+                    <Check size={16} aria-hidden="true" />
+                    오늘 분량을 다 읽었어요
+                  </p>
+                )}
                 {sessions.map((s) => (
                   <SessionCard
                     key={s.id}
                     session={s}
                     book={data.resources.find((r) => r.id === s.resource_id)}
+                    completedThroughPage={
+                      data.progress[s.resource_id]?.completedThroughPage ?? 0
+                    }
+                    today={data.today}
                   />
                 ))}
               </div>
@@ -114,42 +151,20 @@ export function TodayView() {
                       data.resources.length ? '/calendar' : '/resources/new'
                     }
                   >
-                    {data.resources.length ? '캘린더 보기' : '첫 자료 추가'}
+                    {data.resources.length ? '캘린더 보기' : '첫 책 추가'}
                     <ArrowRight size={16} />
                   </Link>
                 </Button>
               </div>
             )}
           </section>
-          {!!data.resources.filter((r) =>
-            data.plans.some(
-              (p) => p.resource_id === r.id && p.status === 'ACTIVE',
-            ),
-          ).length && (
-            <section className="space-y-3">
-              <h2 className="font-semibold">오늘 읽은 진도 남기기</h2>
-              <p className="text-sm text-muted-foreground">
-                오늘 예정된 일정이 없어도 읽은 페이지를 기록할 수 있어요.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {data.resources
-                  .filter((r) =>
-                    data.plans.some(
-                      (p) => p.resource_id === r.id && p.status === 'ACTIVE',
-                    ),
-                  )
-                  .map((r) => (
-                    <RecordButton
-                      key={r.id}
-                      bookId={r.id}
-                      className="max-w-full"
-                    >
-                      <span className="truncate">{r.title} · 학습 기록</span>
-                    </RecordButton>
-                  ))}
-              </div>
-            </section>
-          )}
+          <LearningToday
+            minutes={
+              statistics?.days.find((day) => day.date === data.today)
+                ?.learningMinutes ?? null
+            }
+            goal={data.dailyLearningMinutes}
+          />
           {!!withoutPlan.length && (
             <section className="rounded-xl bg-accent p-5">
               <h2 className="font-semibold">계획을 기다리는 책</h2>
@@ -172,7 +187,15 @@ export function TodayView() {
           )}
           {!!upcoming.length && (
             <section>
-              <h2 className="mb-4 font-semibold">다가오는 학습</h2>
+              <h2 className="mb-4 font-semibold">
+                <Link
+                  href="/calendar"
+                  className="inline-flex min-h-11 items-center gap-1.5 hover:text-primary"
+                >
+                  다가오는 학습
+                  <ArrowRight size={15} aria-hidden="true" />
+                </Link>
+              </h2>
               <div className="space-y-4">
                 {upcoming.map((s) => (
                   <div key={s.id}>
@@ -182,6 +205,10 @@ export function TodayView() {
                     <SessionCard
                       session={s}
                       book={data.resources.find((r) => r.id === s.resource_id)}
+                      completedThroughPage={
+                        data.progress[s.resource_id]?.completedThroughPage ?? 0
+                      }
+                      today={data.today}
                     />
                   </div>
                 ))}
@@ -193,7 +220,7 @@ export function TodayView() {
           <section className="rounded-xl border border-border bg-card p-6">
             <p className="text-sm text-muted-foreground">나의 서재</p>
             <p className="mt-3 text-3xl font-semibold tabular-nums">
-              {data.resources.length}
+              {data.resources.filter((r) => r.status !== 'ARCHIVED').length}
               <span className="ml-1 text-base font-normal text-muted-foreground">
                 권
               </span>
@@ -224,47 +251,47 @@ export function TodayView() {
               <ArrowRight size={15} />
             </Link>
           </section>
-          <StudyStreakCard today={data.today} />
-          <section className="rounded-xl bg-muted p-6">
-            <CalendarDays size={21} className="text-muted-foreground" />
-            <h2 className="mt-3 font-medium">꾸준함을 위한 여유</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              계획은 내가 정한 학습 가능 시간 안에서 만들어져요. 오늘의 분량부터
-              천천히 살펴보세요.
-            </p>
-          </section>
+          <StudyStreakCard today={data.today} data={statistics} />
         </aside>
       </div>
     </div>
   );
 }
 
-function StudyStreakCard({ today }: { today: string }) {
+/** 오늘 화면의 잔디와 영어학습 카드가 같은 1년치 통계를 한 번만 받아 쓴다. */
+function useYearStatistics(today: string) {
   const { apiFetch } = useAuth();
-  const [state, setState] = useState<{ data: StatisticsData; error: null } | { data: null; error: string } | null>(null);
+  const [data, setData] = useState<StatisticsData | null>(null);
+  // 기록을 저장하면 잔디·연속일·이번 주·영어학습 분이 모두 달라진다.
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRevision((value) => value + 1);
+    window.addEventListener(WORKSPACE_CHANGED, refresh);
+    return () => window.removeEventListener(WORKSPACE_CHANGED, refresh);
+  }, []);
   useEffect(() => {
     const controller = new AbortController();
-    void apiFetch(`/api/statistics?from=${addDays(today, -365)}&to=${today}`, { signal: controller.signal, cache: 'no-store' })
+    void apiFetch(`/api/statistics?from=${addDays(today, -365)}&to=${today}`, {
+      signal: controller.signal,
+      cache: 'no-store',
+    })
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(body.error ?? '학습 기록을 불러오지 못했어요.');
-        if (!controller.signal.aborted) setState({ data: body as StatisticsData, error: null });
+        if (!controller.signal.aborted) setData(body as StatisticsData);
       })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted)
-          setState({
-            data: null,
-            error: error instanceof Error && !(error instanceof TypeError) ? error.message : '연결을 확인하고 다시 시도해 주세요.',
-          });
-      });
+      // 조용한 위젯: 실패해도 오늘 화면의 나머지 기능은 그대로 동작한다.
+      .catch(() => {});
     return () => controller.abort();
-  }, [apiFetch, today]);
-  if (!state) return <Skeleton className="h-40 w-full" />;
-  // 조용한 카드: 이 위젯이 실패해도 오늘 화면의 나머지 기능은 그대로 동작한다.
-  if (state.error || !state.data) return null;
-  const heatmapDays = buildHeatmap(state.data.days);
+  }, [apiFetch, today, revision]);
+  return data;
+}
+
+function StudyStreakCard({ today, data }: { today: string; data: StatisticsData | null }) {
+  if (!data) return <Skeleton className="h-40 w-full" />;
+  const heatmapDays = buildHeatmap(data.days, data.summary.minutesPerPage);
   const streak = computeStreak(heatmapDays, today);
-  const todayEntry = state.data.days.find((day) => day.date === today);
+  const todayEntry = data.days.find((day) => day.date === today);
   return (
     <section className="rounded-xl border border-border bg-card p-6">
       <p className="text-sm text-muted-foreground">학습 잔디</p>
@@ -278,6 +305,7 @@ function StudyStreakCard({ today }: { today: string }) {
         오늘 · 도서 {todayEntry?.recordedMinutes ?? 0}분 · 영어학습{' '}
         {todayEntry?.learningMinutes ?? 0}분
       </p>
+      <ThisWeek days={heatmapDays} today={today} />
       <div className="mt-4">
         <StudyHeatmap days={heatmapDays} weeks={12} />
       </div>
@@ -288,6 +316,45 @@ function StudyStreakCard({ today }: { today: string }) {
         통계에서 1년 전체 보기
         <ArrowRight size={15} />
       </Link>
+    </section>
+  );
+}
+
+const weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+
+/** 이번 주를 일곱 칸으로 보여 준다. 아직 오지 않은 날은 빠뜨린 날과 구분한다. */
+function ThisWeek({ days, today }: { days: HeatmapDay[]; today: string }) {
+  const week = currentWeek(days, today);
+  const studied = countWeekDays(week);
+  return (
+    <section className="mt-5" aria-labelledby="this-week-heading">
+      <div className="mb-2 flex items-baseline justify-between">
+        <h3 id="this-week-heading" className="text-sm font-medium">
+          이번 주
+        </h3>
+        <span className="text-sm text-muted-foreground">{studied}일 학습</span>
+      </div>
+      <ol className="flex gap-1.5">
+        {week.map((day) => (
+          <li key={day.date} className="flex flex-1 flex-col items-center gap-1">
+            <span className="text-[11px] text-muted-foreground">
+              {weekdayLabels[day.isoWeekday - 1]}
+            </span>
+            <span
+              aria-label={`${day.date} · ${day.studied ? '학습함' : day.isFuture ? '예정' : '기록 없음'}`}
+              className={cn(
+                'h-7 w-full rounded-md border',
+                day.studied
+                  ? 'border-primary bg-primary'
+                  : day.isFuture
+                    ? 'border-dashed border-border bg-transparent'
+                    : 'border-border bg-muted',
+                day.isToday && !day.studied && 'border-primary',
+              )}
+            />
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

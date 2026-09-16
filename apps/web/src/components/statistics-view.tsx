@@ -150,8 +150,8 @@ function StatisticsContent() {
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">학습 통계</h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          책과 PDF에 남긴 학습·복습 기록을 모았어요. 자료 등록 전 읽은 분량은
-          포함하지 않아요.
+          책과 영어학습에 남긴 기록을 모았어요. 자료 등록 전 읽은 분량은 포함하지
+          않아요.
         </p>
       </header>
       <section aria-labelledby="study-heatmap-heading" className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">
@@ -262,7 +262,7 @@ function StatisticsContent() {
 
 function StudyHeatmapSection({ data }: { data: StatisticsData }) {
   const [selected, setSelected] = useState<HeatmapDay | null>(null);
-  const heatmapDays = buildHeatmap(data.days);
+  const heatmapDays = buildHeatmap(data.days, data.summary.minutesPerPage);
   // buildStatistics의 summary.activeDays는 도서 기록 기준이라 영어학습만 있는 날을 놓친다.
   const activeDays = countActiveDays(heatmapDays);
   const streak = computeStreak(heatmapDays, data.today);
@@ -304,7 +304,7 @@ function StatisticsReport({ data }: { data: StatisticsData }) {
     ...data.days.map((day) => day.learningPages + day.reviewPages),
   );
   // 도서 기록만 세는 summary.activeDays 대신, 잔디와 같은 기준으로 영어학습만 한 날도 센다.
-  const activeDays = countActiveDays(buildHeatmap(data.days));
+  const activeDays = countActiveDays(buildHeatmap(data.days, data.summary.minutesPerPage));
   return (
     <div className="space-y-7">
       <p className="text-sm text-muted-foreground" role="status">

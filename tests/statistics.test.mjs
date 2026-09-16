@@ -18,7 +18,7 @@ test('new pages, reviews, explicit zero and missing duration remain distinct', (
     event('a'), event('b', { event_type: 'REVIEW', duration_minutes: null }),
     event('c', { start_page: 21, end_page: 25, completed_workload: 5, study_date: '2026-09-13', duration_minutes: 0 }),
   ]));
-  assert.deepEqual(result.summary, { learningPages: 15, reviewPages: 10, recordedMinutes: 5, events: 3, timedEvents: 2, untimedEvents: 1, activeDays: 2, minutesPerPage: 0.5, learningMinutes: 0 });
+  assert.deepEqual(result.summary, { learningPages: 15, reviewPages: 10, recordedMinutes: 5, events: 3, timedEvents: 2, untimedEvents: 1, untimedPages: 10, activeDays: 2, minutesPerPage: 0.5, learningMinutes: 0 });
   assert.equal(result.resources[0].title, 'PDF book');
   assert.equal(result.days[0].events, 0);
   assert.equal(result.days[2].minutesPerPage, null);

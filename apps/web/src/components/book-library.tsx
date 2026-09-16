@@ -46,10 +46,13 @@ export function BookLibrary() {
   const { data, loading, error, reload } = useWorkspace();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
+  // 보관한 책은 따로 찾을 때만 보여 준다. 전체는 지금 읽는 책들의 목록이다.
   const books =
     data?.resources.filter(
       (book) =>
-        (filter === 'all' || book.status === filter) &&
+        (filter === 'all'
+          ? book.status !== 'ARCHIVED'
+          : book.status === filter) &&
         `${book.title} ${book.author ?? ''}`
           .toLocaleLowerCase()
           .includes(query.trim().toLocaleLowerCase()),
@@ -78,6 +81,7 @@ export function BookLibrary() {
             ['all', '전체'],
             ['ACTIVE', '읽는 중'],
             ['COMPLETED', '완독'],
+            ['ARCHIVED', '보관'],
           ].map(([value, label]) => (
             <Button
               key={value}
@@ -148,7 +152,9 @@ export function BookLibrary() {
             const bookPlans =
               data?.plans.filter((p) => p.resource_id === book.id) ?? [];
             const plan =
-              bookPlans.find((p) => p.status === 'ACTIVE') ??
+              bookPlans.find(
+                (p) => p.status === 'ACTIVE' || p.status === 'PAUSED',
+              ) ??
               bookPlans
                 .filter((p) => p.status === 'COMPLETED')
                 .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
@@ -170,13 +176,17 @@ export function BookLibrary() {
                   <div className="min-w-0 flex-1">
                     <p className="mb-1 text-xs text-muted-foreground">
                       {book.source === 'PDF_IMPORT' && <span>PDF · </span>}
-                      {book.replan_required
-                        ? '일정 조정 대기'
+                      {book.status === 'ARCHIVED'
+                        ? '보관'
                         : book.status === 'COMPLETED'
                           ? '완독'
-                          : plan
-                            ? '계획 진행 중'
-                            : '계획 대기'}
+                          : book.replan_required
+                            ? '일정 조정 대기'
+                            : plan?.status === 'PAUSED'
+                              ? '잠시 멈춤'
+                              : plan
+                                ? '계획 진행 중'
+                                : '계획 대기'}
                     </p>
                     <h2 className="break-words text-lg font-semibold">
                       {book.title}

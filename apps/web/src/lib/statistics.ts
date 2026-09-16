@@ -9,6 +9,8 @@ export interface StatisticsMetrics {
   events: number;
   timedEvents: number;
   untimedEvents: number;
+  /** 시간을 적지 않은 기록의 분량. 학습 잔디의 추정에만 쓰고 기록된 시간에는 넣지 않는다. */
+  untimedPages: number;
   activeDays: number;
   minutesPerPage: number | null;
 }
@@ -38,14 +40,16 @@ export function statisticsRange(from: string | undefined, to: string | undefined
 }
 
 function metrics(events: readonly ProgressEvent[]): StatisticsMetrics {
-  const result: StatisticsMetrics = { learningPages: 0, reviewPages: 0, recordedMinutes: 0, events: events.length, timedEvents: 0, untimedEvents: 0, activeDays: new Set(events.map(event => event.study_date)).size, minutesPerPage: null };
+  const result: StatisticsMetrics = { learningPages: 0, reviewPages: 0, recordedMinutes: 0, events: events.length, timedEvents: 0, untimedEvents: 0, untimedPages: 0, activeDays: new Set(events.map(event => event.study_date)).size, minutesPerPage: null };
   let speedMinutes = 0;
   let speedPages = 0;
   for (const event of events) {
     if (event.event_type === 'LEARNING') result.learningPages += event.completed_workload;
     else result.reviewPages += event.completed_workload;
-    if (event.duration_minutes === null) result.untimedEvents++;
-    else {
+    if (event.duration_minutes === null) {
+      result.untimedEvents++;
+      result.untimedPages += event.completed_workload;
+    } else {
       result.timedEvents++;
       result.recordedMinutes += event.duration_minutes;
       if (event.event_type === 'LEARNING' && event.duration_minutes > 0 && event.completed_workload > 0) {

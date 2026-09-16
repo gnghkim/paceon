@@ -1,7 +1,14 @@
 import { addDays } from '@paceon/scheduler';
 import type { DailyMetrics } from './statistics.ts';
 
-export type HeatmapDay = { date: string; minutes: number; level: 0 | 1 | 2 | 3 | 4 };
+export type HeatmapDay = {
+  date: string;
+  /** 실제로 기록된 분. 추정값을 섞지 않는다. */
+  minutes: number;
+  /** 시간을 적지 않은 기록의 분량. 색 단계 추정에만 쓴다. */
+  untimedPages: number;
+  level: 0 | 1 | 2 | 3 | 4;
+};
 
 /** 0 기록없음, 1 15분 미만 또는 시간 미입력만 있음, 2 15-29분, 3 30-59분, 4 60분 이상. */
 export function heatmapLevel(minutes: number, untimedEvents: number): 0 | 1 | 2 | 3 | 4 {
@@ -12,10 +19,26 @@ export function heatmapLevel(minutes: number, untimedEvents: number): 0 | 1 | 2 
   return 4;
 }
 
-export function buildHeatmap(days: readonly DailyMetrics[]): HeatmapDay[] {
+/**
+ * 시간을 적지 않은 도서 기록은 분량으로 시간을 추정해 색 단계에만 반영한다.
+ * 20쪽을 읽고 시간을 비워 둔 날이 3분 기록한 날과 같은 색이던 문제를 없앤다.
+ * 추정값은 표시되는 분과 통계의 "기록된 시간"에는 넣지 않는다.
+ * `minutesPerPage`는 그 기간에 관측된 속도이며, 없으면 1분/쪽으로 본다.
+ */
+export function buildHeatmap(
+  days: readonly DailyMetrics[],
+  minutesPerPage: number | null = null,
+): HeatmapDay[] {
+  const speed = minutesPerPage !== null && minutesPerPage > 0 ? minutesPerPage : 1;
   return days.map(day => {
     const minutes = day.learningMinutes + day.recordedMinutes;
-    return { date: day.date, minutes, level: heatmapLevel(minutes, day.untimedEvents) };
+    const untimedPages = day.untimedPages ?? 0;
+    return {
+      date: day.date,
+      minutes,
+      untimedPages,
+      level: heatmapLevel(minutes + untimedPages * speed, day.untimedEvents),
+    };
   });
 }
 
@@ -74,3 +97,37 @@ export function formatStudyDuration(minutes: number): string {
   if (hours === 0) return `${rest}분`;
   return rest === 0 ? `${hours}시간` : `${hours}시간 ${rest}분`;
 }
+
+export type WeekDay = {
+  date: string;
+  /** 1=월 … 7=일. 화면의 요일 칸 순서와 같다. */
+  isoWeekday: number;
+  studied: boolean;
+  isToday: boolean;
+  isFuture: boolean;
+};
+
+/**
+ * 오늘이 속한 주를 월요일부터 일곱 칸으로 만든다.
+ * 잔디와 같은 기준으로 "학습한 날"을 표시하므로 도서와 영어학습을 함께 센다.
+ * 아직 오지 않은 날은 빈칸도 실패도 아니며, 지난 날과 구분해서 보여 준다.
+ */
+export function currentWeek(days: readonly HeatmapDay[], today: string): WeekDay[] {
+  const weekday = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const monday = addDays(today, -weekday);
+  const byDate = new Map(days.map(day => [day.date, day]));
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(monday, index);
+    return {
+      date,
+      isoWeekday: index + 1,
+      studied: (byDate.get(date)?.level ?? 0) > 0,
+      isToday: date === today,
+      isFuture: date > today,
+    };
+  });
+}
+
+/** 이번 주에 학습한 날 수. 아직 오지 않은 날은 세지 않는다. */
+export const countWeekDays = (week: readonly WeekDay[]) =>
+  week.filter(day => day.studied).length;

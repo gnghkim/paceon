@@ -13,6 +13,7 @@ import { BookCover } from '@/components/book-library';
 import { AiInsight } from '@/components/ai-insight';
 import { PdfSourceCard } from '@/components/pdf-source';
 import { PlanForm } from '@/components/plan-form';
+import { PlanSettings } from '@/components/plan-settings';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { formatDate, summarizeBook } from '@/lib/planning';
@@ -67,7 +68,7 @@ function BookDetailPanel({ id }: { id: string }) {
     );
   const bookPlans = data.plans.filter((p) => p.resource_id === id);
   const plan =
-    bookPlans.find((p) => p.status === 'ACTIVE') ??
+    bookPlans.find((p) => p.status === 'ACTIVE' || p.status === 'PAUSED') ??
     bookPlans
       .filter((p) => p.status === 'COMPLETED')
       .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
@@ -110,7 +111,13 @@ function BookDetailPanel({ id }: { id: string }) {
         <div className="min-w-0 flex-1">
           <p className="mb-2 text-xs text-muted-foreground">
             {book.source === 'PDF_IMPORT' && <span>PDF · </span>}
-            {book.status === 'COMPLETED' ? '완독한 책' : '읽고 있는 책'}
+            {book.status === 'ARCHIVED'
+              ? '보관한 책'
+              : book.status === 'COMPLETED'
+                ? '완독한 책'
+                : plan?.status === 'PAUSED'
+                  ? '잠시 멈춘 책'
+                  : '읽고 있는 책'}
           </p>
           <h1 className="break-words text-2xl font-bold tracking-tight md:text-[28px]">
             {book.title}
@@ -175,8 +182,6 @@ function BookDetailPanel({ id }: { id: string }) {
         </div>
       </Card>
       {saved && <ProgressResult result={saved} />}
-      <PdfSourceCard key={book.id} resourceId={book.id} onOutline={setPdfOutline} />
-      <AiInsight resourceId={book.id} initialOutline={pdfOutline} planHref={plan ? '#record' : book.status === 'COMPLETED' ? '#book-progress' : '#reading-plan'} />
       {plan && (
         <ProgressForm
           key={`${book.id}:${book.progress_version}:${plan.version}`}
@@ -187,55 +192,6 @@ function BookDetailPanel({ id }: { id: string }) {
           onResult={setSaved}
         />
       )}
-      {!plan && book.status !== 'COMPLETED' && (
-        <div id="reading-plan" className="scroll-mt-6">
-          <PlanForm key={book.id} book={book} data={data} onSaved={reload} />
-        </div>
-      )}
-      <Card className="space-y-4 p-4 md:p-6">
-        <h2 className="text-lg font-semibold">학습 기록 이력</h2>
-        <p className="text-xs text-muted-foreground">
-          최근 기록 20개를 표시해요. 정정 전 기록과 무효 처리도 이력에 남습니다.
-        </p>
-        {history.length ? (
-          <ul className="divide-y divide-border">
-            {history.slice(0, 20).map((event) => (
-              <li key={event.id} className="space-y-1 py-3 text-sm">
-                <p className="font-medium">
-                  {formatDate(event.study_date, true)} ·{' '}
-                  {event.event_type === 'VOID'
-                    ? '정정 · 이전 기록 무효 처리'
-                    : event.event_type === 'REVIEW'
-                      ? '복습 · 진도에 미포함'
-                      : voided.has(event.id)
-                        ? '읽기 · 무효 (정정됨)'
-                        : '읽기 · 유효'}
-                  {event.id === progress?.latestLearningId
-                    ? ' · 마지막 읽기 기록'
-                    : ''}
-                </p>
-                {event.event_type !== 'VOID' && (
-                  <p className="text-muted-foreground">
-                    {event.start_page}–{event.end_page}쪽
-                    {event.duration_minutes !== null
-                      ? ` · ${event.duration_minutes}분`
-                      : ''}
-                  </p>
-                )}
-                {event.memo && (
-                  <p className="whitespace-pre-wrap break-words text-muted-foreground">
-                    {event.memo}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            아직 기록한 학습이 없어요. 오늘 읽은 페이지를 남겨 보세요.
-          </p>
-        )}
-      </Card>
       {plan && (
         <Card className="p-4 md:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -288,6 +244,66 @@ function BookDetailPanel({ id }: { id: string }) {
           </p>
         </Card>
       )}
+      {plan && plan.status !== 'COMPLETED' && (
+        <PlanSettings
+          key={`settings:${book.id}:${book.progress_version}:${plan.version}:${plan.status}:${book.status}`}
+          book={book}
+          plan={plan}
+          onSaved={reload}
+          onResult={setSaved}
+        />
+      )}
+      {!plan && book.status !== 'COMPLETED' && (
+        <div id="reading-plan" className="scroll-mt-6">
+          <PlanForm key={book.id} book={book} data={data} onSaved={reload} />
+        </div>
+      )}
+      <AiInsight resourceId={book.id} initialOutline={pdfOutline} planHref={plan ? '#record' : book.status === 'COMPLETED' ? '#book-progress' : '#reading-plan'} />
+      <PdfSourceCard key={book.id} resourceId={book.id} onOutline={setPdfOutline} />
+      <Card className="space-y-4 p-4 md:p-6">
+        <h2 className="text-lg font-semibold">학습 기록 이력</h2>
+        <p className="text-xs text-muted-foreground">
+          최근 기록 20개를 표시해요. 정정 전 기록과 무효 처리도 이력에 남습니다.
+        </p>
+        {history.length ? (
+          <ul className="divide-y divide-border">
+            {history.slice(0, 20).map((event) => (
+              <li key={event.id} className="space-y-1 py-3 text-sm">
+                <p className="font-medium">
+                  {formatDate(event.study_date, true)} ·{' '}
+                  {event.event_type === 'VOID'
+                    ? '정정 · 이전 기록 무효 처리'
+                    : event.event_type === 'REVIEW'
+                      ? '복습 · 진도에 미포함'
+                      : voided.has(event.id)
+                        ? '읽기 · 무효 (정정됨)'
+                        : '읽기 · 유효'}
+                  {event.id === progress?.latestLearningId
+                    ? ' · 마지막 읽기 기록'
+                    : ''}
+                </p>
+                {event.event_type !== 'VOID' && (
+                  <p className="text-muted-foreground">
+                    {event.start_page}–{event.end_page}쪽
+                    {event.duration_minutes !== null
+                      ? ` · ${event.duration_minutes}분`
+                      : ''}
+                  </p>
+                )}
+                {event.memo && (
+                  <p className="whitespace-pre-wrap break-words text-muted-foreground">
+                    {event.memo}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            아직 기록한 학습이 없어요. 오늘 읽은 페이지를 남겨 보세요.
+          </p>
+        )}
+      </Card>
     </div>
   );
 }

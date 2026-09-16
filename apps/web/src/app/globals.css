@@ -27,9 +27,49 @@
   --surface-subtle: #f5f5f2;
   --primary-hover: #4d58d6;
   --primary-soft: #eef0ff;
+  --warning: #92610f;
   --warning-soft: #fbf2e4;
   --danger-soft: #fbecec;
+  --success: #287552;
   --success-soft: #eaf6f0;
+}
+
+/*
+ * 기기 설정을 따르는 어두운 화면. 토큰만 다시 정의하고 컴포넌트는 그대로 둔다.
+ * 수동 전환은 넣지 않는다. DESIGN의 차분한 방향을 지키려고 대비를 과하게 올리지 않는다.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --background: #16171a;
+    --foreground: #e8e8ea;
+    --primary: #8b93f0;
+    --primary-foreground: #16171a;
+    --secondary: #26282e;
+    --secondary-foreground: #d3d4d9;
+    --muted: #26282e;
+    --muted-foreground: #a0a2ab;
+    --card: #1d1f23;
+    --card-foreground: #e8e8ea;
+    --popover: #1d1f23;
+    --popover-foreground: #e8e8ea;
+    --accent: #262a45;
+    --accent-foreground: #c3c8fb;
+    --destructive: #f0837a;
+    --border: #32343a;
+    --input: #3d3f47;
+    --ring: #8b93f0;
+    --surface: #1d1f23;
+    --surface-muted: #26282e;
+    --surface-subtle: #212328;
+    --primary-hover: #9aa1f4;
+    --primary-soft: #232741;
+    --warning: #e0b978;
+    --warning-soft: #2e2820;
+    --danger-soft: #331f1f;
+    --success: #5cba8d;
+    --success-soft: #1c2b24;
+  }
 }
 
 @theme inline {
@@ -40,10 +80,11 @@
   --color-danger: var(--destructive);
   --color-primary-hover: var(--primary-hover);
   --color-primary-soft: var(--primary-soft);
+  --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
   --color-danger-soft: var(--danger-soft);
   --color-success-soft: var(--success-soft);
-  --color-success: #287552;
+  --color-success: var(--success);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
