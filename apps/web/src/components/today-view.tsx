@@ -187,7 +187,15 @@ function TodayContent({ data }: { data: WorkspaceData }) {
           )}
           {!!upcoming.length && (
             <section>
-              <h2 className="mb-4 font-semibold">다가오는 학습</h2>
+              <h2 className="mb-4 font-semibold">
+                <Link
+                  href="/calendar"
+                  className="inline-flex min-h-11 items-center gap-1.5 hover:text-primary"
+                >
+                  다가오는 학습
+                  <ArrowRight size={15} aria-hidden="true" />
+                </Link>
+              </h2>
               <div className="space-y-4">
                 {upcoming.map((s) => (
                   <div key={s.id}>
@@ -281,7 +289,7 @@ function useYearStatistics(today: string) {
 
 function StudyStreakCard({ today, data }: { today: string; data: StatisticsData | null }) {
   if (!data) return <Skeleton className="h-40 w-full" />;
-  const heatmapDays = buildHeatmap(data.days);
+  const heatmapDays = buildHeatmap(data.days, data.summary.minutesPerPage);
   const streak = computeStreak(heatmapDays, today);
   const todayEntry = data.days.find((day) => day.date === today);
   return (

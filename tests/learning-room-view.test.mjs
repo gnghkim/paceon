@@ -61,14 +61,14 @@ test('a visible play resumes a paused session, including one the user paused by 
 
 test('timer label prefers lock and pending end over session state', () => {
  const base = { locked: false, pendingEnd: false, current: session(), stale: false, kind: 'WRITING' };
- assert.equal(timerStatusLabel({ ...base, locked: true, pendingEnd: true }), '다른 기기에서 학습 중');
- assert.equal(timerStatusLabel({ ...base, pendingEnd: true }), '종료 동기화 대기');
+ assert.equal(timerStatusLabel({ ...base, locked: true, pendingEnd: true }), '다른 기기에서 학습 중이에요');
+ assert.equal(timerStatusLabel({ ...base, pendingEnd: true }), '끝내는 중 · 다시 종료를 누르면 이어서 확인해요');
  assert.equal(timerStatusLabel({ ...base, current: null, kind: 'LISTENING' }), '재생하거나 글을 쓰면 시작돼요');
  assert.equal(timerStatusLabel({ ...base, current: null, kind: 'SPEAKING' }), '녹음하거나 음성을 들으면 시작돼요');
  assert.equal(timerStatusLabel({ ...base, current: null }), '글을 쓰면 시작돼요');
- assert.equal(timerStatusLabel({ ...base, stale: true }), '일시 정지');
- assert.equal(timerStatusLabel({ ...base, current: session({ status: 'ENDED' }) }), '학습 종료 · 기록됨');
- assert.equal(timerStatusLabel(base), '학습 중 · 시간 동기화 중');
+ assert.equal(timerStatusLabel({ ...base, stale: true }), '잠시 멈춤');
+ assert.equal(timerStatusLabel({ ...base, current: session({ status: 'ENDED' }) }), '끝냈어요');
+ assert.equal(timerStatusLabel(base), '학습 중');
 });
 
 test('listening keeps four activity tabs while the other rooms keep one', () => {

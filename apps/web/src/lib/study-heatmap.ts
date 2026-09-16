@@ -1,7 +1,14 @@
 import { addDays } from '@paceon/scheduler';
 import type { DailyMetrics } from './statistics.ts';
 
-export type HeatmapDay = { date: string; minutes: number; level: 0 | 1 | 2 | 3 | 4 };
+export type HeatmapDay = {
+  date: string;
+  /** 실제로 기록된 분. 추정값을 섞지 않는다. */
+  minutes: number;
+  /** 시간을 적지 않은 기록의 분량. 색 단계 추정에만 쓴다. */
+  untimedPages: number;
+  level: 0 | 1 | 2 | 3 | 4;
+};
 
 /** 0 기록없음, 1 15분 미만 또는 시간 미입력만 있음, 2 15-29분, 3 30-59분, 4 60분 이상. */
 export function heatmapLevel(minutes: number, untimedEvents: number): 0 | 1 | 2 | 3 | 4 {
@@ -12,10 +19,26 @@ export function heatmapLevel(minutes: number, untimedEvents: number): 0 | 1 | 2 
   return 4;
 }
 
-export function buildHeatmap(days: readonly DailyMetrics[]): HeatmapDay[] {
+/**
+ * 시간을 적지 않은 도서 기록은 분량으로 시간을 추정해 색 단계에만 반영한다.
+ * 20쪽을 읽고 시간을 비워 둔 날이 3분 기록한 날과 같은 색이던 문제를 없앤다.
+ * 추정값은 표시되는 분과 통계의 "기록된 시간"에는 넣지 않는다.
+ * `minutesPerPage`는 그 기간에 관측된 속도이며, 없으면 1분/쪽으로 본다.
+ */
+export function buildHeatmap(
+  days: readonly DailyMetrics[],
+  minutesPerPage: number | null = null,
+): HeatmapDay[] {
+  const speed = minutesPerPage !== null && minutesPerPage > 0 ? minutesPerPage : 1;
   return days.map(day => {
     const minutes = day.learningMinutes + day.recordedMinutes;
-    return { date: day.date, minutes, level: heatmapLevel(minutes, day.untimedEvents) };
+    const untimedPages = day.untimedPages ?? 0;
+    return {
+      date: day.date,
+      minutes,
+      untimedPages,
+      level: heatmapLevel(minutes + untimedPages * speed, day.untimedEvents),
+    };
   });
 }
 

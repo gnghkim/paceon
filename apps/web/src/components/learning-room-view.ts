@@ -97,15 +97,19 @@ const startHints: Record<LearningKind, string> = {
   WRITING: '글을 쓰면 시작돼요',
 };
 
+/**
+ * 공부하는 동안 읽을 문구다. 평소에는 상태 하나만 말하고,
+ * 손쓸 일이 있을 때만(다른 기기가 잡고 있거나 종료가 덜 끝났을 때) 이유를 덧붙인다.
+ */
 export function timerStatusLabel({ locked, pendingEnd, current, stale, kind }: {
   locked: boolean; pendingEnd: boolean; current: LearningSession | null; stale: boolean; kind: LearningKind;
 }) {
-  if (locked) return '다른 기기에서 학습 중';
-  if (pendingEnd) return '종료 동기화 대기';
+  if (locked) return '다른 기기에서 학습 중이에요';
+  if (pendingEnd) return '끝내는 중 · 다시 종료를 누르면 이어서 확인해요';
   if (!current) return startHints[kind];
-  if (current.status === 'ENDED') return '학습 종료 · 기록됨';
-  if (current.status === 'PAUSED' || stale) return '일시 정지';
-  return '학습 중 · 시간 동기화 중';
+  if (current.status === 'ENDED') return '끝냈어요';
+  if (current.status === 'PAUSED' || stale) return '잠시 멈춤';
+  return '학습 중';
 }
 
 export const sessionStatusLabel = (status: LearningSession['status']) =>

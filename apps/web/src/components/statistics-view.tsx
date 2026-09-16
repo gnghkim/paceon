@@ -262,7 +262,7 @@ function StatisticsContent() {
 
 function StudyHeatmapSection({ data }: { data: StatisticsData }) {
   const [selected, setSelected] = useState<HeatmapDay | null>(null);
-  const heatmapDays = buildHeatmap(data.days);
+  const heatmapDays = buildHeatmap(data.days, data.summary.minutesPerPage);
   // buildStatistics의 summary.activeDays는 도서 기록 기준이라 영어학습만 있는 날을 놓친다.
   const activeDays = countActiveDays(heatmapDays);
   const streak = computeStreak(heatmapDays, data.today);
@@ -304,7 +304,7 @@ function StatisticsReport({ data }: { data: StatisticsData }) {
     ...data.days.map((day) => day.learningPages + day.reviewPages),
   );
   // 도서 기록만 세는 summary.activeDays 대신, 잔디와 같은 기준으로 영어학습만 한 날도 센다.
-  const activeDays = countActiveDays(buildHeatmap(data.days));
+  const activeDays = countActiveDays(buildHeatmap(data.days, data.summary.minutesPerPage));
   return (
     <div className="space-y-7">
       <p className="text-sm text-muted-foreground" role="status">
