@@ -7,8 +7,8 @@
 ```text
 Browser -> Supabase Auth                      로그인·세션 토큰
 Browser -> Next.js :3000 API Route
-  -> Supabase REST/RPC (사용자 토큰, RLS)       도서·계획·진도·통계·학습실 명령과 조회
-  -> Supabase Storage (비공개)                  PDF 원본, 학습실 음성
+  -> Supabase REST/RPC (사용자 토큰, RLS)       도서·계획·진도·통계·영어학습 명령과 조회
+  -> Supabase Storage (비공개)                  PDF 원본, 영어학습 음성
   -> Supabase RPC (service role)                YouTube 연결 토큰 저장 전용
   -> Google Books / YES24                       도서 검색
   -> Google OAuth / YouTube Data API            계정 연결·목록 조회 (서버 전용)
@@ -22,15 +22,15 @@ Worker는 한 프로세스에서 소비자를 스레드로 실행한다.
 | 소비자 | 처리 | 실행 조건 |
 | --- | --- | --- |
 | `Worker` | 도서 분석·학습 코칭 (Phase 6) | `AI_ENABLED=true`, Supabase URL·service role 키, OpenAI 키·모델 |
-| `LearningWorker` | 학습실 글쓰기 답변·요약 (LR1·LR2) | 위와 같음 |
+| `LearningWorker` | 영어학습 글쓰기 답변·요약 (LR1·LR2) | 위와 같음 |
 | `SpeechWorker` | 연습 문장·TTS·전사·피드백 (LR3), 음성 보관 기간·계정 삭제 정리 | Supabase URL·service role 키. 음성 AI 작업은 `AI_ENABLED`가 켜진 경우에만 가져간다 |
 | `PdfWorker` | PDF 페이지·목차 추출 (Phase 7) | `PDF_ENABLED=true`, Supabase URL·service role 키 |
 
-웹의 `AI_ENABLED`, `PDF_ENABLED`는 요청 접수 여부만 정한다. 처리는 Worker 설정을 따르므로 두 쪽을 함께 맞춘다. 학습실 계약은 [LEARNING_ROOM](LEARNING_ROOM.md), YouTube 연결은 [YOUTUBE_SETUP](YOUTUBE_SETUP.md)을 따른다.
+웹의 `AI_ENABLED`, `PDF_ENABLED`는 요청 접수 여부만 정한다. 처리는 Worker 설정을 따르므로 두 쪽을 함께 맞춘다. 영어학습 계약은 [LEARNING_ROOM](LEARNING_ROOM.md), YouTube 연결은 [YOUTUBE_SETUP](YOUTUBE_SETUP.md)을 따른다.
 
 단위 테스트는 `scripts/test-unit.mjs`가 `tests/*.test.mjs`에서 인프라가 필요한 `*-integration`, `database-*`, `health` 테스트를 제외하고 실행한다. GitHub Actions(`.github/workflows/ci.yml`)는 웹 검사·빌드, Worker 단위 테스트, Supabase Local pgTAP와 DB 타입 일치를 확인한다. 실제 Auth/API 통합 테스트는 로컬에서 실행한다.
 
-학습실 공간은 `kind`(LISTENING·SPEAKING·WRITING)를 갖는다. 공개 명령 RPC가 영역별 허용 명령을 검사하고(`LEARNING_KIND`), 새 공간의 종류는 트랜잭션 설정 `paceon.workspace_kind`를 insert 트리거가 채운다.
+영어학습 공간은 `kind`(LISTENING·SPEAKING·WRITING)를 갖는다. 공개 명령 RPC가 영역별 허용 명령을 검사하고(`LEARNING_KIND`), 새 공간의 종류는 트랜잭션 설정 `paceon.workspace_kind`를 insert 트리거가 채운다.
 
 ## Phase 0 경계
 
