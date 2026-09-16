@@ -26,6 +26,7 @@ import { summarizeDay } from '@/lib/session-state';
 import type { WorkspaceData } from '@/lib/workspace-types';
 import type { StatisticsData } from '@/lib/statistics';
 import { LearningToday } from './learning-today';
+import { CatchUpNotice } from './catch-up-notice';
 
 export function TodayView() {
   const { data, error, reload } = useWorkspace();
@@ -75,6 +76,7 @@ function TodayContent({ data }: { data: WorkspaceData }) {
           </Button>
         </div>
       </header>
+      <CatchUpNotice data={data} />
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0 space-y-7">
           <section aria-labelledby="focus-heading">
