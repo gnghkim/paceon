@@ -34,6 +34,7 @@ import type { HeatmapDay } from '@/lib/study-heatmap';
 import { cn } from '@/lib/utils';
 import { LearningToday } from './learning-today';
 import { CatchUpNotice } from './catch-up-notice';
+import { WORKSPACE_CHANGED } from '@/lib/quick-record';
 
 export function TodayView() {
   const { data, error, reload } = useWorkspace();
@@ -253,6 +254,13 @@ function TodayContent({ data }: { data: WorkspaceData }) {
 function useYearStatistics(today: string) {
   const { apiFetch } = useAuth();
   const [data, setData] = useState<StatisticsData | null>(null);
+  // 기록을 저장하면 잔디·연속일·이번 주·영어학습 분이 모두 달라진다.
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRevision((value) => value + 1);
+    window.addEventListener(WORKSPACE_CHANGED, refresh);
+    return () => window.removeEventListener(WORKSPACE_CHANGED, refresh);
+  }, []);
   useEffect(() => {
     const controller = new AbortController();
     void apiFetch(`/api/statistics?from=${addDays(today, -365)}&to=${today}`, {
@@ -267,7 +275,7 @@ function useYearStatistics(today: string) {
       // 조용한 위젯: 실패해도 오늘 화면의 나머지 기능은 그대로 동작한다.
       .catch(() => {});
     return () => controller.abort();
-  }, [apiFetch, today]);
+  }, [apiFetch, today, revision]);
   return data;
 }
 

@@ -17,6 +17,7 @@ export function useWorkspace(query = '') {
   const key = `${session?.user.id ?? ''}:${query}:${revision}`;
   const [result, setResult] = useState<{
     key: string;
+    userId: string;
     data: WorkspaceData | null;
     error: string | null;
   } | null>(null);
@@ -29,12 +30,18 @@ export function useWorkspace(query = '') {
         if (!response.ok)
           throw new Error(body.error ?? '자료를 불러오지 못했습니다.');
         if (!controller.signal.aborted)
-          setResult({ key, data: body as WorkspaceData, error: null });
+          setResult({
+            key,
+            userId: session.user.id,
+            data: body as WorkspaceData,
+            error: null,
+          });
       })
       .catch((error) => {
         if (!controller.signal.aborted)
           setResult({
             key,
+            userId: session.user.id,
             data: null,
             error:
               error instanceof Error
@@ -44,12 +51,17 @@ export function useWorkspace(query = '') {
       });
     return () => controller.abort();
   }, [apiFetch, session, key, query]);
-  const current = result?.key === key ? result : null;
+  const fresh = result?.key === key ? result : null;
+  // 다시 불러오는 동안 직전 자료를 그대로 보여 준다. 화면을 비우면 저장 안내처럼
+  // 그 자리에 있던 내용이 함께 사라지고, 기록할 때마다 화면이 깜빡인다.
+  // 다른 사용자의 자료는 절대 넘기지 않는다.
+  const previous =
+    !fresh && result && result.userId === session?.user.id ? result : null;
   const reload = useCallback(() => setRevision((value) => value + 1), []);
   return {
-    data: current?.data ?? null,
-    loading: !current,
-    error: current?.error ?? null,
+    data: fresh ? fresh.data : (previous?.data ?? null),
+    loading: !fresh,
+    error: fresh?.error ?? null,
     reload,
   };
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CalendarClock, X } from 'lucide-react';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
@@ -85,23 +85,16 @@ async function runCatchUp(
     : { kind: 'blocked', titles: blocked.map((target) => target.title) };
 }
 
-/**
- * 워크스페이스를 다시 불러오는 동안 오늘 화면이 잠시 로딩으로 바뀌므로, 이 카드도 함께
- * 사라졌다가 다시 붙는다. 진행 중인 작업과 결과를 모듈에 두어 그 사이에 잃지 않는다.
- */
-let job: { userId: string; run: Promise<Result | null>; result: Result | null } | null = null;
-
 export function CatchUpNotice({ data }: { data: WorkspaceData }) {
-  const { apiFetch, session } = useAuth();
-  const userId = session?.user.id ?? '';
-  const [result, setResult] = useState<Result | null>(
-    job?.userId === userId ? job.result : null,
-  );
+  const { apiFetch } = useAuth();
+  const [result, setResult] = useState<Result | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  // 정리는 쓰기다. 중단하지 않고 한 번만 시작한 뒤, 개발 모드의 이중 호출이
+  // 다시 붙어도 같은 결과를 구독한다.
+  const job = useRef<Promise<Result | null> | null>(null);
   useEffect(() => {
     let cancelled = false;
-    if (job && job.userId !== userId) job = null;
-    if (!job) {
+    if (!job.current) {
       const targets = catchUpTargets(data);
       if (!targets.length) return;
       let stored: string | null = null;
@@ -113,20 +106,15 @@ export function CatchUpNotice({ data }: { data: WorkspaceData }) {
       const memory = readCatchUpMemory(stored, data.today);
       const due = targets.filter((target) => !catchUpKey(memory, target.planId));
       if (!due.length) return;
-      const started = { userId, run: runCatchUp(apiFetch, memory, due), result: null as Result | null };
-      started.run.then((outcome) => {
-        started.result = outcome;
-      });
-      job = started;
+      job.current = runCatchUp(apiFetch, memory, due);
     }
-    const current = job;
-    void current.run.then((outcome) => {
-      if (!cancelled && outcome && current.userId === userId) setResult(outcome);
+    void job.current.then((outcome) => {
+      if (!cancelled && outcome) setResult(outcome);
     });
     return () => {
       cancelled = true;
     };
-  }, [apiFetch, data, userId]);
+  }, [apiFetch, data]);
   if (!result || dismissed) return null;
   return (
     <div

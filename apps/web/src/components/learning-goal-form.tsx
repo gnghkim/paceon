@@ -31,9 +31,7 @@ export function LearningGoalForm() {
         const body = await response.json();
         if (!response.ok)
           throw new Error(body.error ?? '목표를 저장하지 못했어요. 다시 시도해 주세요.');
-        // 여기서 다시 불러오지 않는다. useWorkspace가 새로고침 중 데이터를 비워
-        // 이 폼을 잠시 내리므로 방금 저장했다는 안내가 사라진다. 오늘 화면은
-        // 열 때마다 새로 읽으므로 바뀐 목표를 곧바로 보여 준다.
+        reload();
       }}
     />
   );
