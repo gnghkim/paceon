@@ -55,3 +55,14 @@ export function pushSupport(
   if (!vapidKey) return { supported: false, reason: 'unconfigured' };
   return { supported: true };
 }
+
+/**
+ * 이 브라우저가 알림을 받고 있는가.
+ *
+ * 계정의 기기 수로 판단하면 안 된다. PC에서 켠 뒤 휴대폰에서 열면 이미 켜진 것처럼
+ * 보여 그 기기를 등록할 방법이 사라진다. 구독은 브라우저마다 따로 만들어진다.
+ */
+export const notificationsOn = (
+  savedTime: string | null,
+  subscribedHere: boolean | null,
+) => savedTime !== null && subscribedHere === true;
