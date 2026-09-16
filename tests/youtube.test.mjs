@@ -1,7 +1,26 @@
 import assert from 'node:assert/strict';
 import { mergeYouTubeLibraryItems } from '../apps/web/src/lib/youtube-library.ts';
 import { test } from 'node:test';
-import { normalizeYouTubeUrl, normalizeTranscript, videoCommandSchema } from '../apps/web/src/lib/youtube.ts';
+import { normalizeYouTubeUrl, normalizeTranscript, videoCommandSchema, defaultVideoTitle, isDefaultVideoTitle, parseOEmbedTitle } from '../apps/web/src/lib/youtube.ts';
+
+test('a saved title counts as a placeholder only while it matches the generated one',()=>{
+ assert.equal(defaultVideoTitle('aqz-KE-bpKQ'),'YouTube · aqz-KE-bpKQ');
+ assert.equal(isDefaultVideoTitle('YouTube · aqz-KE-bpKQ','aqz-KE-bpKQ'),true);
+ assert.equal(isDefaultVideoTitle('토익 LC빈출 듣기','aqz-KE-bpKQ'),false,'사용자가 붙인 제목은 덮지 않는다');
+ assert.equal(isDefaultVideoTitle('YouTube · dQw4w9WgXcQ','aqz-KE-bpKQ'),false,'다른 영상의 기본 제목은 이 영상 것이 아니다');
+ assert.equal(isDefaultVideoTitle('','aqz-KE-bpKQ'),true,'빈 제목도 대신 보여줄 이름이 필요하다');
+ assert.equal(isDefaultVideoTitle(undefined,'aqz-KE-bpKQ'),true);
+});
+
+test('oEmbed parsing keeps only a usable title and refuses anything else',()=>{
+ assert.equal(parseOEmbedTitle({title:'Big Buck Bunny 60fps 4K'}),'Big Buck Bunny 60fps 4K');
+ assert.equal(parseOEmbedTitle({title:'  공백 정리  '}),'공백 정리');
+ assert.equal(parseOEmbedTitle({title:''}),null);
+ assert.equal(parseOEmbedTitle({title:'x'.repeat(500)})?.length,200,'화면용으로 잘라 쓴다');
+ assert.equal(parseOEmbedTitle({author_name:'Blender'}),null,'제목이 없으면 다른 필드로 대신하지 않는다');
+ assert.equal(parseOEmbedTitle(null),null);
+ assert.equal(parseOEmbedTitle('문자열 응답'),null);
+});
 const id='dQw4w9WgXcQ';
 test('YouTube links normalize only explicit single videos and timestamps',()=>{
  for(const url of [`https://www.youtube.com/watch?v=${id}`,`https://youtu.be/${id}`,`https://youtube.com/shorts/${id}`,`https://m.youtube.com/embed/${id}`]) assert.deepEqual(normalizeYouTubeUrl(url),{videoId:id,startSeconds:0,url:`https://www.youtube.com/watch?v=${id}`});

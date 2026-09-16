@@ -5,6 +5,7 @@ const seconds = z.number().finite().min(0).max(maxPosition);
 const uuid = z.uuid();
 const base = { requestId: uuid, workspaceId: uuid };
 export const videoCommandSchema = z.discriminatedUnion('action', [
+  z.object({ ...base, action: z.literal('VIDEO_REMOVE') }).strict(),
   z.strictObject({ action:z.literal('VIDEO_EDIT'), ...base, title:z.string().trim().min(1).max(120), favorite:z.boolean(), archived:z.boolean() }),
   z.strictObject({ action:z.literal('VIDEO_SOURCE'), ...base, expectedVersion:z.number().int().min(0).max(2147483647), transcript:z.string().max(200000).refine(v=>Array.from(v).length<=100000 && !v.includes('\0')), contextStart:z.number().int().min(0).max(100000), contextEnd:z.number().int().min(0).max(100000) }),
   z.strictObject({ action:z.literal('VIDEO_NOTE'), ...base, noteId:uuid, positionSeconds:seconds, content:z.string().min(1).max(4000).refine(v=>v.trim().length>0) }),
@@ -36,6 +37,22 @@ export function normalizeYouTubeUrl(value: string): {videoId:string;startSeconds
   const startSeconds=raw===null?0:timestamp(raw);
   if(!Number.isFinite(startSeconds) || startSeconds<0 || startSeconds>maxPosition) return invalid();
   return {videoId,startSeconds,url:`https://www.youtube.com/watch?v=${videoId}`};
+}
+
+/** 링크만 저장했을 때 붙는 기본 제목. 사용자가 이름을 붙이면 이 형태가 아니게 된다. */
+export const defaultVideoTitle = (videoId: string) => `YouTube · ${videoId}`;
+
+/** 저장된 제목이 아직 기본값(또는 비어 있음)이라 화면에서 실제 제목을 대신 보여줘도 되는지. */
+export const isDefaultVideoTitle = (title: string | undefined | null, videoId: string) =>
+  !title?.trim() || title === defaultVideoTitle(videoId);
+
+/** oEmbed 응답에서 화면에 쓸 제목만 꺼낸다. 저장하지 않으며 다른 필드로 대체하지 않는다. */
+export function parseOEmbedTitle(body: unknown): string | null {
+  if (typeof body !== 'object' || body === null) return null;
+  const title = (body as { title?: unknown }).title;
+  if (typeof title !== 'string') return null;
+  const trimmed = title.trim();
+  return trimmed ? trimmed.slice(0, 200) : null;
 }
 
 function cueTime(text:string) {
