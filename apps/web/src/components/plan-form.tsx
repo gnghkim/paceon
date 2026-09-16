@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Resource } from '@paceon/shared';
 import { toStudyDate, type ScheduleResult } from '@paceon/scheduler';
 import type { WorkspaceData } from '@/lib/workspace-types';
@@ -11,6 +11,32 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 
 const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+/** 첫 계획에서 고르기 쉬운 속도. 정확한 값은 기록이 쌓인 뒤 엔진이 다시 추정한다. */
+const speedChoices: readonly (readonly [string, string])[] = [
+  ['빠르게 · 30초', '0.5'],
+  ['보통 · 1분', '1'],
+  ['천천히 · 2분', '2'],
+];
+
+/** 최근 90일 동안 실제로 기록된 분/쪽. 표본이 없으면 null이다. */
+function useObservedSpeed() {
+  const { apiFetch } = useAuth();
+  const [observed, setObserved] = useState<number | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void apiFetch('/api/statistics', { signal: controller.signal, cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { summary?: { minutesPerPage: number | null } } | null) => {
+        const value = body?.summary?.minutesPerPage ?? null;
+        if (!controller.signal.aborted && value !== null && value >= 0.1 && value <= 1440)
+          setObserved(Math.round(value * 100) / 100);
+      })
+      // 참고용 제안이다. 못 받으면 고른 속도를 그대로 쓴다.
+      .catch(() => {});
+    return () => controller.abort();
+  }, [apiFetch]);
+  return observed;
+}
 function studyToday(timezone: string): string | null {
   try {
     return toStudyDate(new Date().toISOString(), timezone);
@@ -37,14 +63,17 @@ export function PlanForm({
 }) {
   const { apiFetch } = useAuth();
   const [mode, setMode] = useState<PlanOptions['mode']>('PACE');
-  const [timezone, setTimezone] = useState(() => initialTimezone(data));
+  // 시간대는 브라우저에서 읽어 그대로 쓴다. 첫 계획을 세우며 고를 일이 아니고,
+  // 계획마다 저장되어 학습일 계산에 쓰이므로 나중에 바꾸는 것도 별도 작업이다.
+  const timezone = initialTimezone(data);
   const [startDate, setStartDate] = useState(
     () => studyToday(initialTimezone(data)) ?? data.today,
   );
-  const startEdited = useRef(false);
   const [targetDate, setTargetDate] = useState('');
   const [dailyPages, setDailyPages] = useState('20');
   const [minutesPerPage, setMinutesPerPage] = useState('1');
+  const [customSpeed, setCustomSpeed] = useState(false);
+  const observed = useObservedSpeed();
   const [days, setDays] = useState([1, 2, 3, 4, 5]);
   const [minutes, setMinutes] = useState('60');
   const [preview, setPreview] = useState<{
@@ -55,9 +84,7 @@ export function PlanForm({
   const [error, setError] = useState('');
   const requestRef = useRef(false);
   const sharedAvailability = data.availability.length > 0;
-  const effectiveTimezone = sharedAvailability
-    ? data.timezone
-    : timezone.trim();
+  const effectiveTimezone = sharedAvailability ? data.timezone : timezone;
   const today = studyToday(effectiveTimezone);
   const options: PlanOptions = {
     mode,
@@ -190,10 +217,7 @@ export function PlanForm({
                 min={today ?? undefined}
                 required
                 value={startDate}
-                onChange={(e) => {
-                  startEdited.current = true;
-                  setStartDate(e.target.value);
-                }}
+                onChange={(e) => setStartDate(e.target.value)}
               />
             </label>
             <label className="block space-y-2 text-sm font-medium">
@@ -220,23 +244,72 @@ export function PlanForm({
                 />
               </label>
             )}
-            <label className="block space-y-2 text-sm font-medium">
-              <span>한 페이지당 예상 시간 (분)</span>
-              <Input
-                type="number"
-                min={0.1}
-                max={1440}
-                step="0.001"
-                required
-                value={minutesPerPage}
-                onChange={(e) => setMinutesPerPage(e.target.value)}
-              />
-            </label>
           </div>
-          <p className="text-xs text-muted-foreground">
-            처음에는 한 페이지당 1분으로 설정했어요. 책의 난이도와 읽는 속도에
-            맞게 바꿔 주세요.
-          </p>
+          <div className="space-y-3">
+            <span className="block text-sm font-medium">읽는 속도</span>
+            <div className="flex flex-wrap gap-2">
+              {speedChoices.map(([label, value]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant={
+                    !customSpeed && minutesPerPage === value
+                      ? 'secondary'
+                      : 'outline'
+                  }
+                  aria-pressed={!customSpeed && minutesPerPage === value}
+                  onClick={() => {
+                    setCustomSpeed(false);
+                    setMinutesPerPage(value);
+                  }}
+                >
+                  {label}
+                </Button>
+              ))}
+              <Button
+                type="button"
+                variant={customSpeed ? 'secondary' : 'outline'}
+                aria-pressed={customSpeed}
+                onClick={() => setCustomSpeed(true)}
+              >
+                직접 입력
+              </Button>
+            </div>
+            {customSpeed && (
+              <label className="block max-w-xs space-y-2 text-sm">
+                <span>한 페이지당 예상 시간 (분)</span>
+                <Input
+                  type="number"
+                  min={0.1}
+                  max={1440}
+                  step="0.001"
+                  required
+                  value={minutesPerPage}
+                  onChange={(e) => setMinutesPerPage(e.target.value)}
+                />
+              </label>
+            )}
+            <p className="text-xs leading-5 text-muted-foreground">
+              한 페이지에 약 {minutesPerPage}분으로 계산해요. 정확하지 않아도
+              괜찮아요. 기록이 쌓이면 실제 속도로 일정을 다시 나눠요.
+              {observed !== null && (
+                <>
+                  {' '}
+                  최근 기록으로는 {observed}분/쪽이에요.{' '}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => {
+                      setCustomSpeed(true);
+                      setMinutesPerPage(String(observed));
+                    }}
+                  >
+                    이 속도 쓰기
+                  </button>
+                </>
+              )}
+            </p>
+          </div>
           <div className="space-y-3 border-t border-border pt-5">
             <h3 className="text-sm font-medium">학습 가능한 시간</h3>
             {sharedAvailability ? (
@@ -297,62 +370,14 @@ export function PlanForm({
                 </p>
               </>
             )}
-            {sharedAvailability ? (
-              <p className="text-xs text-muted-foreground">
-                시간대 · {data.timezone}
-              </p>
-            ) : (
-              <div className="space-y-2">
-                <label className="block max-w-sm space-y-2 text-sm">
-                  <span>학습 시간대</span>
-                  <Input
-                    list="plan-timezones"
-                    required
-                    maxLength={100}
-                    value={timezone}
-                    aria-invalid={!today}
-                    aria-describedby="plan-timezone-help"
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setTimezone(value);
-                      const nextToday = studyToday(value.trim());
-                      if (!startEdited.current && nextToday)
-                        setStartDate(nextToday);
-                    }}
-                  />
-                </label>
-                <datalist id="plan-timezones">
-                  {Array.from(
-                    new Set([
-                      initialTimezone(data),
-                      data.timezone,
-                      'Asia/Seoul',
-                      'Asia/Tokyo',
-                      'Asia/Shanghai',
-                      'Asia/Singapore',
-                      'Europe/London',
-                      'Europe/Paris',
-                      'America/New_York',
-                      'America/Chicago',
-                      'America/Los_Angeles',
-                      'Pacific/Honolulu',
-                      'Australia/Sydney',
-                      'UTC',
-                    ]),
-                  ).map((zone) => (
-                    <option key={zone} value={zone} />
-                  ))}
-                </datalist>
-                <p
-                  id="plan-timezone-help"
-                  className={`text-xs ${today ? 'text-muted-foreground' : 'text-destructive'}`}
-                >
-                  {today
-                    ? `선택한 시간대의 오늘은 ${formatDate(today, true)}입니다. 다른 책에도 같은 시간대를 사용합니다.`
-                    : '목록에서 선택하거나 올바른 IANA 시간대를 입력해 주세요. 예: Asia/Seoul'}
-                </p>
-              </div>
-            )}
+            <p
+              id="plan-timezone-help"
+              className={`text-xs ${today ? 'text-muted-foreground' : 'text-destructive'}`}
+            >
+              {today
+                ? `시간대 · ${effectiveTimezone} · 이 시간대의 오늘은 ${formatDate(today, true)}입니다.`
+                : '시간대를 읽지 못했어요. 기기의 시간대 설정을 확인해 주세요.'}
+            </p>
           </div>
         </fieldset>
         {error && (
