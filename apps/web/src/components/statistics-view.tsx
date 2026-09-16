@@ -150,8 +150,8 @@ function StatisticsContent() {
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">학습 통계</h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          책과 PDF에 남긴 학습·복습 기록을 모았어요. 자료 등록 전 읽은 분량은
-          포함하지 않아요.
+          책과 영어학습에 남긴 기록을 모았어요. 자료 등록 전 읽은 분량은 포함하지
+          않아요.
         </p>
       </header>
       <section aria-labelledby="study-heatmap-heading" className="space-y-3 rounded-xl border border-border bg-card p-4 sm:p-5">

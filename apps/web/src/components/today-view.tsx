@@ -68,12 +68,13 @@ function TodayContent({ data }: { data: WorkspaceData }) {
               캘린더
             </Link>
           </Button>
-          <Button asChild variant="outline">
-            <Link href="/resources/new">
-              <Plus size={16} />
-              자료 추가
-            </Link>
-          </Button>
+          {!data.resources.length && (
+            <Button asChild>
+              <Link href="/resources/new">
+                <Plus size={16} />책 추가
+              </Link>
+            </Button>
+          )}
         </div>
       </header>
       <CatchUpNotice data={data} />
@@ -137,7 +138,7 @@ function TodayContent({ data }: { data: WorkspaceData }) {
                       data.resources.length ? '/calendar' : '/resources/new'
                     }
                   >
-                    {data.resources.length ? '캘린더 보기' : '첫 자료 추가'}
+                    {data.resources.length ? '캘린더 보기' : '첫 책 추가'}
                     <ArrowRight size={16} />
                   </Link>
                 </Button>
