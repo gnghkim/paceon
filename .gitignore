@@ -14,3 +14,7 @@ __pycache__/
 services/ai-worker/build/
 .artifacts/
 *.log
+.vercel/
+
+.vercel
+.env*
