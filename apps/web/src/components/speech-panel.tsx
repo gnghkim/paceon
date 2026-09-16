@@ -6,11 +6,12 @@ import type { LearningSpeech } from './learning-types';
 import { speechWordDifferences } from './speech-diff';
 import { speechDraftStorage, type SpeechDraft } from './speech-draft';
 
-export function SpeechPanel({ workspaceId, ownerId, stopped, stopToken, stopSpeechRef, onMedia, stopVideo, writingLink = true }: {
+export function SpeechPanel({ workspaceId, ownerId, stopped, stopToken, stopSpeechRef, onMedia, stopVideo, onRecordingChange, writingLink = true }: {
   workspaceId: string; ownerId: string; stopped: boolean; stopToken: number;
   stopSpeechRef: RefObject<(() => Promise<void>) | null>;
   onMedia: (phase: 'prepare' | 'active' | 'stop') => Promise<string | null>;
   stopVideo: () => Promise<void>;
+  onRecordingChange?: (recording: boolean) => void;
   writingLink?: boolean;
 }) {
   const { apiFetch } = useAuth();
@@ -74,6 +75,8 @@ export function SpeechPanel({ workspaceId, ownerId, stopped, stopToken, stopSpee
     return () => { disposed = true; clearTimeout(initial); clearInterval(poll); clearInterval(beat); document.removeEventListener('visibilitychange', hide); window.removeEventListener('paceon:speech-signout', signout); void stopRef.current(); if (audio.current) { URL.revokeObjectURL(audio.current.src); audio.current = null; } };
   }, [key, reload, ownerId]);
   useEffect(() => { if (stopped || stopToken > 0) void stop(); }, [stopped, stopToken, stop]);
+  // 탭을 옮겨 이 패널이 사라지면 방이 녹음 중이라고 오해하지 않도록 거짓으로 되돌린다.
+  useEffect(() => { onRecordingChange?.(recording); return () => onRecordingChange?.(false); }, [recording, onRecordingChange]);
   useEffect(() => { const url = draft ? URL.createObjectURL(draft.blob) : ''; const timer = setTimeout(() => setPreview(url), 0); return () => { clearTimeout(timer); if (url) URL.revokeObjectURL(url); }; }, [draft]);
   async function run(work: () => Promise<void>) { if (busy) return; setBusy(true); setError(''); try { await work(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }
   async function command(action: string, extra: Record<string, unknown>) {

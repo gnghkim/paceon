@@ -51,6 +51,8 @@ export function LearningRoom({ id }: { id: string }) {
   const [now, setNow] = useState(0);
   const [stopToken, setStopToken] = useState(0);
   const searchParams = useSearchParams();
+  const [recording, setRecording] = useState(false);
+  const onRecordingChange = useCallback((value: boolean) => setRecording(value), []);
   const observations = useRef(Promise.resolve(true));
   const stopSpeechRef = useRef<(() => Promise<void>) | null>(null);
   const speechObservations = useRef(Promise.resolve<string | null>(null));
@@ -758,7 +760,7 @@ export function LearningRoom({ id }: { id: string }) {
           학습 시간은 자동 저장돼요. 1분간 활동이 없거나 화면을 벗어나면 멈춰요.
         </p>
       </section>
-      <LearningRoomTabs tabs={tabs} current={tab} onSelect={selectTab} />
+      <LearningRoomTabs tabs={tabs} current={tab} blocked={recording} onSelect={selectTab} />
       {error && (
         <p
           role="alert"
@@ -799,7 +801,7 @@ export function LearningRoom({ id }: { id: string }) {
           />
         </div>
       )}
-      {features.speech && tab === 'speak' && <SpeechPanel workspaceId={id} ownerId={auth!.user.id} stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'} stopToken={stopToken} stopSpeechRef={stopSpeechRef} onMedia={observeSpeech} stopVideo={async () => { await stopPlaybackRef.current?.(); }} writingLink={features.writing} />}
+      {features.speech && tab === 'speak' && <SpeechPanel workspaceId={id} ownerId={auth!.user.id} stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'} stopToken={stopToken} stopSpeechRef={stopSpeechRef} onMedia={observeSpeech} stopVideo={async () => { await stopPlaybackRef.current?.(); }} onRecordingChange={onRecordingChange} writingLink={features.writing} />}
       {features.legacySpeech && tab === 'ask' && <LegacySpeechRecords workspaceId={id} />}
       {features.writing && tab === 'ask' && (<>
       {recovery && (
