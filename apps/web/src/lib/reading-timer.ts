@@ -1,0 +1,73 @@
+/**
+ * 독서 타이머.
+ *
+ * 영어학습 타이머와 다르게 벽시계로 잰다. 책은 화면을 보며 읽지 않으므로
+ * 화면 꺼짐이나 무활동으로 멈추면 언제나 0분이 된다. 시작한 시각만 저장해 두고
+ * 끝낼 때 지난 시간을 계산한다.
+ *
+ * 저장은 기기에만 한다. 책과 휴대폰은 같은 자리에 있어 기기를 옮겨 가며 읽는 일이
+ * 드물고, 최종 시간은 기존 학습 기록의 분으로 들어가 통계가 그대로 받는다.
+ */
+
+/** 이 시간을 넘기면 시간을 자동으로 채우지 않고 직접 확인하게 한다. */
+export const READING_TIMER_CAP_MINUTES = 240;
+
+/** 이보다 짧으면 0분으로 본다. 잠깐 눌렀다 만 것을 1분으로 올리지 않는다. */
+const MINIMUM_SECONDS = 30;
+
+export interface ReadingTimer {
+  resourceId: string;
+  /** 시작한 시각(epoch 밀리초). */
+  startedAt: number;
+}
+
+export const readingTimerKey = (userId: string) => `paceon:reading-timer:${userId}`;
+
+/** 저장된 값을 읽는다. 형태가 어긋나거나 미래에서 시작한 값은 버린다. */
+export function parseReadingTimer(raw: string | null, now: number): ReadingTimer | null {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as Partial<ReadingTimer>;
+    if (typeof value?.resourceId !== 'string' || !value.resourceId) return null;
+    if (!Number.isFinite(value.startedAt) || typeof value.startedAt !== 'number') return null;
+    // 기기 시계가 바뀌어 미래가 된 값은 쓰지 않는다.
+    if (value.startedAt > now) return null;
+    return { resourceId: value.resourceId, startedAt: value.startedAt };
+  } catch {
+    return null;
+  }
+}
+
+export const elapsedSeconds = (timer: ReadingTimer, now: number) =>
+  Math.max(0, Math.floor((now - timer.startedAt) / 1000));
+
+export interface TimerResult {
+  seconds: number;
+  /** 기록에 채울 분. 상한을 넘으면 null이며 사용자가 직접 넣는다. */
+  minutes: number | null;
+  overCap: boolean;
+}
+
+/**
+ * 끝낼 때의 결과.
+ *
+ * 상한을 넘으면 분을 돌려주지 않는다. 끄는 것을 잊은 채 하루가 지난 기록이
+ * 통계와 기록 속도를 조용히 망가뜨리는 쪽이, 한 번 더 묻는 쪽보다 나쁘다.
+ */
+export function timerResult(timer: ReadingTimer, now: number): TimerResult {
+  const seconds = elapsedSeconds(timer, now);
+  const overCap = seconds > READING_TIMER_CAP_MINUTES * 60;
+  return {
+    seconds,
+    minutes: overCap ? null : seconds < MINIMUM_SECONDS ? 0 : Math.round(seconds / 60),
+    overCap,
+  };
+}
+
+/** 헤더 띠에 보여 줄 경과 시간. 한 시간이 넘으면 시간까지 붙인다. */
+export function formatElapsed(seconds: number): string {
+  const whole = Math.max(0, Math.floor(seconds));
+  const minutes = `${Math.floor(whole / 60) % 60}`.padStart(2, '0');
+  const rest = `${whole % 60}`.padStart(2, '0');
+  return whole >= 3600 ? `${Math.floor(whole / 3600)}:${minutes}:${rest}` : `${minutes}:${rest}`;
+}

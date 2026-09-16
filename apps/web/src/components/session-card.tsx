@@ -3,6 +3,7 @@ import { useQuickRecord } from './quick-record';
 import { ArrowUpRight, BookOpen, Check, Clock3 } from 'lucide-react';
 import type { Resource, ScheduleSession } from '@paceon/shared';
 import { sessionState, type SessionStateKind } from '@/lib/session-state';
+import { StartReadingButton, useReadingTimer } from './reading-timer';
 import { cn } from '@/lib/utils';
 
 const label: Record<SessionStateKind, string> = {
@@ -24,17 +25,26 @@ export function SessionCard({
   today: string;
 }) {
   const openRecord = useQuickRecord();
+  const { running } = useReadingTimer();
   const state = sessionState(session, completedThroughPage, today);
   const done = state.kind === 'COMPLETED';
+  // 같은 책의 내일 일정까지 "읽는 중"으로 보이면 안 된다. 오늘 몫에만 표시한다.
+  const timing =
+    running?.resourceId === session.resource_id && session.study_date === today;
+  const status = done
+    ? label.COMPLETED
+    : state.kind === 'MISSED'
+      ? label.MISSED
+      : '학습 기록';
   return (
-    <button
-      type="button"
-      onClick={() => openRecord(session.resource_id)}
+    // 카드 안에 버튼이 둘이므로 카드 자체는 버튼이 아니다. 내용 영역이 기록을 여는
+    // 버튼이고, 읽기 시작은 그 옆의 별도 버튼이다. 버튼 안에 버튼을 넣을 수 없다.
+    <div
       className={cn(
-        'group flex w-full min-w-0 items-center gap-4 rounded-xl border p-5 text-left transition-colors',
+        'group flex w-full min-w-0 items-center gap-4 rounded-xl border p-5 transition-colors',
         done
-          ? 'border-border bg-muted/40 hover:border-primary/30'
-          : 'border-border bg-card hover:border-primary/40',
+          ? 'border-border bg-muted/40 focus-within:border-primary/30'
+          : 'border-border bg-card focus-within:border-primary/40 hover:border-primary/40',
         state.kind === 'MISSED' && 'border-warning',
       )}
     >
@@ -50,16 +60,20 @@ export function SessionCard({
           <BookOpen size={20} aria-hidden="true" />
         )}
       </span>
-      <div className="min-w-0 flex-1">
-        <p
+      <button
+        type="button"
+        onClick={() => openRecord(session.resource_id)}
+        className="min-w-0 flex-1 text-left"
+      >
+        <span
           className={cn(
-            'truncate font-semibold',
+            'block truncate font-semibold',
             done && 'text-muted-foreground line-through decoration-1',
           )}
         >
           {book?.title ?? '도서'}
-        </p>
-        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        </span>
+        <span className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
           <span>
             {session.start_page}–{session.end_page}쪽{' '}
             <span className={done ? undefined : 'text-foreground'}>
@@ -78,21 +92,36 @@ export function SessionCard({
               </span>
             )
           )}
-        </div>
-      </div>
-      <span
-        className={cn(
-          'shrink-0 text-xs font-medium',
-          done ? 'text-success' : state.kind === 'MISSED' ? 'text-warning' : 'text-primary',
-        )}
-      >
-        {done ? label.COMPLETED : state.kind === 'MISSED' ? label.MISSED : '학습 기록'}
-      </span>
+        </span>
+        <span className="sr-only">{status}</span>
+      </button>
+      {timing ? (
+        <span className="shrink-0 text-xs font-medium text-primary">읽는 중</span>
+      ) : (
+        <>
+          {!done && (
+            <StartReadingButton resourceId={session.resource_id} className="shrink-0" />
+          )}
+          <span
+            aria-hidden="true"
+            className={cn(
+              'hidden shrink-0 text-xs font-medium sm:inline',
+              done
+                ? 'text-success'
+                : state.kind === 'MISSED'
+                  ? 'text-warning'
+                  : 'text-primary',
+            )}
+          >
+            {status}
+          </span>
+        </>
+      )}
       <ArrowUpRight
         size={18}
         aria-hidden="true"
         className="shrink-0 text-muted-foreground group-hover:text-primary"
       />
-    </button>
+    </div>
   );
 }
