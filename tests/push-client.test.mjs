@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { decodeVapidKey, toPayload, pushSupport } from '../apps/web/src/lib/push-client.ts';
+import { decodeVapidKey, toPayload, pushSupport, notificationsOn } from '../apps/web/src/lib/push-client.ts';
 
 const bytes = (...values) => new Uint8Array(values).buffer;
 
@@ -62,4 +62,21 @@ test('an insecure page is reported as such even on a capable browser', () => {
     supported: false,
     reason: 'insecure',
   });
+});
+
+test('a second device is not treated as already on because the first one is', () => {
+  // The account has a time set and a PC already registered. On the phone, the
+  // browser has no subscription of its own, so it must still be offered one.
+  assert.equal(notificationsOn('08:00', false), false);
+  assert.equal(notificationsOn('08:00', true), true);
+});
+
+test('a subscribed browser with no time set is not on either', () => {
+  assert.equal(notificationsOn(null, true), false);
+  assert.equal(notificationsOn(null, false), false);
+});
+
+test('an unknown subscription state never reads as on', () => {
+  assert.equal(notificationsOn('08:00', null), false);
+  assert.equal(notificationsOn(null, null), false);
 });

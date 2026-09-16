@@ -6,7 +6,12 @@ import { useWorkspace, WorkspaceError } from './workspace-data';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Skeleton } from './ui/skeleton';
-import { decodeVapidKey, pushSupport, toPayload } from '@/lib/push-client';
+import {
+  decodeVapidKey,
+  notificationsOn,
+  pushSupport,
+  toPayload,
+} from '@/lib/push-client';
 
 const VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
@@ -37,6 +42,8 @@ function Fields({
   const { apiFetch } = useAuth();
   const [time, setTime] = useState(savedTime ?? '08:00');
   const [devices, setDevices] = useState<number | null>(null);
+  // 이 브라우저가 구독돼 있는지. 계정의 기기 수로는 알 수 없다.
+  const [subscribed, setSubscribed] = useState<boolean | null>(null);
   const [permission, setPermission] = useState<NotificationPermission | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -52,9 +59,17 @@ function Fields({
     VAPID_KEY,
   );
 
-  // 브라우저 권한과 등록된 기기 수는 외부 상태다. 렌더 중이 아니라 읽어 온 뒤에 반영한다.
+  // 브라우저 권한과 구독 여부는 외부 상태다. 렌더 중이 아니라 읽어 온 뒤에 반영한다.
   const refresh = useCallback(async () => {
     if ('Notification' in window) setPermission(Notification.permission);
+    try {
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        const registration = await navigator.serviceWorker.ready;
+        setSubscribed(!!(await registration.pushManager.getSubscription()));
+      } else setSubscribed(false);
+    } catch {
+      setSubscribed(false);
+    }
     try {
       const response = await apiFetch('/api/push', { cache: 'no-store' });
       if (response.ok) setDevices(((await response.json()) as { devices: number }).devices);
@@ -122,7 +137,7 @@ function Fields({
     }
     await saveTime(time);
     await refresh();
-    setMessage(`매일 ${time}에 오늘 할 분량을 알려 드릴게요.`);
+    setMessage(`이 기기에 등록했어요. 매일 ${time}에 오늘 할 분량을 알려 드릴게요.`);
   }
 
   async function disable() {
@@ -136,12 +151,17 @@ function Fields({
       });
       await subscription.unsubscribe();
     }
-    await saveTime(null);
+    // 시각은 계정에 하나뿐이다. 다른 기기가 남아 있으면 그 기기는 계속 받는다.
+    if (devices !== null && devices <= 1) await saveTime(null);
     await refresh();
-    setMessage('알림을 껐어요. 기록과 계획은 그대로예요.');
+    setMessage(
+      devices !== null && devices > 1
+        ? '이 기기에서만 껐어요. 다른 기기는 계속 받아요.'
+        : '알림을 껐어요. 기록과 계획은 그대로예요.',
+    );
   }
 
-  const on = savedTime !== null && (devices ?? 0) > 0;
+  const on = notificationsOn(savedTime, subscribed);
   return (
     <div className="space-y-4 rounded-xl border border-border bg-card p-5">
       {!support.supported ? (
@@ -181,11 +201,17 @@ function Fields({
               </>
             ) : (
               <Button type="button" disabled={busy} onClick={() => run(enable)}>
-                {busy ? '켜는 중…' : '이 기기에서 알림 켜기'}
+                {busy
+                  ? '켜는 중…'
+                  : savedTime !== null
+                    ? '이 기기에서도 알림 받기'
+                    : '이 기기에서 알림 켜기'}
               </Button>
             )}
             {devices !== null && devices > 0 && (
-              <span className="text-sm text-muted-foreground">등록된 기기 {devices}대</span>
+              <span className="text-sm text-muted-foreground">
+                등록된 기기 {devices}대{!on && savedTime !== null && ' · 이 기기는 아직'}
+              </span>
             )}
           </div>
           {permission === 'denied' && (
