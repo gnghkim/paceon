@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mergeLearningPages, sessionTiming, timerStatusLabel } from '../apps/web/src/components/learning-room-view.ts';
+import { mergeLearningPages, playResumesPause, sessionTiming, timerStatusLabel } from '../apps/web/src/components/learning-room-view.ts';
 
 const at = seconds => new Date(Date.UTC(2026, 8, 14, 0, 0, seconds)).toISOString();
 const session = (fields = {}) => ({ id: 's1', workspace_id: 'w', status: 'ACTIVE', pause_reason: null, device_id: 'me', generation: 1, lease_expires_at: at(60), last_seen_at: at(0), last_activity_at: at(0), elapsed_seconds: 0, started_at: at(0), ended_at: null, updated_at: at(0), ...fields });
@@ -29,6 +29,16 @@ test('only the owning device counts provisional seconds, capped at the heartbeat
  assert.deepEqual(sessionTiming(session(), view, Date.parse(at(60))), { provisional: 0, stale: true }, 'expired lease');
  assert.deepEqual(sessionTiming(session({ status: 'PAUSED' }), view, Date.parse(at(90))), { provisional: 0, stale: false });
  assert.deepEqual(sessionTiming(null, view, 0), { provisional: 0, stale: false });
+});
+
+test('a visible play resumes a paused session, including one the user paused by hand', () => {
+ assert.equal(playResumesPause(session({ status: 'PAUSED', pause_reason: 'MANUAL' }), true), true);
+ assert.equal(playResumesPause(session({ status: 'PAUSED', pause_reason: 'HIDDEN' }), true), true);
+ assert.equal(playResumesPause(session({ status: 'PAUSED', pause_reason: 'IDLE' }), true), true);
+ assert.equal(playResumesPause(session({ status: 'PAUSED', pause_reason: 'MANUAL' }), false), false, 'a hidden tab never resumes');
+ assert.equal(playResumesPause(session(), true), false, 'an active session has nothing to resume');
+ assert.equal(playResumesPause(session({ status: 'ENDED' }), true), false, 'an ended session starts a new one instead');
+ assert.equal(playResumesPause(null, true), false);
 });
 
 test('timer label prefers lock and pending end over session state', () => {

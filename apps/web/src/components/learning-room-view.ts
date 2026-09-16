@@ -33,6 +33,14 @@ export function sessionTiming(current: LearningSession | null, view: TimerView, 
   };
 }
 
+/**
+ * 화면이 보이는 상태에서 영상을 재생하면 정지한 세션을 재개한다.
+ * 사용자가 직접 정지한 경우도 포함한다. 재생은 명시적인 학습 의사이기 때문이다.
+ * 메모·글 입력은 이 경로를 쓰지 않으므로 수동 정지를 깨우지 않는다.
+ */
+export const playResumesPause = (session: LearningSession | null, visible: boolean) =>
+  visible && session?.status === 'PAUSED';
+
 const startHints: Record<LearningKind, string> = {
   LISTENING: '재생하거나 글을 쓰면 시작돼요',
   SPEAKING: '녹음하거나 음성을 들으면 시작돼요',

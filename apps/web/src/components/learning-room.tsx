@@ -10,7 +10,7 @@ import type { PlaybackObservation } from './youtube-player';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { DraftRecovery, SessionHistory } from './learning-room-sections';
-import { mergeLearningPages, sessionTiming, timerStatusLabel } from './learning-room-view';
+import { mergeLearningPages, playResumesPause, sessionTiming, timerStatusLabel } from './learning-room-view';
 import { areaForKind, learningRoomFeatures, workspaceHref } from './learning-areas';
 import { LegacySpeechRecords } from './legacy-speech-records';
 import {
@@ -496,16 +496,16 @@ export function LearningRoom({ id }: { id: string }) {
     return operation;
   };
   const observeVideo = (observation: PlaybackObservation): Promise<boolean> => {
-    // Only a new visible player event may resume a hidden-tab pause.
+    // Only a new visible player event may resume a pause, a manual one included.
     // Already queued observations cannot clear a subsequent explicit stop.
-    if (observation.playing && document.visibilityState === 'visible' &&
-        state.current.session?.pause_reason === 'HIDDEN' && !state.current.busy)
+    if (observation.playing && !state.current.busy &&
+        playResumesPause(state.current.session, document.visibilityState === 'visible'))
       state.current.stopMedia = false;
     const operation = observations.current.then(async () => {
       const runtime = state.current;
       if (observation.playing) await stopSpeechRef.current?.();
       runtime.videoPlaying = observation.playing && document.visibilityState === 'visible';
-      if (runtime.blocked || (observation.playing && (runtime.stopMedia || runtime.pendingEnd || runtime.session?.pause_reason === 'MANUAL'))) {
+      if (runtime.blocked || (observation.playing && (runtime.stopMedia || runtime.pendingEnd))) {
         runtime.videoPlaying = false;
         return false;
       }
@@ -766,7 +766,7 @@ export function LearningRoom({ id }: { id: string }) {
         video={data.video} title={data.workspace.title}
         notes={videoNotes}
         visits={videoVisits}
-        stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'}
+        stopped={locked || view.pendingEnd}
         stopToken={stopToken} stopPlaybackRef={stopPlaybackRef} onObservation={observeVideo} activity={activity} reload={reload}
       />}
       {features.speech && <SpeechPanel workspaceId={id} ownerId={auth!.user.id} stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'} stopToken={stopToken} stopSpeechRef={stopSpeechRef} onMedia={observeSpeech} stopVideo={async () => { await stopPlaybackRef.current?.(); }} writingLink={features.writing} />}
