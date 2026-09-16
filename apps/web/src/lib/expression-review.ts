@@ -42,10 +42,13 @@ export function nextReview(step: number, grade: ReviewGrade, today: string): Rev
 export interface ExpressionCard {
   id: string;
   phrase: string;
+  /** AI가 아직 채우지 않았으면 빈 문자열이다. */
   meaning: string;
-  example: string | null;
+  examples: string[];
   review_step: number;
   due_on: string;
+  /** DONE만 복습에 나온다. 물어볼 뜻이 없는 카드는 내보내지 않는다. */
+  lookup: 'DONE' | 'PENDING' | 'FAILED';
 }
 
 /**
