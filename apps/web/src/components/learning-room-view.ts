@@ -41,6 +41,28 @@ export function sessionTiming(current: LearningSession | null, view: TimerView, 
 export const playResumesPause = (session: LearningSession | null, visible: boolean) =>
   visible && session?.status === 'PAUSED';
 
+export type LearningRoomTab = 'video' | 'speak' | 'ask' | 'source';
+
+const roomTabsByKind: Record<LearningKind, readonly { id: LearningRoomTab; label: string }[]> = {
+  LISTENING: [
+    { id: 'video', label: '영상·메모' },
+    { id: 'speak', label: '말하기' },
+    { id: 'ask', label: '질문·노트' },
+    { id: 'source', label: '자료' },
+  ],
+  SPEAKING: [{ id: 'speak', label: '말하기' }],
+  WRITING: [{ id: 'ask', label: '질문·노트' }],
+};
+
+/** 방 종류가 가진 활동 탭. 길이가 1이면 탭 바를 그리지 않는다. */
+export const roomTabs = (kind: LearningKind) => roomTabsByKind[kind];
+
+/** 주소의 view 값을 그 방에 있는 탭으로 바꾼다. 없거나 모르는 값은 첫 탭이다. */
+export function resolveRoomTab(kind: LearningKind, view: string | null): LearningRoomTab {
+  const tabs = roomTabs(kind);
+  return tabs.find(tab => tab.id === view)?.id ?? tabs[0]!.id;
+}
+
 const startHints: Record<LearningKind, string> = {
   LISTENING: '재생하거나 글을 쓰면 시작돼요',
   SPEAKING: '녹음하거나 음성을 들으면 시작돼요',

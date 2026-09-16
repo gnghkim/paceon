@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mergeLearningPages, playResumesPause, sessionTiming, timerStatusLabel } from '../apps/web/src/components/learning-room-view.ts';
+import { mergeLearningPages, playResumesPause, resolveRoomTab, roomTabs, sessionTiming, timerStatusLabel } from '../apps/web/src/components/learning-room-view.ts';
 
 const at = seconds => new Date(Date.UTC(2026, 8, 14, 0, 0, seconds)).toISOString();
 const session = (fields = {}) => ({ id: 's1', workspace_id: 'w', status: 'ACTIVE', pause_reason: null, device_id: 'me', generation: 1, lease_expires_at: at(60), last_seen_at: at(0), last_activity_at: at(0), elapsed_seconds: 0, started_at: at(0), ended_at: null, updated_at: at(0), ...fields });
@@ -51,4 +51,21 @@ test('timer label prefers lock and pending end over session state', () => {
  assert.equal(timerStatusLabel({ ...base, stale: true }), '일시 정지');
  assert.equal(timerStatusLabel({ ...base, current: session({ status: 'ENDED' }) }), '학습 종료 · 기록됨');
  assert.equal(timerStatusLabel(base), '학습 중 · 시간 동기화 중');
+});
+
+test('listening keeps four activity tabs while the other rooms keep one', () => {
+ assert.deepEqual(roomTabs('LISTENING').map(t => t.id), ['video', 'speak', 'ask', 'source']);
+ assert.deepEqual(roomTabs('LISTENING').map(t => t.label), ['영상·메모', '말하기', '질문·노트', '자료']);
+ assert.deepEqual(roomTabs('SPEAKING').map(t => t.id), ['speak']);
+ assert.deepEqual(roomTabs('WRITING').map(t => t.id), ['ask']);
+});
+
+test('an unknown or foreign view value falls back to the first tab of that room', () => {
+ assert.equal(resolveRoomTab('LISTENING', 'source'), 'source');
+ assert.equal(resolveRoomTab('LISTENING', null), 'video');
+ assert.equal(resolveRoomTab('LISTENING', ''), 'video');
+ assert.equal(resolveRoomTab('LISTENING', 'VIDEO'), 'video', '대소문자를 바꾸지 않는다. 맞는 탭이 없어 기본 탭으로 떨어진 결과다');
+ assert.equal(resolveRoomTab('LISTENING', 'bogus'), 'video');
+ assert.equal(resolveRoomTab('WRITING', 'speak'), 'ask', '그 방에 없는 탭은 기본 탭이 된다');
+ assert.equal(resolveRoomTab('SPEAKING', 'ask'), 'speak');
 });
