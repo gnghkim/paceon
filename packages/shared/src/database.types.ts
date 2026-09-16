@@ -1336,6 +1336,10 @@ export type Database = {
       learning_video_command: { Args: { p_command: Json }; Returns: Json }
       queue_pdf_import: { Args: { p_id: string }; Returns: Json }
       queue_speech_recording: { Args: { p_id: string }; Returns: Json }
+      replace_availability_rules: {
+        Args: { p_rules: Json }
+        Returns: undefined
+      }
       retry_pdf_import: { Args: { p_id: string }; Returns: Json }
       speech_audio_path: { Args: { p_id: string }; Returns: Json }
       speech_cleanup_candidates: { Args: never; Returns: Json }

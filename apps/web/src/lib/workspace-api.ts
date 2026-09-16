@@ -46,12 +46,12 @@ export function createWorkspaceHandlers(
       cache: 'no-store',
       redirect: 'error',
       signal: AbortSignal.timeout(15000),
+      // A DELETE carries no body, so the method must not depend on one.
       ...(body === undefined
-        ? {}
-        : {
-            method: init.method ?? 'POST',
-            body: JSON.stringify(body),
-          }),
+        ? init.method
+          ? { method: init.method }
+          : {}
+        : { method: init.method ?? 'POST', body: JSON.stringify(body) }),
     });
     if (response.status === 401 || response.status === 403)
       throw new ApiError(401, '로그인이 만료되었습니다. 다시 로그인해 주세요.');

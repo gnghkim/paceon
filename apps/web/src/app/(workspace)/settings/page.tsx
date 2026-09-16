@@ -1,5 +1,6 @@
 import { YouTubeConnection } from '@/components/youtube-connection';
 import { LearningGoalForm } from '@/components/learning-goal-form';
+import { AvailabilityForm } from '@/components/availability-form';
 
 export default function Page() {
   return (
@@ -7,6 +8,10 @@ export default function Page() {
       <header>
         <h1 className="text-3xl font-semibold">설정</h1>
       </header>
+      <section aria-labelledby="availability-title" className="space-y-3">
+        <h2 id="availability-title" className="font-semibold">학습 시간</h2>
+        <AvailabilityForm />
+      </section>
       <section aria-labelledby="learning-goal-title" className="space-y-3">
         <h2 id="learning-goal-title" className="font-semibold">학습 목표</h2>
         <LearningGoalForm />
