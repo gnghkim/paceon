@@ -287,6 +287,59 @@ export type Database = {
           },
         ]
       }
+      learning_expressions: {
+        Row: {
+          created_at: string
+          due_on: string
+          example: string | null
+          id: string
+          last_reviewed_on: string | null
+          meaning: string
+          phrase: string
+          review_count: number
+          review_step: number
+          source_workspace_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          due_on: string
+          example?: string | null
+          id?: string
+          last_reviewed_on?: string | null
+          meaning: string
+          phrase: string
+          review_count?: number
+          review_step?: number
+          source_workspace_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          due_on?: string
+          example?: string | null
+          id?: string
+          last_reviewed_on?: string | null
+          meaning?: string
+          phrase?: string
+          review_count?: number
+          review_step?: number
+          source_workspace_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_expressions_source_workspace_id_fkey"
+            columns: ["source_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "learning_workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_messages: {
         Row: {
           content: string
@@ -1394,6 +1447,34 @@ export type Database = {
       learning_video_command: { Args: { p_command: Json }; Returns: Json }
       queue_pdf_import: { Args: { p_id: string }; Returns: Json }
       queue_speech_recording: { Args: { p_id: string }; Returns: Json }
+      record_expression_review: {
+        Args: {
+          p_due_on: string
+          p_id: string
+          p_step: number
+          p_today: string
+        }
+        Returns: {
+          created_at: string
+          due_on: string
+          example: string | null
+          id: string
+          last_reviewed_on: string | null
+          meaning: string
+          phrase: string
+          review_count: number
+          review_step: number
+          source_workspace_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "learning_expressions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       replace_availability_rules: {
         Args: { p_rules: Json }
         Returns: undefined

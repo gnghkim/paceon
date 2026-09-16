@@ -942,6 +942,7 @@ export function LearningRoom({ id }: { id: string }) {
           <LearningJobCard
             key={j.id}
             job={j}
+            workspaceId={id}
             disabled={busy || !data.aiEnabled}
             retry={() =>
               void run(async () => {
