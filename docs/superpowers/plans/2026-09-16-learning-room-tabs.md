@@ -559,7 +559,9 @@ pnpm --filter @paceon/web dev
 ({ height: document.documentElement.scrollHeight, screens: (document.documentElement.scrollHeight / innerHeight).toFixed(1) })
 ```
 
-Expected: 변경 전 3,096px(약 3.7화면)에서 1.5화면 이내로 줄어든다. 측정값을 커밋 메시지에 적는다.
+Expected: 변경 전 3,096px(약 3.7화면)에서 크게 줄어든다. 측정값을 커밋 메시지에 적는다.
+
+실제 결과(2026-09-16, 영상 1개·기록 없는 방): 영상 탭 1,499px(1.8화면), 말하기 탭 1,420px(1.7화면), 라이팅 방 1,267px(1.5화면). 1.5화면 목표에는 못 미쳤고, 남은 높이의 780px가 영상·재생 도구·쉐도잉·메모 한 덩어리다. 이 구성은 영상 탭에 있어야 하므로 1.8화면에서 마무리하기로 했다.
 
 - [ ] **Step 4: 시간 집계가 어긋나지 않는지 확인한다**
 
