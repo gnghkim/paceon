@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { SpeechPanel } from './speech-panel';
 import { LearningJobCard } from './learning-job';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -10,7 +10,9 @@ import type { PlaybackObservation } from './youtube-player';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { DraftRecovery, SessionHistory } from './learning-room-sections';
-import { mergeLearningPages, playResumesPause, sessionTiming, timerStatusLabel } from './learning-room-view';
+import { mergeLearningPages, playResumesPause, resolveRoomTab, roomTabs, sessionTiming, timerStatusLabel, type LearningRoomTab } from './learning-room-view';
+import { LearningRoomTabs } from './learning-room-tabs';
+import { cn } from '@/lib/utils';
 import { areaForKind, learningRoomFeatures, workspaceHref } from './learning-areas';
 import { LegacySpeechRecords } from './legacy-speech-records';
 import {
@@ -48,6 +50,7 @@ export function LearningRoom({ id }: { id: string }) {
   const [current, setCurrent] = useState<LearningSession | null>(null);
   const [now, setNow] = useState(0);
   const [stopToken, setStopToken] = useState(0);
+  const searchParams = useSearchParams();
   const observations = useRef(Promise.resolve(true));
   const stopSpeechRef = useRef<(() => Promise<void>) | null>(null);
   const speechObservations = useRef(Promise.resolve<string | null>(null));
@@ -605,6 +608,24 @@ export function LearningRoom({ id }: { id: string }) {
   useEffect(() => {
     if (canonical && pathname !== canonical) router.replace(canonical);
   }, [canonical, pathname, router]);
+  const resolvedTab = data ? resolveRoomTab(data.workspace.kind, searchParams.get('view')) : null;
+  const tabHref = (next: LearningRoomTab) =>
+    data && next === roomTabs(data.workspace.kind)[0]!.id ? canonical! : `${canonical}?view=${next}`;
+  const lastTab = useRef<LearningRoomTab | null>(null);
+  useEffect(() => {
+    const previous = lastTab.current;
+    lastTab.current = resolvedTab;
+    if (previous === 'video' && resolvedTab !== null && resolvedTab !== 'video') {
+      state.current.videoPlaying = false;
+      void stopPlaybackRef.current?.();
+    }
+  }, [resolvedTab]);
+  useEffect(() => {
+    if (!data || !canonical || resolvedTab === null) return;
+    const raw = searchParams.get('view');
+    if (raw !== null && raw !== resolvedTab)
+      router.replace(resolvedTab === roomTabs(data.workspace.kind)[0]!.id ? canonical : `${canonical}?view=${resolvedTab}`);
+  }, [data, canonical, resolvedTab, searchParams, router]);
   if (!data)
     return (
       <div className="space-y-4">
@@ -622,6 +643,9 @@ export function LearningRoom({ id }: { id: string }) {
       </div>
     );
   const features = learningRoomFeatures(data.workspace.kind);
+  const tabs = roomTabs(data.workspace.kind);
+  const tab = resolvedTab!;
+  const selectTab = (next: LearningRoomTab) => router.replace(tabHref(next));
   const area = areaForKind(data.workspace.kind);
   const { provisional, stale } = sessionTiming(current, view, now);
   const inflight = data.jobs.some(
@@ -734,6 +758,7 @@ export function LearningRoom({ id }: { id: string }) {
           학습 시간은 자동 저장돼요. 1분간 활동이 없거나 화면을 벗어나면 멈춰요.
         </p>
       </section>
+      <LearningRoomTabs tabs={tabs} current={tab} onSelect={selectTab} />
       {error && (
         <p
           role="alert"
@@ -762,16 +787,21 @@ export function LearningRoom({ id }: { id: string }) {
           </Button>
         </div>
       )}
-      {features.video && data.video && <LearningVideoPanel
-        video={data.video} title={data.workspace.title}
-        notes={videoNotes}
-        visits={videoVisits}
-        stopped={locked || view.pendingEnd}
-        stopToken={stopToken} stopPlaybackRef={stopPlaybackRef} onObservation={observeVideo} activity={activity} reload={reload}
-      />}
-      {features.speech && <SpeechPanel workspaceId={id} ownerId={auth!.user.id} stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'} stopToken={stopToken} stopSpeechRef={stopSpeechRef} onMedia={observeSpeech} stopVideo={async () => { await stopPlaybackRef.current?.(); }} writingLink={features.writing} />}
-      {features.legacySpeech && <LegacySpeechRecords workspaceId={id} />}
-      {features.writing && (<>
+      {features.video && data.video && (
+        <div className={cn(tab === 'video' || tab === 'source' ? undefined : 'hidden')}>
+          <LearningVideoPanel
+            video={data.video} title={data.workspace.title}
+            tab={tab}
+            notes={videoNotes}
+            visits={videoVisits}
+            stopped={locked || view.pendingEnd}
+            stopToken={stopToken} stopPlaybackRef={stopPlaybackRef} onObservation={observeVideo} activity={activity} reload={reload}
+          />
+        </div>
+      )}
+      {features.speech && tab === 'speak' && <SpeechPanel workspaceId={id} ownerId={auth!.user.id} stopped={locked || view.pendingEnd || current?.pause_reason === 'MANUAL'} stopToken={stopToken} stopSpeechRef={stopSpeechRef} onMedia={observeSpeech} stopVideo={async () => { await stopPlaybackRef.current?.(); }} writingLink={features.writing} />}
+      {features.legacySpeech && tab === 'ask' && <LegacySpeechRecords workspaceId={id} />}
+      {features.writing && tab === 'ask' && (<>
       {recovery && (
         <DraftRecovery
           localText={recovery.text}
@@ -921,7 +951,7 @@ export function LearningRoom({ id }: { id: string }) {
         ))}
       </section>
       </>)}
-      {hasMore && (
+      {tab === 'ask' && hasMore && (
         <Button
           variant="outline"
           disabled={busy}

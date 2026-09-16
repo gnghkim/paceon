@@ -5,16 +5,16 @@ import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { YouTubePlayer, type PlaybackObservation } from './youtube-player';
 import { learningDuration, type LearningVideo, type LearningVideoNote, type LearningVideoVisit } from './learning-types';
+import type { LearningRoomTab } from './learning-room-view';
 
-export function LearningVideoPanel({ video, title, notes, visits, stopped, stopToken, onObservation, activity, reload, stopPlaybackRef }: {
+export function LearningVideoPanel({ video, title, tab, notes, visits, stopped, stopToken, onObservation, activity, reload, stopPlaybackRef }: {
   stopPlaybackRef: RefObject<(() => Promise<void>) | null>;
-  video: LearningVideo; title: string; notes: LearningVideoNote[]; visits: LearningVideoVisit[];
+  video: LearningVideo; title: string; tab: LearningRoomTab; notes: LearningVideoNote[]; visits: LearningVideoVisit[];
   stopped: boolean; stopToken: number;
   onObservation: (value: PlaybackObservation) => Promise<boolean>;
   activity: () => void; reload: () => Promise<void>;
 }) {
   const { apiFetch } = useAuth();
-  const [tab, setTab] = useState<'notes' | 'source' | 'visits'>('notes');
   const [position, setPosition] = useState(video.position_seconds);
   const [seek, setSeek] = useState<{ seconds: number; token: number } | null>(null);
   const [name, setName] = useState(title);
@@ -45,8 +45,10 @@ export function LearningVideoPanel({ video, title, notes, visits, stopped, stopT
   const chars = Array.from(source);
   const valid = Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end >= start && end <= chars.length && end - start <= 12000;
   return <div className="space-y-5">
-    <YouTubePlayer stopPlaybackRef={stopPlaybackRef} videoId={video.video_id} initialPosition={video.position_seconds ?? video.start_seconds} stopped={stopped} stopToken={stopToken} seek={seek} onPosition={setPosition} onObservation={onObservation} />
-    <details className="rounded-xl border border-border p-4">
+    <div className={tab === 'video' ? undefined : 'hidden'}>
+      <YouTubePlayer stopPlaybackRef={stopPlaybackRef} videoId={video.video_id} initialPosition={video.position_seconds ?? video.start_seconds} stopped={stopped} stopToken={stopToken} seek={seek} onPosition={setPosition} onObservation={onObservation} />
+    </div>
+    {tab === 'source' && <details className="rounded-xl border border-border p-4">
       <summary className="cursor-pointer py-2 text-sm font-medium">영상 제목과 보관 설정</summary>
       <label className="mt-3 block text-sm">내 영상 제목<input className="mt-1 w-full rounded border border-border bg-background p-3" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} /></label>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -54,14 +56,10 @@ export function LearningVideoPanel({ video, title, notes, visits, stopped, stopT
         <Button variant="outline" disabled={busy} onClick={() => void run(async () => { await command({ action: 'VIDEO_EDIT', title, favorite: !video.favorite, archived: video.archived }); await reload(); })}>{video.favorite ? '즐겨찾기 해제' : '즐겨찾기'}</Button>
         <Button variant="outline" disabled={busy} onClick={() => void run(async () => { await command({ action: 'VIDEO_EDIT', title, favorite: video.favorite, archived: !video.archived }); await reload(); })}>{video.archived ? '보관 해제' : '보관하기'}</Button>
       </div>
-    </details>
-    <nav aria-label="영상 학습 도구" className="flex flex-wrap gap-2">
-      {([['notes', '메모'], ['source', '자막 · AI 원문'], ['visits', '시청 구간']] as const).map(([value, label]) => <Button key={value} variant={tab === value ? 'default' : 'outline'} onClick={() => setTab(value)} aria-pressed={tab === value}>{label}</Button>)}
-      <a href="#learning-draft" className="rounded-lg border border-border px-4 py-2 text-sm">AI 질문</a>
-    </nav>
+    </details>}
     {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     {saved && <p role="status" className="text-sm text-primary">{saved}</p>}
-    {tab === 'notes' && <section className="space-y-3 rounded-xl border border-border p-4">
+    {tab === 'video' && <section className="space-y-3 rounded-xl border border-border p-4">
       <label className="block text-sm font-medium" htmlFor="video-note">이 구간 메모 · {learningDuration(position)}</label>
       <textarea id="video-note" disabled={busy} value={note} maxLength={4000} className="min-h-28 w-full rounded border border-border bg-background p-3" onChange={(e) => { setNote(e.target.value); activity(); }} placeholder="기억할 표현이나 내 생각을 적어 보세요." />
       <Button disabled={busy || !note.trim()} onClick={() => void run(async () => { if (pendingNote.current?.content !== note) pendingNote.current = { noteId: crypto.randomUUID(), positionSeconds: position, content: note }; await command({ action: 'VIDEO_NOTE', ...pendingNote.current }); pendingNote.current = null; setNote(''); await reload(); })}>현재 시각에 메모 저장</Button>
@@ -79,6 +77,6 @@ export function LearningVideoPanel({ video, title, notes, visits, stopped, stopT
       <details><summary className="cursor-pointer py-2 text-sm">AI에 보낼 선택 원문 미리 보기</summary><p className="max-h-48 overflow-auto whitespace-pre-wrap text-sm">{valid ? chars.slice(start, end).join('') : ''}</p></details>
       <div className="flex flex-wrap gap-2"><Button disabled={busy || !valid || chars.length > 100000} onClick={() => void run(async () => { const result = await command({ action: 'VIDEO_SOURCE', expectedVersion: version, transcript: source, contextStart: start, contextEnd: end }); setVersion(result.video.transcript_version); setSaved('자막과 AI 선택 범위를 저장했어요.'); await reload(); })}>자막과 선택 범위 저장</Button><Button variant="outline" disabled={busy} onClick={() => { setSource(video.transcript); setStart(video.context_start); setEnd(video.context_end); setVersion(video.transcript_version); setError(''); }}>최신 저장본으로 되돌리기</Button></div>
     </section>}
-    {tab === 'visits' && <section className="space-y-2 rounded-xl border border-border p-4"><h2 className="font-medium">PaceOn에서 본 구간</h2><p className="text-xs text-muted-foreground">반복 시청도 각각 남아요. 재생 위치 차이와 학습 시간은 서로 달라요.</p>{!visits.length && <p className="text-sm">기록한 구간이 아직 없어요.</p>}{visits.map((v) => <button key={v.id} className="block min-h-11 text-sm text-primary underline" onClick={() => setSeek({ seconds: v.from_seconds, token: Date.now() })}>{learningDuration(v.from_seconds)}–{learningDuration(v.to_seconds)} · {v.rate}× · {new Date(v.created_at).toLocaleDateString('ko-KR')}</button>)}</section>}
+    {tab === 'source' && <section className="space-y-2 rounded-xl border border-border p-4"><h2 className="font-medium">PaceOn에서 본 구간</h2><p className="text-xs text-muted-foreground">반복 시청도 각각 남아요. 재생 위치 차이와 학습 시간은 서로 달라요.</p>{!visits.length && <p className="text-sm">기록한 구간이 아직 없어요.</p>}{visits.map((v) => <button key={v.id} className="block min-h-11 text-sm text-primary underline" onClick={() => setSeek({ seconds: v.from_seconds, token: Date.now() })}>{learningDuration(v.from_seconds)}–{learningDuration(v.to_seconds)} · {v.rate}× · {new Date(v.created_at).toLocaleDateString('ko-KR')}</button>)}</section>}
   </div>;
 }
