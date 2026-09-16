@@ -14,6 +14,7 @@ import { AiInsight } from '@/components/ai-insight';
 import { PdfSourceCard } from '@/components/pdf-source';
 import { PlanForm } from '@/components/plan-form';
 import { PlanSettings } from '@/components/plan-settings';
+import { StartReadingButton, useReadingTimer } from '@/components/reading-timer';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { formatDate, summarizeBook } from '@/lib/planning';
@@ -159,6 +160,11 @@ function BookDetailPanel({ id }: { id: string }) {
             등록 시 진도와 유효한 읽기 기록을 합산했어요. 복습과 무효 기록은
             제외합니다.
           </p>
+          {book.status === 'ACTIVE' && (
+            <div className="mt-4">
+              <ReadingControl resourceId={book.id} />
+            </div>
+          )}
         </div>
         <div className="border-t border-border pt-5 md:border-l md:border-t-0 md:pl-6 md:pt-0">
           <h2 className="text-sm text-muted-foreground">예상 완독</h2>
@@ -306,4 +312,16 @@ function BookDetailPanel({ id }: { id: string }) {
       </Card>
     </div>
   );
+}
+
+/** 이 책을 재는 중이면 상태를, 아니면 시작 버튼을 보여 준다. */
+function ReadingControl({ resourceId }: { resourceId: string }) {
+  const { running } = useReadingTimer();
+  if (running?.resourceId === resourceId)
+    return (
+      <p className="text-sm text-primary">
+        읽는 시간을 재고 있어요. 위쪽 띠에서 끝낼 수 있어요.
+      </p>
+    );
+  return <StartReadingButton resourceId={resourceId} />;
 }

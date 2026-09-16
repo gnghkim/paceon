@@ -19,7 +19,10 @@ import {
 import { ProgressForm, type ProgressSummary } from './progress-form';
 import { Button } from './ui/button';
 
-const RecordContext = createContext<(bookId?: string) => void>(() => {});
+/** 두 번째 인자는 타이머가 잰 분이다. 없으면 사용자가 직접 넣는다. */
+const RecordContext = createContext<(bookId?: string, minutes?: number) => void>(
+  () => {},
+);
 export const useQuickRecord = () => useContext(RecordContext);
 
 export function RecordButton({
@@ -41,15 +44,16 @@ export function RecordButton({
 }
 
 export function QuickRecordProvider({ children }: { children: ReactNode }) {
-  const [request, setRequest] = useState<{ bookId: string | undefined } | null>(
-    null,
-  );
+  const [request, setRequest] = useState<{
+    bookId: string | undefined;
+    minutes: number | undefined;
+  } | null>(null);
   const [notice, setNotice] = useState<ProgressSummary | null>(null);
   return (
     <RecordContext
-      value={(bookId) => {
+      value={(bookId, minutes) => {
         setNotice(null);
-        setRequest({ bookId });
+        setRequest({ bookId, minutes });
       }}
     >
       {children}
@@ -81,6 +85,7 @@ export function QuickRecordProvider({ children }: { children: ReactNode }) {
       {request && (
         <RecordDialog
           bookId={request.bookId}
+          minutes={request.minutes}
           onClose={() => setRequest(null)}
           onSaved={(result) => {
             setNotice(result);
@@ -95,10 +100,12 @@ export function QuickRecordProvider({ children }: { children: ReactNode }) {
 
 function RecordDialog({
   bookId,
+  minutes,
   onClose,
   onSaved,
 }: {
   bookId: string | undefined;
+  minutes: number | undefined;
   onClose: () => void;
   onSaved: (result: ProgressSummary) => void;
 }) {
@@ -155,6 +162,7 @@ function RecordDialog({
       </header>
       <RecordContent
         bookId={bookId}
+        minutes={minutes}
         onClose={onClose}
         onSaved={onSaved}
         locked={locked}
@@ -166,12 +174,14 @@ function RecordDialog({
 
 function RecordContent({
   bookId,
+  minutes,
   onClose,
   onSaved,
   locked,
   onLockedChange,
 }: {
   bookId: string | undefined;
+  minutes: number | undefined;
   onClose: () => void;
   onSaved: (result: ProgressSummary) => void;
   locked: boolean;
@@ -240,6 +250,7 @@ function RecordContent({
         <ProgressForm
           key={`${choice.book.id}:${choice.book.progress_version}:${choice.plan.version}`}
           compact
+          {...(minutes === undefined ? {} : { initialDuration: minutes })}
           book={choice.book}
           plan={choice.plan}
           data={data}

@@ -23,6 +23,7 @@ import {
   RecordButton,
   useQuickRecord,
 } from './quick-record';
+import { ReadingTimerProvider } from './reading-timer';
 
 const navigation = [
   { href: '/today', label: '오늘', english: 'Today', icon: Sun },
@@ -219,13 +220,15 @@ function AppShellContent({ children }: { children: ReactNode }) {
             {signOutError}
           </p>
         )}
-        <main
-          key={session.user.id}
-          id="main-content"
-          className="mx-auto max-w-[1216px] px-4 pt-8 pb-28 sm:px-8 md:pb-12"
-        >
-          {children}
-        </main>
+        <ReadingTimerProvider>
+          <main
+            key={session.user.id}
+            id="main-content"
+            className="mx-auto max-w-[1216px] px-4 pt-8 pb-28 sm:px-8 md:pb-12"
+          >
+            {children}
+          </main>
+        </ReadingTimerProvider>
       </div>
       <nav
         aria-label="모바일 주 메뉴"

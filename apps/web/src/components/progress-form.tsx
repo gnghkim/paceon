@@ -89,6 +89,7 @@ export function ProgressForm({
   onResult,
   compact = false,
   onLockedChange,
+  initialDuration,
 }: {
   book: Resource;
   plan: Plan;
@@ -97,6 +98,8 @@ export function ProgressForm({
   onResult?: (result: ProgressSummary) => void;
   compact?: boolean;
   onLockedChange?: (locked: boolean) => void;
+  /** 타이머가 잰 분. 채워 두되 사용자가 고칠 수 있다. */
+  initialDuration?: number;
 }) {
   const { apiFetch } = useAuth();
   const completed =
@@ -117,14 +120,17 @@ export function ProgressForm({
   const [endPage, setEndPage] = useState("");
   const [startPage, setStartPage] = useState("1");
   const [studyDate, setStudyDate] = useState(today);
-  const [duration, setDuration] = useState("");
+  const [duration, setDuration] = useState(
+    initialDuration === undefined ? "" : String(initialDuration),
+  );
   const [memo, setMemo] = useState("");
   const [busy, setBusy] = useState(false);
   const [ambiguous, setAmbiguous] = useState(false);
   const [stale, setStale] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<ProgressSummary | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  // 타이머로 시간이 들어온 날은 그 칸을 접어 두지 않는다. 고칠 수 있어야 한다.
+  const [expanded, setExpanded] = useState(initialDuration !== undefined);
   useEffect(() => {
     onLockedChange?.(busy || ambiguous);
   }, [busy, ambiguous, onLockedChange]);
@@ -138,7 +144,9 @@ export function ProgressForm({
     setDuration(
       next === "CORRECTION" && latest?.duration_minutes != null
         ? String(latest.duration_minutes)
-        : "",
+        : initialDuration === undefined
+          ? ""
+          : String(initialDuration),
     );
     setMemo(next === "CORRECTION" ? (latest?.memo ?? "") : "");
   }
@@ -352,6 +360,12 @@ export function ProgressForm({
                   {Number(endPage) - completed}쪽 읽었어요
                 </p>
               )}
+            {compact && initialDuration !== undefined && (
+              <p role="status" className="text-sm sm:col-span-2">
+                타이머로 <span className="font-medium">{initialDuration}분</span> 쟀어요.
+                아래에서 고칠 수 있어요.
+              </p>
+            )}
             {compact && (
               <Button
                 type="button"
