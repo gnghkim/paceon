@@ -23,13 +23,19 @@ import { StudyHeatmap } from './study-heatmap';
 import { formatDate } from '@/lib/planning';
 import { buildHeatmap, computeStreak } from '@/lib/study-heatmap';
 import { summarizeDay } from '@/lib/session-state';
+import type { WorkspaceData } from '@/lib/workspace-types';
 import type { StatisticsData } from '@/lib/statistics';
-import { RecordButton } from './quick-record';
+import { LearningToday } from './learning-today';
 
 export function TodayView() {
   const { data, error, reload } = useWorkspace();
   if (error) return <WorkspaceError error={error} reload={reload} />;
   if (!data) return <WorkspaceLoading />;
+  return <TodayContent data={data} />;
+}
+
+function TodayContent({ data }: { data: WorkspaceData }) {
+  const statistics = useYearStatistics(data.today);
   const sessions = data.sessions.filter(
     (s) => s.study_date === data.today && s.status !== 'SKIPPED',
   );
@@ -136,35 +142,13 @@ export function TodayView() {
               </div>
             )}
           </section>
-          {!!data.resources.filter((r) =>
-            data.plans.some(
-              (p) => p.resource_id === r.id && p.status === 'ACTIVE',
-            ),
-          ).length && (
-            <section className="space-y-3">
-              <h2 className="font-semibold">오늘 읽은 진도 남기기</h2>
-              <p className="text-sm text-muted-foreground">
-                오늘 예정된 일정이 없어도 읽은 페이지를 기록할 수 있어요.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {data.resources
-                  .filter((r) =>
-                    data.plans.some(
-                      (p) => p.resource_id === r.id && p.status === 'ACTIVE',
-                    ),
-                  )
-                  .map((r) => (
-                    <RecordButton
-                      key={r.id}
-                      bookId={r.id}
-                      className="max-w-full"
-                    >
-                      <span className="truncate">{r.title} · 학습 기록</span>
-                    </RecordButton>
-                  ))}
-              </div>
-            </section>
-          )}
+          <LearningToday
+            minutes={
+              statistics?.days.find((day) => day.date === data.today)
+                ?.learningMinutes ?? null
+            }
+            goal={data.dailyLearningMinutes}
+          />
           {!!withoutPlan.length && (
             <section className="rounded-xl bg-accent p-5">
               <h2 className="font-semibold">계획을 기다리는 책</h2>
@@ -243,47 +227,40 @@ export function TodayView() {
               <ArrowRight size={15} />
             </Link>
           </section>
-          <StudyStreakCard today={data.today} />
-          <section className="rounded-xl bg-muted p-6">
-            <CalendarDays size={21} className="text-muted-foreground" />
-            <h2 className="mt-3 font-medium">꾸준함을 위한 여유</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              계획은 내가 정한 학습 가능 시간 안에서 만들어져요. 오늘의 분량부터
-              천천히 살펴보세요.
-            </p>
-          </section>
+          <StudyStreakCard today={data.today} data={statistics} />
         </aside>
       </div>
     </div>
   );
 }
 
-function StudyStreakCard({ today }: { today: string }) {
+/** 오늘 화면의 잔디와 영어학습 카드가 같은 1년치 통계를 한 번만 받아 쓴다. */
+function useYearStatistics(today: string) {
   const { apiFetch } = useAuth();
-  const [state, setState] = useState<{ data: StatisticsData; error: null } | { data: null; error: string } | null>(null);
+  const [data, setData] = useState<StatisticsData | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    void apiFetch(`/api/statistics?from=${addDays(today, -365)}&to=${today}`, { signal: controller.signal, cache: 'no-store' })
+    void apiFetch(`/api/statistics?from=${addDays(today, -365)}&to=${today}`, {
+      signal: controller.signal,
+      cache: 'no-store',
+    })
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(body.error ?? '학습 기록을 불러오지 못했어요.');
-        if (!controller.signal.aborted) setState({ data: body as StatisticsData, error: null });
+        if (!controller.signal.aborted) setData(body as StatisticsData);
       })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted)
-          setState({
-            data: null,
-            error: error instanceof Error && !(error instanceof TypeError) ? error.message : '연결을 확인하고 다시 시도해 주세요.',
-          });
-      });
+      // 조용한 위젯: 실패해도 오늘 화면의 나머지 기능은 그대로 동작한다.
+      .catch(() => {});
     return () => controller.abort();
   }, [apiFetch, today]);
-  if (!state) return <Skeleton className="h-40 w-full" />;
-  // 조용한 카드: 이 위젯이 실패해도 오늘 화면의 나머지 기능은 그대로 동작한다.
-  if (state.error || !state.data) return null;
-  const heatmapDays = buildHeatmap(state.data.days);
+  return data;
+}
+
+function StudyStreakCard({ today, data }: { today: string; data: StatisticsData | null }) {
+  if (!data) return <Skeleton className="h-40 w-full" />;
+  const heatmapDays = buildHeatmap(data.days);
   const streak = computeStreak(heatmapDays, today);
-  const todayEntry = state.data.days.find((day) => day.date === today);
+  const todayEntry = data.days.find((day) => day.date === today);
   return (
     <section className="rounded-xl border border-border bg-card p-6">
       <p className="text-sm text-muted-foreground">학습 잔디</p>

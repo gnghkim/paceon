@@ -33,11 +33,16 @@ export function createWorkspaceHandlers(
     table: string,
     query: Record<string, string> = {},
     body?: unknown,
+    extraHeaders: Record<string, string> = {},
   ) {
     const url = new URL(`/rest/v1/${table}`, auth.base);
     url.search = new URLSearchParams(query).toString();
     const response = await fetcher(url, {
-      headers: { ...auth.headers, 'Content-Type': 'application/json' },
+      headers: {
+        ...auth.headers,
+        'Content-Type': 'application/json',
+        ...extraHeaders,
+      },
       cache: 'no-store',
       redirect: 'error',
       signal: AbortSignal.timeout(15000),
@@ -55,7 +60,8 @@ export function createWorkspaceHandlers(
         );
       throw new ApiError(503, '잠시 연결하지 못했습니다. 다시 시도해 주세요.');
     }
-    return response.json();
+    // A minimal-return write answers 204 with no body.
+    return response.status === 204 ? null : response.json();
   }
   async function rows<T>(
     auth: Auth,
@@ -84,7 +90,21 @@ export function createWorkspaceHandlers(
       rows<AvailabilityRule>(auth, 'availability_rules'),
       rows<LearnerProfile>(auth, 'learner_profiles', { order: 'user_id.asc' }),
     ]);
-    return { availability, timezone: profiles[0]?.timezone ?? 'Asia/Seoul' };
+    return {
+      availability,
+      timezone: profiles[0]?.timezone ?? 'Asia/Seoul',
+      dailyLearningMinutes: profiles[0]?.daily_learning_minutes ?? null,
+    };
+  }
+  /** Writes only the goal so a stale client cannot overwrite the shared timezone. */
+  async function saveLearningGoal(auth: Auth, minutes: number | null) {
+    await rest(
+      auth,
+      'learner_profiles',
+      { on_conflict: 'user_id' },
+      { user_id: auth.userId, daily_learning_minutes: minutes },
+      { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    );
   }
   function handle(error: unknown) {
     if (error instanceof ProgressError) return json({ error: error.message }, 409);
@@ -100,6 +120,7 @@ export function createWorkspaceHandlers(
     rest,
     rows,
     settings,
+    saveLearningGoal,
     async GET(request: Request) {
       try {
         const auth = await authenticate(request);
@@ -162,6 +183,31 @@ export function createWorkspaceHandlers(
         };
         return json(data);
       } catch (error) {
+        return handle(error);
+      }
+    },
+    async PROFILE(request: Request) {
+      try {
+        const auth = await authenticate(request);
+        const input = z
+          .object({
+            dailyLearningMinutes: z
+              .number()
+              .int()
+              .min(1)
+              .max(1440)
+              .nullable(),
+          })
+          .strict()
+          .parse(await readBody(request));
+        await saveLearningGoal(auth, input.dailyLearningMinutes);
+        return json({ dailyLearningMinutes: input.dailyLearningMinutes });
+      } catch (error) {
+        if (error instanceof z.ZodError)
+          return json(
+            { error: '목표 시간은 1분에서 1440분 사이로 정해 주세요.' },
+            400,
+          );
         return handle(error);
       }
     },

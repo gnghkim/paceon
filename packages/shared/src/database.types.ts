@@ -163,6 +163,7 @@ export type Database = {
           average_session_minutes: number | null
           completion_rate: number | null
           created_at: string
+          daily_learning_minutes: number | null
           pages_per_minute: number | null
           preferred_time: string | null
           speed_sample_count: number
@@ -176,6 +177,7 @@ export type Database = {
           average_session_minutes?: number | null
           completion_rate?: number | null
           created_at?: string
+          daily_learning_minutes?: number | null
           pages_per_minute?: number | null
           preferred_time?: string | null
           speed_sample_count?: number
@@ -189,6 +191,7 @@ export type Database = {
           average_session_minutes?: number | null
           completion_rate?: number | null
           created_at?: string
+          daily_learning_minutes?: number | null
           pages_per_minute?: number | null
           preferred_time?: string | null
           speed_sample_count?: number
