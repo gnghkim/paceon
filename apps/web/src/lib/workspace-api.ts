@@ -33,7 +33,7 @@ export function createWorkspaceHandlers(
     table: string,
     query: Record<string, string> = {},
     body?: unknown,
-    extraHeaders: Record<string, string> = {},
+    init: { method?: string; headers?: Record<string, string> } = {},
   ) {
     const url = new URL(`/rest/v1/${table}`, auth.base);
     url.search = new URLSearchParams(query).toString();
@@ -41,14 +41,17 @@ export function createWorkspaceHandlers(
       headers: {
         ...auth.headers,
         'Content-Type': 'application/json',
-        ...extraHeaders,
+        ...init.headers,
       },
       cache: 'no-store',
       redirect: 'error',
       signal: AbortSignal.timeout(15000),
       ...(body === undefined
         ? {}
-        : { method: 'POST', body: JSON.stringify(body) }),
+        : {
+            method: init.method ?? 'POST',
+            body: JSON.stringify(body),
+          }),
     });
     if (response.status === 401 || response.status === 403)
       throw new ApiError(401, '로그인이 만료되었습니다. 다시 로그인해 주세요.');
@@ -104,7 +107,7 @@ export function createWorkspaceHandlers(
       'learner_profiles',
       { on_conflict: 'user_id' },
       { user_id: auth.userId, daily_learning_minutes: minutes },
-      { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      { headers: { Prefer: 'resolution=merge-duplicates,return=minimal' } },
     );
   }
   function handle(error: unknown) {
@@ -209,6 +212,107 @@ export function createWorkspaceHandlers(
             { error: '목표 시간은 1분에서 1440분 사이로 정해 주세요.' },
             400,
           );
+        return handle(error);
+      }
+    },
+    /**
+     * 계획을 잠시 멈추거나 다시 시작한다.
+     * 멈춘 계획의 일정은 오늘·캘린더·간편 기록에서 빠지고 기록은 그대로 남는다.
+     * 멈춘 동안에도 그 계획이 잡아 둔 시간은 다른 책에 넘어가지 않는다.
+     *
+     * plans의 모든 UPDATE는 트리거가 버전을 올린다. 상태만 바꿔도 마찬가지이므로
+     * 호출자가 이어서 재계획하려면 여기서 돌려주는 새 버전을 써야 한다.
+     */
+    async PLAN_STATUS(request: Request, resourceId: string) {
+      try {
+        const auth = await authenticate(request);
+        uuid.parse(resourceId);
+        const input = z
+          .object({ status: z.enum(['ACTIVE', 'PAUSED']) })
+          .strict()
+          .parse(await readBody(request));
+        const [book] = await rows<Resource>(auth, 'resources', {
+          id: `eq.${resourceId}`,
+          type: 'eq.BOOK',
+        });
+        if (!book) throw new ApiError(404, '자료를 찾을 수 없습니다.');
+        if (input.status === 'ACTIVE' && book.status === 'ARCHIVED')
+          throw new ApiError(
+            409,
+            '보관한 책이에요. 보관을 해제한 뒤 계획을 다시 시작해 주세요.',
+          );
+        const updated = await rest(
+          auth,
+          'plans',
+          {
+            resource_id: `eq.${resourceId}`,
+            user_id: `eq.${auth.userId}`,
+            status: `in.(ACTIVE,PAUSED)`,
+            select: 'id,status,version',
+          },
+          { status: input.status },
+          { method: 'PATCH', headers: { Prefer: 'return=representation' } },
+        );
+        if (!Array.isArray(updated) || !updated.length)
+          throw new ApiError(
+            404,
+            '멈추거나 다시 시작할 계획이 없어요. 먼저 계획을 만들어 주세요.',
+          );
+        const changed = (updated as { id: string; version: number }[])[0]!;
+        return json({
+          status: input.status,
+          planId: changed.id,
+          planVersion: changed.version,
+        });
+      } catch (error) {
+        if (error instanceof z.ZodError)
+          return json({ error: '계획 상태를 확인해 주세요.' }, 400);
+        return handle(error);
+      }
+    },
+    /**
+     * 책을 보관하거나 되돌린다.
+     * 보관하면 계획도 함께 멈춰 일정이 오늘과 캘린더에서 사라진다.
+     * 보관을 풀어도 계획은 멈춘 채로 두고, 다시 시작할지는 사용자가 정한다.
+     */
+    async BOOK_STATUS(request: Request, resourceId: string) {
+      try {
+        const auth = await authenticate(request);
+        uuid.parse(resourceId);
+        const input = z
+          .object({ status: z.enum(['ACTIVE', 'ARCHIVED']) })
+          .strict()
+          .parse(await readBody(request));
+        const [book] = await rows<Resource>(auth, 'resources', {
+          id: `eq.${resourceId}`,
+          type: 'eq.BOOK',
+        });
+        if (!book) throw new ApiError(404, '자료를 찾을 수 없습니다.');
+        if (book.status === 'COMPLETED' && input.status === 'ACTIVE')
+          throw new ApiError(409, '완독한 책의 상태는 바꿀 수 없어요.');
+        if (input.status === 'ARCHIVED')
+          await rest(
+            auth,
+            'plans',
+            {
+              resource_id: `eq.${resourceId}`,
+              user_id: `eq.${auth.userId}`,
+              status: 'eq.ACTIVE',
+            },
+            { status: 'PAUSED' },
+            { method: 'PATCH', headers: { Prefer: 'return=minimal' } },
+          );
+        await rest(
+          auth,
+          'resources',
+          { id: `eq.${resourceId}`, user_id: `eq.${auth.userId}` },
+          { status: input.status },
+          { method: 'PATCH', headers: { Prefer: 'return=minimal' } },
+        );
+        return json({ status: input.status });
+      } catch (error) {
+        if (error instanceof z.ZodError)
+          return json({ error: '보관 상태를 확인해 주세요.' }, 400);
         return handle(error);
       }
     },

@@ -67,3 +67,91 @@ test('the read model reports the saved goal and defaults to none', async () => {
   const none = createWorkspaceHandlers(config, async url => Response.json(new URL(url).pathname.endsWith('/user') ? { id } : []));
   assert.equal((await (await none.GET(new Request('http://localhost', { headers: { authorization: 'Bearer token' } }))).json()).dailyLearningMinutes, null);
 });
+
+const status = (body, method = 'PATCH') => new Request('http://localhost', { method, headers: { authorization: 'Bearer token', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+const route = (url) => new URL(url).pathname;
+function stub(handler) {
+  return createWorkspaceHandlers(config, async (url, init = {}) => {
+    if (route(url).endsWith('/user')) return Response.json({ id });
+    return handler(new URL(url), init) ?? Response.json([]);
+  });
+}
+test('pausing a plan writes only that book and only a live plan', async () => {
+  const writes = [];
+  const api = stub((url, init) => {
+    if (route(url) === '/rest/v1/resources' && init.method === undefined) return Response.json([resource]);
+    if (route(url) === '/rest/v1/plans') {
+      writes.push({ method: init.method, query: Object.fromEntries(url.searchParams), body: JSON.parse(init.body) });
+      return Response.json([{ id: 'plan', status: 'PAUSED', version: 7 }]);
+    }
+  });
+  const answer = await api.PLAN_STATUS(status({ status: 'PAUSED' }), id);
+  assert.equal(answer.status, 200);
+  // Every UPDATE to plans bumps the version, so the caller needs the new one to replan.
+  assert.deepEqual(await answer.json(), { status: 'PAUSED', planId: 'plan', planVersion: 7 });
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].method, 'PATCH');
+  assert.deepEqual(writes[0].body, { status: 'PAUSED' });
+  assert.equal(writes[0].query.resource_id, `eq.${id}`);
+  assert.equal(writes[0].query.user_id, `eq.${id}`);
+  assert.equal(writes[0].query.status, 'in.(ACTIVE,PAUSED)');
+  assert.equal(writes[0].query.select, 'id,status,version');
+});
+test('a book with no plan, an unknown book and a bad status never reach persistence', async () => {
+  let writes = 0;
+  const api = stub((url, init) => {
+    if (route(url) === '/rest/v1/resources' && init.method === undefined) return Response.json([resource]);
+    if (route(url) === '/rest/v1/plans') { writes++; return Response.json([]); }
+  });
+  assert.equal((await api.PLAN_STATUS(status({ status: 'PAUSED' }), id)).status, 404);
+  for (const bad of [{ status: 'ARCHIVED' }, { status: 'ACTIVE', extra: 1 }, {}])
+    assert.equal((await api.PLAN_STATUS(status(bad), id)).status, 400);
+  assert.equal((await api.PLAN_STATUS(status({ status: 'PAUSED' }), 'not-a-uuid')).status, 400);
+  const missing = stub(() => Response.json([]));
+  assert.equal((await missing.PLAN_STATUS(status({ status: 'PAUSED' }), id)).status, 404);
+  assert.equal(writes, 1);
+});
+test('an archived book cannot be restarted without being unarchived first', async () => {
+  let writes = 0;
+  const api = stub((url, init) => {
+    if (route(url) === '/rest/v1/resources' && init.method === undefined) return Response.json([{ ...resource, status: 'ARCHIVED' }]);
+    if (route(url) === '/rest/v1/plans') { writes++; return Response.json([{ id: 'plan' }]); }
+  });
+  assert.equal((await api.PLAN_STATUS(status({ status: 'ACTIVE' }), id)).status, 409);
+  assert.equal(writes, 0);
+  // Pausing an archived book's plan stays allowed so the pair cannot drift apart.
+  assert.equal((await api.PLAN_STATUS(status({ status: 'PAUSED' }), id)).status, 200);
+});
+test('archiving pauses the plan before the book leaves the shelf', async () => {
+  const calls = [];
+  const api = stub((url, init) => {
+    if (route(url) === '/rest/v1/resources' && init.method === undefined) return Response.json([resource]);
+    if (init.method === 'PATCH') { calls.push([route(url), JSON.parse(init.body), Object.fromEntries(url.searchParams)]); return new Response('', { status: 200 }); }
+  });
+  assert.equal((await api.BOOK_STATUS(status({ status: 'ARCHIVED' }), id)).status, 200);
+  assert.deepEqual(calls.map((c) => [c[0], c[1]]), [
+    ['/rest/v1/plans', { status: 'PAUSED' }],
+    ['/rest/v1/resources', { status: 'ARCHIVED' }],
+  ]);
+  assert.equal(calls[0][2].status, 'eq.ACTIVE');
+});
+test('unarchiving restores the book but leaves the plan paused for the reader to restart', async () => {
+  const calls = [];
+  const api = stub((url, init) => {
+    if (route(url) === '/rest/v1/resources' && init.method === undefined) return Response.json([{ ...resource, status: 'ARCHIVED' }]);
+    if (init.method === 'PATCH') { calls.push(route(url)); return new Response('', { status: 200 }); }
+  });
+  assert.equal((await api.BOOK_STATUS(status({ status: 'ACTIVE' }), id)).status, 200);
+  assert.deepEqual(calls, ['/rest/v1/resources']);
+});
+test('a finished book keeps its status and unknown values are rejected', async () => {
+  let writes = 0;
+  const api = stub((url, init) => {
+    if (route(url) === '/rest/v1/resources' && init.method === undefined) return Response.json([{ ...resource, status: 'COMPLETED' }]);
+    if (init.method === 'PATCH') { writes++; return new Response('', { status: 200 }); }
+  });
+  assert.equal((await api.BOOK_STATUS(status({ status: 'ACTIVE' }), id)).status, 409);
+  for (const bad of [{ status: 'PAUSED' }, { status: 'ARCHIVED', extra: 1 }, {}])
+    assert.equal((await api.BOOK_STATUS(status(bad), id)).status, 400);
+  assert.equal(writes, 0);
+});

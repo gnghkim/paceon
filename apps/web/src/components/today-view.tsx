@@ -44,10 +44,15 @@ function TodayContent({ data }: { data: WorkspaceData }) {
   const upcoming = data.sessions
     .filter((s) => s.study_date > data.today && s.status !== 'SKIPPED')
     .slice(0, 3);
+  // 멈춘 계획도 계획이다. 일시 정지한 책이 "계획을 기다리는 책"으로 보이면 안 된다.
   const withoutPlan = data.resources.filter(
     (r) =>
       r.status === 'ACTIVE' &&
-      !data.plans.some((p) => p.resource_id === r.id && p.status === 'ACTIVE'),
+      !data.plans.some(
+        (p) =>
+          p.resource_id === r.id &&
+          (p.status === 'ACTIVE' || p.status === 'PAUSED'),
+      ),
   );
   return (
     <div className="space-y-9">
@@ -199,7 +204,7 @@ function TodayContent({ data }: { data: WorkspaceData }) {
           <section className="rounded-xl border border-border bg-card p-6">
             <p className="text-sm text-muted-foreground">나의 서재</p>
             <p className="mt-3 text-3xl font-semibold tabular-nums">
-              {data.resources.length}
+              {data.resources.filter((r) => r.status !== 'ARCHIVED').length}
               <span className="ml-1 text-base font-normal text-muted-foreground">
                 권
               </span>

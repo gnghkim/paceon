@@ -13,6 +13,7 @@ import { BookCover } from '@/components/book-library';
 import { AiInsight } from '@/components/ai-insight';
 import { PdfSourceCard } from '@/components/pdf-source';
 import { PlanForm } from '@/components/plan-form';
+import { PlanSettings } from '@/components/plan-settings';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { formatDate, summarizeBook } from '@/lib/planning';
@@ -67,7 +68,7 @@ function BookDetailPanel({ id }: { id: string }) {
     );
   const bookPlans = data.plans.filter((p) => p.resource_id === id);
   const plan =
-    bookPlans.find((p) => p.status === 'ACTIVE') ??
+    bookPlans.find((p) => p.status === 'ACTIVE' || p.status === 'PAUSED') ??
     bookPlans
       .filter((p) => p.status === 'COMPLETED')
       .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
@@ -110,7 +111,13 @@ function BookDetailPanel({ id }: { id: string }) {
         <div className="min-w-0 flex-1">
           <p className="mb-2 text-xs text-muted-foreground">
             {book.source === 'PDF_IMPORT' && <span>PDF · </span>}
-            {book.status === 'COMPLETED' ? '완독한 책' : '읽고 있는 책'}
+            {book.status === 'ARCHIVED'
+              ? '보관한 책'
+              : book.status === 'COMPLETED'
+                ? '완독한 책'
+                : plan?.status === 'PAUSED'
+                  ? '잠시 멈춘 책'
+                  : '읽고 있는 책'}
           </p>
           <h1 className="break-words text-2xl font-bold tracking-tight md:text-[28px]">
             {book.title}
@@ -183,6 +190,15 @@ function BookDetailPanel({ id }: { id: string }) {
           book={book}
           plan={plan}
           data={data}
+          onSaved={reload}
+          onResult={setSaved}
+        />
+      )}
+      {plan && plan.status !== 'COMPLETED' && (
+        <PlanSettings
+          key={`settings:${book.id}:${book.progress_version}:${plan.version}:${plan.status}:${book.status}`}
+          book={book}
+          plan={plan}
           onSaved={reload}
           onResult={setSaved}
         />
