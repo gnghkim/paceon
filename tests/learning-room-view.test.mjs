@@ -1,6 +1,24 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mergeLearningPages, playResumesPause, resolveRoomTab, roomTabs, sessionTiming, timerStatusLabel } from '../apps/web/src/components/learning-room-view.ts';
+import { mergeLearningPages, mergeVideoVisits, playResumesPause, resolveRoomTab, roomTabs, sessionTiming, timerStatusLabel } from '../apps/web/src/components/learning-room-view.ts';
+
+test('watch segments join into one row while a real gap, a speed change or another day stays apart', () => {
+ const visit = (id, from, to, rate = 1, day = '2026-09-16') => ({ id, from_seconds: from, to_seconds: to, rate, created_at: `${day}T10:00:00Z`, workspace_id: 'w', session_id: 's', user_id: 'u' });
+ const joined = mergeVideoVisits([visit('a', 3, 6), visit('b', 6, 9), visit('c', 9, 12), visit('d', 12, 15)]);
+ assert.deepEqual(joined.map(v => [v.from_seconds, v.to_seconds, v.parts]), [[3, 15, 4]], '이어진 네 구간은 한 줄이 되고 횟수를 남긴다');
+ const overlap = mergeVideoVisits([visit('a', 0, 10), visit('b', 5, 12)]);
+ assert.deepEqual(overlap.map(v => [v.from_seconds, v.to_seconds, v.parts]), [[0, 12, 2]], '겹치는 구간도 합친다');
+ const gap = mergeVideoVisits([visit('a', 0, 5), visit('b', 30, 35)]);
+ assert.deepEqual(gap.map(v => [v.from_seconds, v.to_seconds]), [[0, 5], [30, 35]], '멀리 떨어진 구간은 따로 둔다');
+ const speeds = mergeVideoVisits([visit('a', 0, 5, 1), visit('b', 5, 10, 2)]);
+ assert.equal(speeds.length, 2, '배속이 다르면 합치지 않는다');
+ const days = mergeVideoVisits([visit('a', 0, 5, 1, '2026-09-15'), visit('b', 5, 10, 1, '2026-09-16')]);
+ assert.equal(days.length, 2, '다른 날의 시청은 합치지 않는다');
+ assert.deepEqual(days.map(v => v.created_at.slice(0, 10)), ['2026-09-16', '2026-09-15'], '최근 날짜가 먼저 온다');
+ const order = mergeVideoVisits([visit('a', 40, 45), visit('b', 10, 15)]);
+ assert.deepEqual(order.map(v => v.from_seconds), [10, 40], '같은 날 안에서는 영상 위치 순으로 정렬한다');
+ assert.deepEqual(mergeVideoVisits([]), []);
+});
 
 const at = seconds => new Date(Date.UTC(2026, 8, 14, 0, 0, seconds)).toISOString();
 const session = (fields = {}) => ({ id: 's1', workspace_id: 'w', status: 'ACTIVE', pause_reason: null, device_id: 'me', generation: 1, lease_expires_at: at(60), last_seen_at: at(0), last_activity_at: at(0), elapsed_seconds: 0, started_at: at(0), ended_at: null, updated_at: at(0), ...fields });

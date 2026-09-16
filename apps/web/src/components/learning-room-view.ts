@@ -1,4 +1,4 @@
-import type { LearningKind, LearningSession, LearningSnapshot } from './learning-types';
+import type { LearningKind, LearningSession, LearningSnapshot, LearningVideoVisit } from './learning-types';
 
 const IDLE_MS = 60_000;
 
@@ -40,6 +40,34 @@ export function sessionTiming(current: LearningSession | null, view: TimerView, 
  */
 export const playResumesPause = (session: LearningSession | null, visible: boolean) =>
   visible && session?.status === 'PAUSED';
+
+export type MergedVideoVisit = LearningVideoVisit & { parts: number };
+
+/** 이어진 시청으로 볼 최대 간격(초). 서버가 약 10초 간격으로 구간을 남기므로 그보다 짧게 둔다. */
+const VISIT_GAP_SECONDS = 2;
+const visitDay = (visit: LearningVideoVisit) => visit.created_at.slice(0, 10);
+
+/**
+ * 끊겨 기록된 시청 구간을 읽기 좋게 합친다.
+ * 같은 날·같은 배속이고 끝점과 시작점이 2초 이내로 이어지거나 겹칠 때만 한 줄로 만든다.
+ * 최근 날짜가 먼저 오고, 같은 날 안에서는 영상 위치 순으로 정렬한다.
+ */
+export function mergeVideoVisits(visits: readonly LearningVideoVisit[]): MergedVideoVisit[] {
+  const ordered = [...visits].sort((a, b) =>
+    visitDay(b).localeCompare(visitDay(a)) || a.rate - b.rate || a.from_seconds - b.from_seconds);
+  const merged: MergedVideoVisit[] = [];
+  for (const visit of ordered) {
+    const last = merged.at(-1);
+    if (last && visitDay(last) === visitDay(visit) && last.rate === visit.rate
+      && visit.from_seconds <= last.to_seconds + VISIT_GAP_SECONDS) {
+      last.to_seconds = Math.max(last.to_seconds, visit.to_seconds);
+      last.parts += 1;
+      continue;
+    }
+    merged.push({ ...visit, parts: 1 });
+  }
+  return merged;
+}
 
 export type LearningRoomTab = 'video' | 'speak' | 'ask' | 'source';
 

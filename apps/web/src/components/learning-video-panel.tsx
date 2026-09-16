@@ -5,7 +5,7 @@ import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { YouTubePlayer, type PlaybackObservation } from './youtube-player';
 import { learningDuration, type LearningVideo, type LearningVideoNote, type LearningVideoVisit } from './learning-types';
-import type { LearningRoomTab } from './learning-room-view';
+import { mergeVideoVisits, type LearningRoomTab } from './learning-room-view';
 
 export function LearningVideoPanel({ video, title, tab, notes, visits, stopped, stopToken, onObservation, activity, reload, stopPlaybackRef }: {
   stopPlaybackRef: RefObject<(() => Promise<void>) | null>;
@@ -77,6 +77,6 @@ export function LearningVideoPanel({ video, title, tab, notes, visits, stopped, 
       <details><summary className="cursor-pointer py-2 text-sm">AI에 보낼 선택 원문 미리 보기</summary><p className="max-h-48 overflow-auto whitespace-pre-wrap text-sm">{valid ? chars.slice(start, end).join('') : ''}</p></details>
       <div className="flex flex-wrap gap-2"><Button disabled={busy || !valid || chars.length > 100000} onClick={() => void run(async () => { const result = await command({ action: 'VIDEO_SOURCE', expectedVersion: version, transcript: source, contextStart: start, contextEnd: end }); setVersion(result.video.transcript_version); setSaved('자막과 AI 선택 범위를 저장했어요.'); await reload(); })}>자막과 선택 범위 저장</Button><Button variant="outline" disabled={busy} onClick={() => { setSource(video.transcript); setStart(video.context_start); setEnd(video.context_end); setVersion(video.transcript_version); setError(''); }}>최신 저장본으로 되돌리기</Button></div>
     </section>}
-    {tab === 'source' && <section className="space-y-2 rounded-xl border border-border p-4"><h2 className="font-medium">PaceOn에서 본 구간</h2><p className="text-xs text-muted-foreground">반복 시청도 각각 남아요. 재생 위치 차이와 학습 시간은 서로 달라요.</p>{!visits.length && <p className="text-sm">기록한 구간이 아직 없어요.</p>}{visits.map((v) => <button key={v.id} className="block min-h-11 text-sm text-primary underline" onClick={() => setSeek({ seconds: v.from_seconds, token: Date.now() })}>{learningDuration(v.from_seconds)}–{learningDuration(v.to_seconds)} · {v.rate}× · {new Date(v.created_at).toLocaleDateString('ko-KR')}</button>)}</section>}
+    {tab === 'video' && <section className="space-y-2 rounded-xl border border-border p-4"><h2 className="font-medium">PaceOn에서 본 구간</h2><p className="text-xs text-muted-foreground">이어서 본 구간은 한 줄로 묶어요. 재생 위치 차이와 학습 시간은 서로 달라요.</p>{!visits.length && <p className="text-sm">기록한 구간이 아직 없어요.</p>}{mergeVideoVisits(visits).map((v) => <button key={v.id} className="block min-h-11 text-sm text-primary underline" onClick={() => setSeek({ seconds: v.from_seconds, token: Date.now() })}>{learningDuration(v.from_seconds)}–{learningDuration(v.to_seconds)} · {v.rate}× · {new Date(v.created_at).toLocaleDateString('ko-KR')}{v.parts > 1 && ` · ${v.parts}회 이어 봄`}</button>)}</section>}
   </div>;
 }
