@@ -21,10 +21,17 @@ import { Skeleton } from './ui/skeleton';
 import { SessionCard } from './session-card';
 import { StudyHeatmap } from './study-heatmap';
 import { formatDate } from '@/lib/planning';
-import { buildHeatmap, computeStreak } from '@/lib/study-heatmap';
+import {
+  buildHeatmap,
+  computeStreak,
+  countWeekDays,
+  currentWeek,
+} from '@/lib/study-heatmap';
 import { summarizeDay } from '@/lib/session-state';
 import type { WorkspaceData } from '@/lib/workspace-types';
 import type { StatisticsData } from '@/lib/statistics';
+import type { HeatmapDay } from '@/lib/study-heatmap';
+import { cn } from '@/lib/utils';
 import { LearningToday } from './learning-today';
 import { CatchUpNotice } from './catch-up-notice';
 
@@ -282,6 +289,7 @@ function StudyStreakCard({ today, data }: { today: string; data: StatisticsData 
         오늘 · 도서 {todayEntry?.recordedMinutes ?? 0}분 · 영어학습{' '}
         {todayEntry?.learningMinutes ?? 0}분
       </p>
+      <ThisWeek days={heatmapDays} today={today} />
       <div className="mt-4">
         <StudyHeatmap days={heatmapDays} weeks={12} />
       </div>
@@ -292,6 +300,45 @@ function StudyStreakCard({ today, data }: { today: string; data: StatisticsData 
         통계에서 1년 전체 보기
         <ArrowRight size={15} />
       </Link>
+    </section>
+  );
+}
+
+const weekdayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+
+/** 이번 주를 일곱 칸으로 보여 준다. 아직 오지 않은 날은 빠뜨린 날과 구분한다. */
+function ThisWeek({ days, today }: { days: HeatmapDay[]; today: string }) {
+  const week = currentWeek(days, today);
+  const studied = countWeekDays(week);
+  return (
+    <section className="mt-5" aria-labelledby="this-week-heading">
+      <div className="mb-2 flex items-baseline justify-between">
+        <h3 id="this-week-heading" className="text-sm font-medium">
+          이번 주
+        </h3>
+        <span className="text-sm text-muted-foreground">{studied}일 학습</span>
+      </div>
+      <ol className="flex gap-1.5">
+        {week.map((day) => (
+          <li key={day.date} className="flex flex-1 flex-col items-center gap-1">
+            <span className="text-[11px] text-muted-foreground">
+              {weekdayLabels[day.isoWeekday - 1]}
+            </span>
+            <span
+              aria-label={`${day.date} · ${day.studied ? '학습함' : day.isFuture ? '예정' : '기록 없음'}`}
+              className={cn(
+                'h-7 w-full rounded-md border',
+                day.studied
+                  ? 'border-primary bg-primary'
+                  : day.isFuture
+                    ? 'border-dashed border-border bg-transparent'
+                    : 'border-border bg-muted',
+                day.isToday && !day.studied && 'border-primary',
+              )}
+            />
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { heatmapLevel, buildHeatmap, computeStreak, countActiveDays, formatStudyDuration, heatmapWeeks } from '../apps/web/src/lib/study-heatmap.ts';
+import { heatmapLevel, buildHeatmap, computeStreak, countActiveDays, formatStudyDuration, heatmapWeeks, currentWeek, countWeekDays } from '../apps/web/src/lib/study-heatmap.ts';
 
 const day = (date, learningMinutes, recordedMinutes = 0, untimedEvents = 0) => ({
   date, learningMinutes, recordedMinutes, untimedEvents,
@@ -74,4 +74,47 @@ test('formatStudyDuration writes hours and minutes in Korean, omitting a zero pa
   assert.equal(formatStudyDuration(60), '1시간');
   assert.equal(formatStudyDuration(90), '1시간 30분');
   assert.equal(formatStudyDuration(125.6), '2시간 6분');
+});
+
+test('the current week runs Monday to Sunday around today', () => {
+  const week = currentWeek([], '2026-09-16');
+  assert.equal(week.length, 7);
+  assert.equal(week[0].date, '2026-09-14');
+  assert.equal(week[6].date, '2026-09-20');
+  assert.deepEqual(week.map((day) => day.isoWeekday), [1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(week.find((day) => day.isToday).date, '2026-09-16');
+});
+
+test('a Sunday belongs to the week that started six days earlier', () => {
+  const week = currentWeek([], '2026-09-20');
+  assert.equal(week[0].date, '2026-09-14');
+  assert.equal(week[6].isToday, true);
+});
+
+test('a Monday starts its own week', () => {
+  const week = currentWeek([], '2026-09-14');
+  assert.equal(week[0].isToday, true);
+  assert.equal(week[0].date, '2026-09-14');
+});
+
+test('only days with a record count, and later days are marked as still to come', () => {
+  const days = [
+    { date: '2026-09-14', minutes: 30, level: 3 },
+    { date: '2026-09-15', minutes: 0, level: 0 },
+    { date: '2026-09-16', minutes: 0, level: 1 },
+  ];
+  const week = currentWeek(days, '2026-09-16');
+  assert.deepEqual(week.map((day) => day.studied), [true, false, true, false, false, false, false]);
+  assert.deepEqual(week.map((day) => day.isFuture), [false, false, false, true, true, true, true]);
+  assert.equal(countWeekDays(week), 2);
+});
+
+test('a week with nothing recorded counts zero', () => {
+  assert.equal(countWeekDays(currentWeek([], '2026-09-16')), 0);
+});
+
+test('the week crosses a month boundary without gaps', () => {
+  const week = currentWeek([], '2026-10-01');
+  assert.equal(week[0].date, '2026-09-28');
+  assert.equal(week[6].date, '2026-10-04');
 });

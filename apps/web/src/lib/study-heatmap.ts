@@ -74,3 +74,37 @@ export function formatStudyDuration(minutes: number): string {
   if (hours === 0) return `${rest}분`;
   return rest === 0 ? `${hours}시간` : `${hours}시간 ${rest}분`;
 }
+
+export type WeekDay = {
+  date: string;
+  /** 1=월 … 7=일. 화면의 요일 칸 순서와 같다. */
+  isoWeekday: number;
+  studied: boolean;
+  isToday: boolean;
+  isFuture: boolean;
+};
+
+/**
+ * 오늘이 속한 주를 월요일부터 일곱 칸으로 만든다.
+ * 잔디와 같은 기준으로 "학습한 날"을 표시하므로 도서와 영어학습을 함께 센다.
+ * 아직 오지 않은 날은 빈칸도 실패도 아니며, 지난 날과 구분해서 보여 준다.
+ */
+export function currentWeek(days: readonly HeatmapDay[], today: string): WeekDay[] {
+  const weekday = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const monday = addDays(today, -weekday);
+  const byDate = new Map(days.map(day => [day.date, day]));
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDays(monday, index);
+    return {
+      date,
+      isoWeekday: index + 1,
+      studied: (byDate.get(date)?.level ?? 0) > 0,
+      isToday: date === today,
+      isFuture: date > today,
+    };
+  });
+}
+
+/** 이번 주에 학습한 날 수. 아직 오지 않은 날은 세지 않는다. */
+export const countWeekDays = (week: readonly WeekDay[]) =>
+  week.filter(day => day.studied).length;
