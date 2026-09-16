@@ -56,6 +56,15 @@ export function LearningAreasShell({ children }: { children: ReactNode }) {
           })}
         </section>
       )}
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/learn/words"
+          className="flex min-h-11 flex-1 items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 text-sm hover:border-primary"
+        >
+          단어장
+          <ArrowRight size={15} className="shrink-0 text-primary" aria-hidden="true" />
+        </Link>
+      </div>
       <ReviewLink />
       <nav aria-label="학습 영역" className="flex gap-1 overflow-x-auto border-b border-border">
         {learningAreas.map((area) => {

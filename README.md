@@ -32,7 +32,7 @@
 4. 학습 중 메모·녹음·글을 남기고 필요한 시점에 AI 피드백을 요청합니다.
 5. **학습 종료**로 시간을 확정하고 다음에 같은 공간에서 이어갑니다. 도서 기록은 **통계**에서 확인합니다.
 
-자세한 사용법은 [영어학습 안내](docs/LEARNING_ROOM.md), [독서 기록](docs/QUICK_RECORD.md), [학습 통계](docs/STATISTICS.md), [매일 알림](docs/NOTIFICATIONS.md), [표현 복습](docs/EXPRESSION_REVIEW.md)을 참고하세요.
+자세한 사용법은 [영어학습 안내](docs/LEARNING_ROOM.md), [독서 기록](docs/QUICK_RECORD.md), [학습 통계](docs/STATISTICS.md), [매일 알림](docs/NOTIFICATIONS.md), [표현 복습](docs/EXPRESSION_REVIEW.md), [단어장](docs/WORD_BOOK.md)을 참고하세요.
 
 ## 준비
 

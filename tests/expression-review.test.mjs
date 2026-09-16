@@ -14,9 +14,10 @@ const card = (id, due_on, extra = {}) => ({
   id,
   phrase: `phrase ${id}`,
   meaning: `meaning ${id}`,
-  example: null,
+  examples: [],
   review_step: 0,
   due_on,
+  lookup: 'DONE',
   ...extra,
 });
 

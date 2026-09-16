@@ -156,7 +156,7 @@ export function ExpressionReview() {
                 : '다음 예정일에 다시 꺼내 볼게요.'
               : data.saved > 0
                 ? '저장한 표현은 예정일이 되면 여기 나와요.'
-                : 'AI 피드백에서 기억할 표현을 복습함에 넣어 보세요.'}
+                : '단어장에 단어를 넣거나, AI 피드백에서 기억할 표현을 담아 보세요.'}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             {more > 0 && (
@@ -172,7 +172,7 @@ export function ExpressionReview() {
               </Button>
             )}
             <Button asChild variant="outline">
-              <Link href="/learn">영어학습으로</Link>
+              <Link href="/learn/words">단어장 보기</Link>
             </Button>
           </div>
         </section>
@@ -194,9 +194,11 @@ export function ExpressionReview() {
               <>
                 <div className="space-y-2 rounded-lg bg-accent/50 p-4">
                   <p className="text-sm leading-6">{card.meaning}</p>
-                  {card.example && (
-                    <p className="text-sm leading-6 text-muted-foreground">{card.example}</p>
-                  )}
+                  {card.examples.map((example) => (
+                    <p key={example} className="text-sm leading-6 text-muted-foreground">
+                      {example}
+                    </p>
+                  ))}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {grades.map(([value, label]) => (

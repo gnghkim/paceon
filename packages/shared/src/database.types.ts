@@ -292,9 +292,14 @@ export type Database = {
           created_at: string
           due_on: string
           example: string | null
+          examples: string[]
           id: string
           last_reviewed_on: string | null
-          meaning: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          lookup_attempts: number
+          lookup_status: string
+          meaning: string | null
           phrase: string
           review_count: number
           review_step: number
@@ -306,9 +311,14 @@ export type Database = {
           created_at?: string
           due_on: string
           example?: string | null
+          examples?: string[]
           id?: string
           last_reviewed_on?: string | null
-          meaning: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          lookup_attempts?: number
+          lookup_status?: string
+          meaning?: string | null
           phrase: string
           review_count?: number
           review_step?: number
@@ -320,9 +330,14 @@ export type Database = {
           created_at?: string
           due_on?: string
           example?: string | null
+          examples?: string[]
           id?: string
           last_reviewed_on?: string | null
-          meaning?: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          lookup_attempts?: number
+          lookup_status?: string
+          meaning?: string | null
           phrase?: string
           review_count?: number
           review_step?: number
@@ -1358,6 +1373,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      claim_expression_lookup: { Args: never; Returns: Json }
       claim_learning_job: { Args: never; Returns: Json }
       claim_pdf_import: { Args: never; Returns: Json }
       claim_speech_job: { Args: never; Returns: Json }
@@ -1396,6 +1412,16 @@ export type Database = {
           p_output_tokens: number
           p_provider_response_id: string
           p_result: Json
+        }
+        Returns: boolean
+      }
+      finish_expression_lookup: {
+        Args: {
+          p_examples: string[]
+          p_failed: boolean
+          p_id: string
+          p_lease_token: string
+          p_meaning: string
         }
         Returns: boolean
       }
@@ -1458,9 +1484,14 @@ export type Database = {
           created_at: string
           due_on: string
           example: string | null
+          examples: string[]
           id: string
           last_reviewed_on: string | null
-          meaning: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          lookup_attempts: number
+          lookup_status: string
+          meaning: string | null
           phrase: string
           review_count: number
           review_step: number

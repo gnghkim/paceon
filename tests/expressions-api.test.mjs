@@ -23,6 +23,11 @@ const row = (id, due_on, extra = {}) => ({
   phrase: `phrase ${id}`,
   meaning: `meaning ${id}`,
   example: null,
+  examples: [],
+  lookup_status: 'NONE',
+  lookup_attempts: 0,
+  lease_token: null,
+  lease_expires_at: null,
   source_workspace_id: null,
   review_step: 0,
   due_on,
@@ -76,17 +81,70 @@ test('a card due later is not offered today', async () => {
   assert.equal(body.saved, 1);
 });
 
-test('the full list is available on request and is ordered by when it comes due', async () => {
+test('the wordbook lists everything, newest due first', async () => {
   const rows = [row('a2345678-1234-4234-9234-123456789abc', '2099-01-01'), row(cardId, '2026-01-01')];
   const { api } = stub({ rows });
   const body = await (await api.GET(get('?all=true'))).json();
-  assert.deepEqual(body.cards.map((c) => c.due_on), ['2026-01-01', '2099-01-01']);
+  assert.deepEqual(body.cards.map((c) => c.due_on), ['2099-01-01', '2026-01-01']);
+});
+
+test('a word still waiting on its meaning is listed but never asked about', async () => {
+  const waiting = row(cardId, '2026-01-01', { meaning: null, lookup_status: 'QUEUED' });
+  const { api } = stub({ rows: [waiting] });
+  const body = await (await api.GET(get())).json();
+  assert.equal(body.saved, 1);
+  assert.equal(body.pending, 1);
+  assert.equal(body.due, 0, 'there is no meaning to ask for yet');
+  assert.deepEqual(body.cards, []);
+  const all = await (await api.GET(get('?all=true'))).json();
+  assert.equal(all.cards[0].lookup, 'PENDING');
+  assert.equal(all.cards[0].meaning, '');
+});
+
+test('a lookup that gave up is listed as failed so the learner can fill it in', async () => {
+  const { api } = stub({ rows: [row(cardId, '2026-01-01', { meaning: null, lookup_status: 'FAILED' })] });
+  const all = await (await api.GET(get('?all=true'))).json();
+  assert.equal(all.cards[0].lookup, 'FAILED');
+  assert.equal((await (await api.GET(get())).json()).due, 0);
+});
+
+test('a word saved with no meaning is queued for the lookup', async () => {
+  const { api, writes } = stub({
+    onWrite: ({ path, body }) =>
+      path === '/rest/v1/learning_expressions' ? Response.json([row(cardId, body.due_on)]) : null,
+  });
+  const response = await api.POST(request('POST', { phrase: 'serendipity' }));
+  assert.equal(response.status, 201);
+  const written = writes[0].body;
+  assert.equal(written.lookup_status, 'QUEUED');
+  assert.equal(written.meaning, null);
+  assert.deepEqual(written.examples, []);
+});
+
+test('a word saved with a meaning is settled at once and never queued', async () => {
+  const { api, writes } = stub({
+    onWrite: ({ path, body }) =>
+      path === '/rest/v1/learning_expressions' ? Response.json([row(cardId, body.due_on)]) : null,
+  });
+  await api.POST(request('POST', { phrase: 'put off', meaning: '미루다' }));
+  assert.equal(writes[0].body.lookup_status, 'NONE');
+  assert.equal(writes[0].body.meaning, '미루다');
+});
+
+test('a meaning of only spaces counts as not given', async () => {
+  const { api, writes } = stub({
+    onWrite: ({ path, body }) =>
+      path === '/rest/v1/learning_expressions' ? Response.json([row(cardId, body.due_on)]) : null,
+  });
+  await api.POST(request('POST', { phrase: 'tune out', meaning: '   ' }));
+  assert.equal(writes[0].body.lookup_status, 'QUEUED');
+  assert.equal(writes[0].body.meaning, null);
 });
 
 test('a card never carries its source or timestamps to the browser', async () => {
   const { api } = stub({ rows: [row(cardId, '2026-01-01', { source_workspace_id: user })] });
   const body = await (await api.GET(get())).json();
-  assert.deepEqual(Object.keys(body.cards[0]).sort(), ['due_on', 'example', 'id', 'meaning', 'phrase', 'review_step']);
+  assert.deepEqual(Object.keys(body.cards[0]).sort(), ['due_on', 'examples', 'id', 'lookup', 'meaning', 'phrase', 'review_step']);
 });
 
 test('saving an expression schedules it for tomorrow rather than today', async () => {
@@ -116,12 +174,13 @@ test('an expression already saved is reported, not merged or duplicated', async 
   assert.match(body.error, /이미 저장한/);
 });
 
-test('an empty phrase or meaning never reaches the database', async () => {
+test('an empty or overlong phrase never reaches the database', async () => {
   const { api, writes } = stub();
   for (const bad of [
-    { phrase: '', meaning: 'x' },
-    { phrase: 'x', meaning: '   ' },
-    { phrase: 'x'.repeat(201), meaning: 'y' },
+    { phrase: '' },
+    { phrase: '   ' },
+    { phrase: 'x'.repeat(201) },
+    { phrase: 'x', meaning: 'y'.repeat(501) },
     { phrase: 'x', meaning: 'y', unknown: 1 },
     {},
   ])
