@@ -3,7 +3,7 @@
 **Your learning, at your pace.**  
 내 속도에 맞춰 계획하고, 자투리 시간에 공부하고, 배운 내용을 기록하는 개인 학습 웹앱입니다.
 
-현재 **도서 학습 관리와 LR3 스피킹·쉐도잉까지 구현**되어 있습니다. Next.js 웹앱, Supabase의 인증·DB·비공개 파일 저장소, Python Worker로 구성됩니다.
+현재 **도서 학습 관리, LR3 스피킹·쉐도잉, LR4 표현 복습과 단어장까지 구현**되어 있습니다. 홈 화면에 설치해 앱처럼 쓰고 정한 시각에 알림을 받을 수 있습니다. Next.js 웹앱, Supabase의 인증·DB·비공개 파일 저장소, Python Worker로 구성됩니다.
 
 ## 주요 기능
 
@@ -11,6 +11,8 @@
 | --- | --- |
 | 도서·교재 라이브러리 | 직접 등록, Google Books·YES24 검색, PDF 페이지·목차 추출 후 등록 |
 | 학습 계획 | 목표와 가용 시간에 따른 일정 생성, 진도 기록 후 재계획, 오늘 할 일·캘린더 |
+| 계획 수정 | 속도·방식·목표 변경, 잠시 멈춤과 보관, 요일별 가용 시간 조정 |
+| 오늘 화면 | 세션의 완료·진행 중·놓침 구분, 이번 주 일곱 칸 요약, 밀린 분량 정리 안내 |
 | 간편 기록·통계 | 모바일에서 빠르게 학습 기록, 기간별 학습량·시간·활동일 확인 |
 | 독서 타이머 | 읽기 시작을 눌러 시간을 재고, 끝내면 기록창에 시간이 채워짐 |
 | AI 독서 도우미 | 도서 정보와 입력한 목차를 바탕으로 분석, 실제 진도에 따른 학습 코칭 |
@@ -21,6 +23,7 @@
 | 홈 화면 설치 | 브라우저에서 설치해 앱처럼 열기. 오프라인 사용은 제공하지 않음 |
 | 매일 알림 | 정한 시각에 오늘 할 분량을 한 줄로 알림. 못 채운 날은 알리지 않음 |
 | 표현 복습 | AI 피드백의 표현을 복습함에 저장하고 1·3·7·14·30일 간격으로 다시 확인 |
+| 단어장 | 단어만 적어 넣으면 AI가 한국어 뜻과 짧은 예문을 채우고 다음 날부터 복습에 등장 |
 
 영어학습에서는 버튼을 눌렀을 때만 AI로 내용을 전송합니다. 녹음은 분석 전에 기기에서 확인할 수 있고, 서버 음성은 기본 30일 보관하며 계속 보관하거나 삭제할 수 있습니다. 원래 인식 문장과 수정본을 구분하며 발음 점수는 제공하지 않습니다.
 
@@ -88,7 +91,7 @@ Windows에서 기본 Vector 로그 수집기가 `host.docker.internal:2375`에 �
 | 파일 | 설정 |
 | --- | --- |
 | `apps/web/.env.local` | Supabase 공개 URL·publishable key, 웹의 AI/PDF 활성화, 선택적 도서 검색·YouTube OAuth 설정 |
-| `services/ai-worker/.env` | Supabase 서비스 역할 키, OpenAI 키·모델, Worker의 AI/PDF 활성화 |
+| `services/ai-worker/.env` | Supabase 서비스 역할 키, OpenAI 키·모델, Worker의 AI/PDF 활성화, 알림용 VAPID 키 한 쌍 |
 | `.env.example` | 루트의 참고 목록. Next.js가 읽는 실제 설정 파일은 아님 |
 
 ### AI·PDF Worker
@@ -118,6 +121,10 @@ docker compose --env-file services/ai-worker/.env -f docker/docker-compose.yml u
 ```
 
 Worker가 실행되면 웹의 `apps/web/.env.local`에서도 사용할 기능의 `AI_ENABLED=true`, `PDF_ENABLED=true`를 설정하고 웹 서버를 재시작합니다. 웹 스위치만 켜면 Worker가 처리하지 못한 요청이 대기 상태로 남을 수 있습니다.
+
+### 매일 알림
+
+알림을 쓰려면 VAPID 키 한 쌍이 필요합니다. 공개키는 웹의 `NEXT_PUBLIC_VAPID_PUBLIC_KEY`에, 같은 쌍의 공개·비밀키와 연락처는 Worker의 `VAPID_PUBLIC_KEY`·`VAPID_PRIVATE_KEY`·`VAPID_SUBJECT`에 넣습니다. 비밀키는 Worker에만 둡니다. 키가 없으면 설정 화면이 그렇게 알리고 발송기는 아예 돌지 않으며, 나머지 기능은 그대로 동작합니다. 키를 만드는 방법과 발송 규칙은 [매일 알림](docs/NOTIFICATIONS.md)에 있습니다.
 
 ### 선택적 외부 연동
 
@@ -156,7 +163,7 @@ docker exec supabase_db_PaceOn pg_isready -U postgres
 
 영어학습 API·YouTube·음성 요청·단어 비교도 `pnpm test`에 포함됩니다. `test:learning:integration`은 실제 Auth와 LR1/LR2 경로를, `test:speech:integration`은 실제 Storage 업로드·재시도·격리·음성 삭제를 검증합니다. 영어학습 통합 검사는 AI 큐에 요청을 접수하므로 실제 Worker가 켜져 있으면 제공자 호출이 발생할 수 있습니다. 음성 통합 검사는 잘못된 오디오를 사용해 제공자 호출 전에 거절되는지 확인합니다.
 
-LR3 구현 시 웹/스케줄러 **178개**, Worker **50개**, DB **384개** 검사와 실제 OpenAI 음성 생성·전사·피드백 저장을 확인했습니다. 이는 당시 검증 결과이며 현재 변경의 검증은 위 명령으로 수행합니다.
+2026-09-17 기준 웹/스케줄러 **305개**(단위 253, 스케줄러 52), Worker **93개**, DB **536개** 검사가 통과합니다. 실제 OpenAI 음성 생성·전사·피드백 저장과 단어 뜻 채우기도 확인했습니다. 이는 당시 검증 결과이며 현재 변경의 검증은 위 명령으로 수행합니다.
 
 `db:test`는 실제 PostgreSQL에서 RLS·외래키·입력 제약·이력 보존·계획 버전을 검증하고 rollback한다. `db:test:api`는 임시 Auth 사용자 두 명을 생성해 실제 토큰으로 REST 격리와 동시 쓰기를 검증한 뒤 계정을 삭제한다. 이 명령은 localhost Supabase만 허용하며 키를 파일이나 로그에 출력하지 않는다.
 
@@ -182,30 +189,32 @@ supabase stop
 ## 구조와 다음 단계
 
 ```text
-apps/web              인증 · Today/서재/캘린더 · 도서/계획 API · 디자인 토큰
+apps/web              인증 · Today/서재/캘린더 · 영어학습·복습·단어장 · 도서/계획 API · 디자인 토큰
 packages/books        도서 검증 · Google Books/Manual/YES24 Provider
 packages/shared       공통 타입
 packages/scheduler    일정 생성·재계획·속도 추정 · Vitest
 packages/ai-schema    AI 작업 입력·결과 검증
 packages/pdf-schema   PDF 처리 한도·결과·확인 입력 검증
-services/ai-worker    FastAPI · AI/PDF/음성 작업 소비자 · 격리 PDF·오디오 파서
+services/ai-worker    FastAPI · AI/PDF/음성/단어/알림 작업 소비자 · 격리 PDF·오디오 파서
 supabase              도메인 migration · 비로그인 개발 seed · pgTAP 테스트
 docker                Worker Compose
 tests                 패키지 import · health HTTP · Auth/REST 격리·동시성 테스트
 docs                  요구사항 · 설계 · 구현 준비 및 실행 계획
 ```
 
-다음 단계는 **LR4 표현 저장·복습·영어학습 통계 통합**, 이후 **LR5 추천·PWA**입니다. 확장 범위는 [영어학습 명세서](docs/LEARNING_ROOM_SPEC.md)에 정리되어 있습니다.
+LR4의 표현 저장·복습과 단어장, PWA 설치와 알림은 구현했습니다. 다음 단계는 **영어학습 기록의 통계 통합**과 **LR5 추천**입니다. 확장 범위는 [영어학습 명세서](docs/LEARNING_ROOM_SPEC.md)에 정리되어 있습니다.
 
 현재 제한:
 
 - YouTube OAuth 실제 계정 검증은 Google 프로젝트 설정 후 필요합니다. 계정 연결만으로 Premium 적용·광고 제거·전체 시청 기록 동기화를 보장하지 않습니다.
 - YouTube 자동 자막 수집, PDF OCR, 오프라인 PWA는 구현하지 않았습니다.
 - 영어학습 기록은 기존 도서 페이지 진도·통계에 아직 합산하지 않습니다.
+- 복습과 단어장에 쓴 시간은 학습 시간에 들어가지 않습니다. 타이머가 학습 공간에 묶여 있고 복습은 공간을 넘나듭니다.
+- 뜻을 채우지 못한 단어를 화면에서 바로 다시 시도하는 단추는 없습니다. 지운 뒤 다시 넣습니다.
 - 모바일 크기의 브라우저와 테스트 마이크를 검증했으며, 실제 iOS/Android 마이크·권한 동작은 추가 검증이 필요합니다.
 - AI 응답은 저장된 작업을 처리한 뒤 조회하는 방식이며 토큰 스트리밍은 지원하지 않습니다.
 
-개발 문서: [영어학습](docs/LEARNING_ROOM.md) · [통계](docs/STATISTICS.md) · [PDF](docs/PDF.md) · [AI](docs/AI.md) · [도서](docs/BOOKS.md) · [스케줄러](docs/SCHEDULER.md) · [데이터베이스](docs/DATABASE.md) · [아키텍처](docs/ARCHITECTURE.md) · [제품 요구사항](docs/PRD.md) · [디자인](docs/DESIGN.md).
+개발 문서: [영어학습](docs/LEARNING_ROOM.md) · [표현 복습](docs/EXPRESSION_REVIEW.md) · [단어장](docs/WORD_BOOK.md) · [매일 알림](docs/NOTIFICATIONS.md) · [통계](docs/STATISTICS.md) · [PDF](docs/PDF.md) · [AI](docs/AI.md) · [도서](docs/BOOKS.md) · [스케줄러](docs/SCHEDULER.md) · [데이터베이스](docs/DATABASE.md) · [아키텍처](docs/ARCHITECTURE.md) · [제품 요구사항](docs/PRD.md) · [디자인](docs/DESIGN.md).
 
 ## 라이선스
 
