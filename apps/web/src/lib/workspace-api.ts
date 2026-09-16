@@ -60,8 +60,9 @@ export function createWorkspaceHandlers(
         );
       throw new ApiError(503, '잠시 연결하지 못했습니다. 다시 시도해 주세요.');
     }
-    // A minimal-return write answers 204 with no body.
-    return response.status === 204 ? null : response.json();
+    // A minimal-return write answers with an empty body, as 200 or 204.
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
   }
   async function rows<T>(
     auth: Auth,

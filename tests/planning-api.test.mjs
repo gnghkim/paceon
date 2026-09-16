@@ -39,7 +39,8 @@ test('the learning goal is upserted alone so a stale client cannot move the shar
     assert.equal(target.searchParams.get('on_conflict'), 'user_id');
     assert.match(init.headers.Prefer, /merge-duplicates/);
     written = JSON.parse(init.body);
-    return new Response(null, { status: 204 });
+    // PostgREST answers a minimal-return upsert with an empty body and status 200.
+    return new Response('', { status: 200 });
   });
   const response = await api.PROFILE(patch({ dailyLearningMinutes: 10 }));
   assert.equal(response.status, 200);
@@ -51,7 +52,7 @@ test('clearing the goal is allowed but out-of-range or unknown fields are reject
   const api = createWorkspaceHandlers(config, async url => {
     if (new URL(url).pathname.endsWith('/user')) return Response.json({ id });
     writes++;
-    return new Response(null, { status: 204 });
+    return new Response('', { status: 200 });
   });
   assert.equal((await api.PROFILE(patch({ dailyLearningMinutes: null }))).status, 200);
   for (const bad of [{ dailyLearningMinutes: 0 }, { dailyLearningMinutes: 1441 }, { dailyLearningMinutes: 10.5 }, { dailyLearningMinutes: 10, timezone: 'UTC' }, {}])

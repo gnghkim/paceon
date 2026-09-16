@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CalendarClock, X } from 'lucide-react';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
@@ -12,6 +12,7 @@ import {
   catchUpKey,
   catchUpTargets,
   readCatchUpMemory,
+  type CatchUpMemory,
   type CatchUpTarget,
 } from '@/lib/catch-up';
 import type { WorkspaceData } from '@/lib/workspace-types';
@@ -25,85 +26,107 @@ type Result =
  * 남은 분량을 내일 이후로 다시 나누고, 무엇이 왜 바뀌었는지 한 줄로 알린다.
  * 조정에 실패하면 기존 일정을 그대로 두고 사용자가 직접 설정을 고치도록 안내한다.
  */
-export function CatchUpNotice({ data }: { data: WorkspaceData }) {
-  const { apiFetch } = useAuth();
-  const [result, setResult] = useState<Result | null>(null);
-  const [dismissed, setDismissed] = useState(false);
-  const running = useRef(false);
-  useEffect(() => {
-    if (running.current) return;
-    const targets = catchUpTargets(data);
-    if (!targets.length) return;
-    let stored: string | null = null;
+async function runCatchUp(
+  apiFetch: ReturnType<typeof useAuth>['apiFetch'],
+  memory: CatchUpMemory,
+  due: readonly CatchUpTarget[],
+): Promise<Result | null> {
+  const moved: CatchUpTarget[] = [];
+  const blocked: CatchUpTarget[] = [];
+  let forecast: string | null = null;
+  for (const target of due) {
+    const key = catchUpKey(memory, target.planId) ?? crypto.randomUUID();
+    memory.keys[target.planId] = key;
     try {
-      stored = localStorage.getItem(CATCH_UP_KEY);
+      const response = await apiFetch(
+        `/api/resources/books/${target.resourceId}/progress`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'REPLAN',
+            idempotencyKey: key,
+            planId: target.planId,
+            expectedPlanVersion: target.expectedPlanVersion,
+            expectedProgressVersion: target.expectedProgressVersion,
+          }),
+        },
+      );
+      if (!response.ok) {
+        // 다른 곳에서 이미 바뀌었거나 일시적인 오류다. 다음 방문에 다시 시도한다.
+        delete memory.keys[target.planId];
+        continue;
+      }
+      const summary = await response.json();
+      if (summary.replanStatus === 'pending') blocked.push(target);
+      else {
+        moved.push(target);
+        forecast = summary.forecastAfter ?? forecast;
+      }
     } catch {
-      /* 저장소를 못 쓰면 이번 방문에만 정리한다. */
+      delete memory.keys[target.planId];
     }
-    const memory = readCatchUpMemory(stored, data.today);
-    const due = targets.filter((target) => !catchUpKey(memory, target.planId));
-    if (!due.length) return;
-    running.current = true;
-    const controller = new AbortController();
-    void (async () => {
-      const moved: CatchUpTarget[] = [];
-      const blocked: CatchUpTarget[] = [];
-      let forecast: string | null = null;
-      for (const target of due) {
-        const key = catchUpKey(memory, target.planId) ?? crypto.randomUUID();
-        memory.keys[target.planId] = key;
-        try {
-          const response = await apiFetch(
-            `/api/resources/books/${target.resourceId}/progress`,
-            {
-              method: 'POST',
-              signal: controller.signal,
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                kind: 'REPLAN',
-                idempotencyKey: key,
-                planId: target.planId,
-                expectedPlanVersion: target.expectedPlanVersion,
-                expectedProgressVersion: target.expectedProgressVersion,
-              }),
-            },
-          );
-          if (!response.ok) {
-            // 다른 곳에서 이미 바뀌었거나 일시적인 오류다. 다음 방문에 다시 시도한다.
-            delete memory.keys[target.planId];
-            continue;
-          }
-          const summary = await response.json();
-          if (summary.replanStatus === 'pending') blocked.push(target);
-          else {
-            moved.push(target);
-            forecast = summary.forecastAfter ?? forecast;
-          }
-        } catch {
-          delete memory.keys[target.planId];
-        }
+  }
+  try {
+    localStorage.setItem(CATCH_UP_KEY, JSON.stringify(memory));
+  } catch {
+    /* 저장하지 못하면 다음 방문에 한 번 더 시도한다. */
+  }
+  if (!moved.length && !blocked.length) return null;
+  // 일정이 바뀌었으니 열려 있는 화면을 한 번만 새로 고친다.
+  window.dispatchEvent(new Event(WORKSPACE_CHANGED));
+  return moved.length
+    ? {
+        kind: 'moved',
+        pages: moved.reduce((sum, target) => sum + target.missedPages, 0),
+        titles: moved.map((target) => target.title),
+        forecast: moved.length === 1 ? forecast : null,
       }
+    : { kind: 'blocked', titles: blocked.map((target) => target.title) };
+}
+
+/**
+ * 워크스페이스를 다시 불러오는 동안 오늘 화면이 잠시 로딩으로 바뀌므로, 이 카드도 함께
+ * 사라졌다가 다시 붙는다. 진행 중인 작업과 결과를 모듈에 두어 그 사이에 잃지 않는다.
+ */
+let job: { userId: string; run: Promise<Result | null>; result: Result | null } | null = null;
+
+export function CatchUpNotice({ data }: { data: WorkspaceData }) {
+  const { apiFetch, session } = useAuth();
+  const userId = session?.user.id ?? '';
+  const [result, setResult] = useState<Result | null>(
+    job?.userId === userId ? job.result : null,
+  );
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    if (job && job.userId !== userId) job = null;
+    if (!job) {
+      const targets = catchUpTargets(data);
+      if (!targets.length) return;
+      let stored: string | null = null;
       try {
-        localStorage.setItem(CATCH_UP_KEY, JSON.stringify(memory));
+        stored = localStorage.getItem(CATCH_UP_KEY);
       } catch {
-        /* 저장하지 못하면 다음 방문에 한 번 더 시도한다. */
+        /* 저장소를 못 쓰면 이번 방문에만 정리한다. */
       }
-      if (controller.signal.aborted) return;
-      if (moved.length) {
-        setResult({
-          kind: 'moved',
-          pages: moved.reduce((sum, target) => sum + target.missedPages, 0),
-          titles: moved.map((target) => target.title),
-          forecast: moved.length === 1 ? forecast : null,
-        });
-        window.dispatchEvent(new Event(WORKSPACE_CHANGED));
-      } else if (blocked.length) {
-        setResult({ kind: 'blocked', titles: blocked.map((target) => target.title) });
-        window.dispatchEvent(new Event(WORKSPACE_CHANGED));
-      }
-    })();
-    return () => controller.abort();
-  }, [apiFetch, data]);
+      const memory = readCatchUpMemory(stored, data.today);
+      const due = targets.filter((target) => !catchUpKey(memory, target.planId));
+      if (!due.length) return;
+      const started = { userId, run: runCatchUp(apiFetch, memory, due), result: null as Result | null };
+      started.run.then((outcome) => {
+        started.result = outcome;
+      });
+      job = started;
+    }
+    const current = job;
+    void current.run.then((outcome) => {
+      if (!cancelled && outcome && current.userId === userId) setResult(outcome);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [apiFetch, data, userId]);
   if (!result || dismissed) return null;
   return (
     <div

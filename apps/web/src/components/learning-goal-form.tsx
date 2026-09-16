@@ -14,11 +14,13 @@ import { Skeleton } from './ui/skeleton';
 export function LearningGoalForm() {
   const { apiFetch } = useAuth();
   const { data, error, reload } = useWorkspace();
+
   if (error) return <WorkspaceError error={error} reload={reload} />;
   if (!data) return <Skeleton className="h-28 w-full" />;
   return (
+    // 이 폼이 유일한 쓰기 주체다. 저장 뒤 다시 불러온 값으로 리마운트하면
+    // 방금 띄운 확인 문구가 사라지므로 처음 값만 받아 쓴다.
     <GoalFields
-      key={String(data.dailyLearningMinutes)}
       initial={data.dailyLearningMinutes}
       save={async (minutes) => {
         const response = await apiFetch('/api/profile', {
@@ -29,7 +31,9 @@ export function LearningGoalForm() {
         const body = await response.json();
         if (!response.ok)
           throw new Error(body.error ?? '목표를 저장하지 못했어요. 다시 시도해 주세요.');
-        reload();
+        // 여기서 다시 불러오지 않는다. useWorkspace가 새로고침 중 데이터를 비워
+        // 이 폼을 잠시 내리므로 방금 저장했다는 안내가 사라진다. 오늘 화면은
+        // 열 때마다 새로 읽으므로 바뀐 목표를 곧바로 보여 준다.
       }}
     />
   );
