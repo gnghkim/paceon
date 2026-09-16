@@ -11,6 +11,12 @@ import {
 } from './workspace-data';
 import { Button } from './ui/button';
 import { SessionCard } from './session-card';
+import type { ScheduleSession } from '@paceon/shared';
+import {
+  sessionState,
+  summarizeDay,
+  type SessionStateKind,
+} from '@/lib/session-state';
 const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
 export function CalendarView() {
   const { data, error, reload } = useWorkspace();
@@ -129,6 +135,17 @@ function CalendarContent({ initialDate }: { initialDate: string }) {
               <div className="grid grid-cols-7">
                 {days.map((day) => {
                   const items = visible.filter((s) => s.study_date === day);
+                  const summary = summarizeDay(items, data.progress, data.today);
+                  const missed =
+                    day < data.today &&
+                    items.some(
+                      (s) =>
+                        sessionState(
+                          s,
+                          data.progress[s.resource_id]?.completedThroughPage ?? 0,
+                          data.today,
+                        ).kind === 'MISSED',
+                    );
                   return (
                     <div
                       key={day}
@@ -144,21 +161,19 @@ function CalendarContent({ initialDate }: { initialDate: string }) {
                       </button>
                       <div className="mt-1 hidden space-y-1 sm:block">
                         {items.slice(0, view === 'month' ? 2 : 5).map((s) => (
-                          <Link
+                          <DayChip
                             key={s.id}
-                            href={`/resources/${s.resource_id}`}
-                            className="block truncate rounded border-l-2 border-primary bg-accent px-2 py-2 text-xs text-accent-foreground"
+                            session={s}
                             title={
                               data.resources.find((r) => r.id === s.resource_id)
                                 ?.title
                             }
-                          >
-                            {data.resources.find((r) => r.id === s.resource_id)
-                              ?.title ?? '도서'}
-                            <span className="mt-1 block text-[11px]">
-                              {s.start_page}–{s.end_page}쪽
-                            </span>
-                          </Link>
+                            completedThroughPage={
+                              data.progress[s.resource_id]
+                                ?.completedThroughPage ?? 0
+                            }
+                            today={data.today}
+                          />
                         ))}
                         {items.length > (view === 'month' ? 2 : 5) && (
                           <span className="block text-center text-xs text-muted-foreground">
@@ -168,7 +183,13 @@ function CalendarContent({ initialDate }: { initialDate: string }) {
                       </div>
                       {!!items.length && (
                         <span
-                          className="mx-auto mt-1 block h-1.5 w-1.5 rounded-full bg-primary sm:hidden"
+                          className={`mx-auto mt-1 block h-1.5 w-1.5 rounded-full sm:hidden ${
+                            summary.allDone
+                              ? 'bg-success'
+                              : missed
+                                ? 'bg-warning'
+                                : 'bg-primary'
+                          }`}
                           aria-hidden="true"
                         />
                       )}
@@ -184,6 +205,9 @@ function CalendarContent({ initialDate }: { initialDate: string }) {
                 {formatDate(focusedDay)} 일정{' '}
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
                   {agenda.length}개
+                  {summarizeDay(agenda, data.progress, data.today).allDone
+                    ? ' · 모두 완료'
+                    : ''}
                 </span>
               </h2>
               <span className="text-xs text-muted-foreground">
@@ -197,6 +221,10 @@ function CalendarContent({ initialDate }: { initialDate: string }) {
                     key={s.id}
                     session={s}
                     book={data.resources.find((r) => r.id === s.resource_id)}
+                    completedThroughPage={
+                      data.progress[s.resource_id]?.completedThroughPage ?? 0
+                    }
+                    today={data.today}
                   />
                 ))}
               </div>
@@ -214,5 +242,38 @@ function CalendarContent({ initialDate }: { initialDate: string }) {
         </>
       )}
     </div>
+  );
+}
+
+const chipClass: Record<SessionStateKind, string> = {
+  COMPLETED: 'border-success bg-success-soft text-success',
+  MISSED: 'border-warning bg-warning-soft text-warning',
+  IN_PROGRESS: 'border-primary bg-primary-soft text-primary',
+  PLANNED: 'border-primary bg-accent text-accent-foreground',
+};
+
+function DayChip({
+  session,
+  title,
+  completedThroughPage,
+  today,
+}: {
+  session: ScheduleSession;
+  title: string | undefined;
+  completedThroughPage: number;
+  today: string;
+}) {
+  const { kind } = sessionState(session, completedThroughPage, today);
+  return (
+    <Link
+      href={`/resources/${session.resource_id}`}
+      title={title}
+      className={`block truncate rounded border-l-2 px-2 py-2 text-xs ${chipClass[kind]}`}
+    >
+      {title ?? '도서'}
+      <span className="mt-1 block text-[11px]">
+        {session.start_page}–{session.end_page}쪽
+      </span>
+    </Link>
   );
 }

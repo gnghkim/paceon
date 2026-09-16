@@ -5,6 +5,7 @@ import {
   ArrowRight,
   BookOpen,
   CalendarDays,
+  Check,
   Plus,
   Sunrise,
 } from 'lucide-react';
@@ -21,6 +22,7 @@ import { SessionCard } from './session-card';
 import { StudyHeatmap } from './study-heatmap';
 import { formatDate } from '@/lib/planning';
 import { buildHeatmap, computeStreak } from '@/lib/study-heatmap';
+import { summarizeDay } from '@/lib/session-state';
 import type { StatisticsData } from '@/lib/statistics';
 import { RecordButton } from './quick-record';
 
@@ -31,10 +33,7 @@ export function TodayView() {
   const sessions = data.sessions.filter(
     (s) => s.study_date === data.today && s.status !== 'SKIPPED',
   );
-  const minutes = sessions.reduce(
-    (sum, s) => sum + (s.estimated_minutes ?? 0),
-    0,
-  );
+  const day = summarizeDay(sessions, data.progress, data.today);
   const upcoming = data.sessions
     .filter((s) => s.study_date > data.today && s.status !== 'SKIPPED')
     .slice(0, 3);
@@ -82,16 +81,32 @@ export function TodayView() {
                 오늘의 분량
               </h2>
               <span className="text-sm text-muted-foreground">
-                {sessions.length}개 일정 · 약 {minutes}분
+                {day.total}개 일정 ·{' '}
+                {day.allDone
+                  ? `${day.donePages}쪽 완료`
+                  : `약 ${day.remainingMinutes}분 남음`}
               </span>
             </div>
             {sessions.length ? (
               <div className="space-y-3">
+                {day.allDone && (
+                  <p
+                    role="status"
+                    className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm font-medium text-success"
+                  >
+                    <Check size={16} aria-hidden="true" />
+                    오늘 분량을 다 읽었어요
+                  </p>
+                )}
                 {sessions.map((s) => (
                   <SessionCard
                     key={s.id}
                     session={s}
                     book={data.resources.find((r) => r.id === s.resource_id)}
+                    completedThroughPage={
+                      data.progress[s.resource_id]?.completedThroughPage ?? 0
+                    }
+                    today={data.today}
                   />
                 ))}
               </div>
@@ -182,6 +197,10 @@ export function TodayView() {
                     <SessionCard
                       session={s}
                       book={data.resources.find((r) => r.id === s.resource_id)}
+                      completedThroughPage={
+                        data.progress[s.resource_id]?.completedThroughPage ?? 0
+                      }
+                      today={data.today}
                     />
                   </div>
                 ))}
