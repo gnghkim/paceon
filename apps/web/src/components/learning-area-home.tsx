@@ -8,7 +8,7 @@ import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { LearningVideoLibrary } from './learning-video-library';
 import { sessionStatusLabel } from './learning-room-view';
-import { workspaceHref } from './learning-areas';
+import { areaForKind, workspaceHref } from './learning-areas';
 import { learningDuration, type LearningKind, type LearningList } from './learning-types';
 
 const start = {
@@ -77,7 +77,7 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
           <h2 className="text-xl font-semibold">{creator.title}</h2>
           <p className="mt-2 mb-5 text-sm leading-6 text-muted-foreground">{creator.body}</p>
           <Button className="min-h-11" disabled={busy} onClick={() => void create(kind)}>
-            {busy ? '여는 중…' : creator.action}
+            {busy ? '시작하는 중…' : creator.action}
             <ArrowRight aria-hidden="true" />
           </Button>
         </section>
@@ -87,14 +87,14 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
       )}
       {kind !== 'LISTENING' && data && (data.workspaces.length > 0 || data.nextOffset != null) && (
         <section className="space-y-3" aria-labelledby="area-workspaces-title">
-          <h2 id="area-workspaces-title" className="font-semibold">저장한 학습</h2>
+          <h2 id="area-workspaces-title" className="font-semibold">저장한 {areaForKind(kind).label}</h2>
           {data.workspaces.map((w) => (
             <Link key={w.id} href={workspaceHref(w)} className="block min-h-16 rounded-xl border border-border p-4 text-sm">
               <p className="font-medium">{w.title}</p>
               {(w.draft || w.prompt) && <p className="mt-1 truncate text-muted-foreground">{w.draft || w.prompt}</p>}
             </Link>
           ))}
-          {data.nextOffset != null && <Button variant="outline" disabled={busy} onClick={() => void more()}>더 보기</Button>}
+          {data.nextOffset != null && <Button variant="outline" disabled={busy} onClick={() => void more()}>저장한 {areaForKind(kind).label} 더 보기</Button>}
         </section>
       )}
       <section aria-labelledby="area-records-title" className="space-y-3">
