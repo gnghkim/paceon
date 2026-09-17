@@ -12,6 +12,7 @@ import { Button } from './ui/button';
 import { DraftRecovery, SessionHistory } from './learning-room-sections';
 import { mergeLearningPages, playResumesPause, resolveRoomTab, roomTabs, sessionTiming, timerStatusLabel, type LearningRoomTab } from './learning-room-view';
 import { LearningRoomTabs } from './learning-room-tabs';
+import { WordCatcher } from './word-catcher';
 import { cn } from '@/lib/utils';
 import { areaForKind, learningRoomFeatures, workspaceHref } from './learning-areas';
 import { LegacySpeechRecords } from './legacy-speech-records';
@@ -760,6 +761,7 @@ export function LearningRoom({ id }: { id: string }) {
           학습 시간은 자동 저장돼요. 1분간 활동이 없거나 화면을 벗어나면 멈춰요.
         </p>
       </section>
+      <WordCatcher workspaceId={id} onActivity={activity} />
       <LearningRoomTabs tabs={tabs} current={tab} blocked={recording} onSelect={selectTab} />
       {error && (
         <p
