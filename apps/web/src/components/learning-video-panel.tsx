@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState, type RefObject } from 'react';
+import { useRef, useState, type ReactNode, type RefObject } from 'react';
 import { normalizeTranscript } from '@/lib/youtube';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
@@ -7,12 +7,14 @@ import { YouTubePlayer, type PlaybackObservation } from './youtube-player';
 import { learningDuration, type LearningVideo, type LearningVideoNote, type LearningVideoVisit } from './learning-types';
 import { mergeVideoVisits, type LearningRoomTab } from './learning-room-view';
 
-export function LearningVideoPanel({ video, title, tab, notes, visits, stopped, stopToken, onObservation, activity, reload, stopPlaybackRef }: {
+export function LearningVideoPanel({ video, title, tab, notes, visits, stopped, stopToken, onObservation, activity, reload, stopPlaybackRef, afterPlayer }: {
   stopPlaybackRef: RefObject<(() => Promise<void>) | null>;
   video: LearningVideo; title: string; tab: LearningRoomTab; notes: LearningVideoNote[]; visits: LearningVideoVisit[];
   stopped: boolean; stopToken: number;
   onObservation: (value: PlaybackObservation) => Promise<boolean>;
   activity: () => void; reload: () => Promise<void>;
+  /** 보던 것 바로 밑에 놓을 것. 단어 담기가 여기로 들어온다. */
+  afterPlayer?: ReactNode;
 }) {
   const { apiFetch } = useAuth();
   const [position, setPosition] = useState(video.position_seconds);
@@ -48,6 +50,7 @@ export function LearningVideoPanel({ video, title, tab, notes, visits, stopped, 
     <div className={tab === 'video' ? undefined : 'hidden'}>
       <YouTubePlayer stopPlaybackRef={stopPlaybackRef} videoId={video.video_id} initialPosition={video.position_seconds ?? video.start_seconds} stopped={stopped} stopToken={stopToken} seek={seek} onPosition={setPosition} onObservation={onObservation} />
     </div>
+    {afterPlayer}
     {tab === 'source' && <details className="rounded-xl border border-border p-4">
       <summary className="cursor-pointer py-2 text-sm font-medium">영상 제목과 보관 설정</summary>
       <label className="mt-3 block text-sm">내 영상 제목<input className="mt-1 w-full rounded border border-border bg-background p-3" maxLength={120} value={name} onChange={(e) => setName(e.target.value)} /></label>
