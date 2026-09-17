@@ -13,21 +13,30 @@ import { MAX_PHRASE_LENGTH, catchMessage, normalizePhrase } from '@/lib/word-cat
  *
  * 평소에는 줄 하나로 접어 둔다. 듣거나 쓰던 것을 멈추게 하지 않는 것이
  * 이 기능의 전부이기 때문이다. 뜻은 묻지 않는다. 단어장에서 AI가 채운다.
+ *
+ * 영상이 있는 방에서는 플레이어 바로 밑에, 없는 방에서는 탭 밑에 그린다.
+ * 두 자리를 오가며 다시 그려지므로 열림 상태와 담은 개수는 학습 화면이 들고 있다.
  */
 export function WordCatcher({
   workspaceId,
   onActivity,
+  open,
+  onOpenChange,
+  saved,
+  onSaved,
 }: {
   workspaceId: string;
   onActivity?: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  saved: number;
+  onSaved: () => void;
 }) {
   const { apiFetch } = useAuth();
-  const [open, setOpen] = useState(false);
   const [phrase, setPhrase] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [failed, setFailed] = useState(false);
-  const [saved, setSaved] = useState(0);
   const field = useRef<HTMLInputElement>(null);
 
   async function save(event: FormEvent) {
@@ -44,7 +53,7 @@ export function WordCatcher({
       });
       if (response.ok) {
         setPhrase('');
-        setSaved((count) => count + 1);
+        onSaved();
         setFailed(false);
         setMessage(catchMessage('SAVED', word));
       } else if (response.status === 409) {
@@ -70,7 +79,7 @@ export function WordCatcher({
           type="button"
           variant="outline"
           onClick={() => {
-            setOpen(true);
+            onOpenChange(true);
             setMessage('');
             window.setTimeout(() => field.current?.focus(), 0);
           }}
@@ -119,7 +128,7 @@ export function WordCatcher({
           variant="ghost"
           aria-label="단어 담기 닫기"
           disabled={busy}
-          onClick={() => setOpen(false)}
+          onClick={() => onOpenChange(false)}
         >
           <X size={15} aria-hidden="true" />
         </Button>

@@ -51,6 +51,9 @@ export function LearningRoom({ id }: { id: string }) {
   const [current, setCurrent] = useState<LearningSession | null>(null);
   const [now, setNow] = useState(0);
   const [stopToken, setStopToken] = useState(0);
+  // 단어 담기는 탭에 따라 자리를 옮기며 다시 그려진다. 열림과 개수는 여기 남는다.
+  const [catcherOpen, setCatcherOpen] = useState(false);
+  const [caught, setCaught] = useState(0);
   const searchParams = useSearchParams();
   const [recording, setRecording] = useState(false);
   const onRecordingChange = useCallback((value: boolean) => setRecording(value), []);
@@ -657,6 +660,19 @@ export function LearningRoom({ id }: { id: string }) {
   );
   const { messages, jobs, sessions, videoNotes, videoVisits, hasMore } =
     mergeLearningPages([data, ...history]);
+  // 보고 있는 것 바로 밑에 놓는다. 영상이 가려진 탭에서는 탭 밑으로 내려온다.
+  const showVideo =
+    Boolean(features.video && data.video) && (tab === 'video' || tab === 'source');
+  const catcher = (
+    <WordCatcher
+      workspaceId={id}
+      onActivity={activity}
+      open={catcherOpen}
+      onOpenChange={setCatcherOpen}
+      saved={caught}
+      onSaved={() => setCaught((count) => count + 1)}
+    />
+  );
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <header>
@@ -761,7 +777,6 @@ export function LearningRoom({ id }: { id: string }) {
           학습 시간은 자동 저장돼요. 1분간 활동이 없거나 화면을 벗어나면 멈춰요.
         </p>
       </section>
-      <WordCatcher workspaceId={id} onActivity={activity} />
       <LearningRoomTabs tabs={tabs} current={tab} blocked={recording} onSelect={selectTab} />
       {error && (
         <p
@@ -791,9 +806,11 @@ export function LearningRoom({ id }: { id: string }) {
           </Button>
         </div>
       )}
+      {!showVideo && catcher}
       {features.video && data.video && (
         <div className={cn(tab === 'video' || tab === 'source' ? undefined : 'hidden')}>
           <LearningVideoPanel
+            afterPlayer={showVideo ? catcher : null}
             video={data.video} title={data.workspace.title}
             tab={tab}
             notes={videoNotes}
