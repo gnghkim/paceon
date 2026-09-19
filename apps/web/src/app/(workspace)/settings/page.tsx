@@ -8,6 +8,7 @@ export default async function Page({ searchParams }: {
   searchParams: Promise<{ returnTo?: string | string[] }>;
 }) {
   const { returnTo } = await searchParams;
+  const appVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? '개발 버전';
   return (
     <div className="mx-auto max-w-3xl space-y-8">
       <header>
@@ -32,6 +33,15 @@ export default async function Page({ searchParams }: {
       <section aria-labelledby="account-title" className="space-y-3">
         <h2 id="account-title" className="font-semibold">계정</h2>
         <div className="rounded-xl border border-border bg-card p-5"><AccountControls /></div>
+      </section>
+      <section aria-labelledby="version-title" className="space-y-3">
+        <h2 id="version-title" className="font-semibold">버전 정보</h2>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm text-muted-foreground">앱 버전</span>
+            <code className="text-sm font-medium">{appVersion}</code>
+          </div>
+        </div>
       </section>
     </div>
   );

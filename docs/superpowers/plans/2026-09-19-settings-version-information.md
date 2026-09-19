@@ -24,7 +24,7 @@
 - Modify: `apps/web/next.config.ts`
 - Test: `tests/app-version.test.mjs`
 
-- [ ] **Step 1: 실패하는 단위 테스트 작성**
+- [x] **Step 1: 실패하는 단위 테스트 작성**
 
 ```js
 import assert from 'node:assert/strict';
@@ -44,13 +44,13 @@ test('falls back when git metadata is unavailable', () => {
 });
 ```
 
-- [ ] **Step 2: 테스트가 기능 부재로 실패하는지 확인**
+- [x] **Step 2: 테스트가 기능 부재로 실패하는지 확인**
 
 Run: `node --test tests/app-version.test.mjs`
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `apps/web/app-version.mjs`.
 
-- [ ] **Step 3: 최소 버전 생성 모듈 작성**
+- [x] **Step 3: 최소 버전 생성 모듈 작성**
 
 ```js
 import { execFileSync } from 'node:child_process';
@@ -73,7 +73,7 @@ export function resolveAppVersion(env = process.env, runGit = (...args) => execF
 }
 ```
 
-- [ ] **Step 4: Next.js 빌드 환경에 버전 주입**
+- [x] **Step 4: Next.js 빌드 환경에 버전 주입**
 
 ```ts
 import type { NextConfig } from 'next';
@@ -85,7 +85,7 @@ const nextConfig: NextConfig = {
 };
 ```
 
-- [ ] **Step 5: 단위 테스트 통과 확인**
+- [x] **Step 5: 단위 테스트 통과 확인**
 
 Run: `node --test tests/app-version.test.mjs`
 
@@ -97,7 +97,7 @@ Expected: 3 tests pass.
 - Modify: `apps/web/src/app/(workspace)/settings/page.tsx`
 - Test: `tests/app-version.test.mjs`
 
-- [ ] **Step 1: 설정 화면 계약 테스트 추가**
+- [x] **Step 1: 설정 화면 계약 테스트 추가**
 
 ```js
 test('settings page exposes the generated app version', async () => {
@@ -107,13 +107,13 @@ test('settings page exposes the generated app version', async () => {
 });
 ```
 
-- [ ] **Step 2: 새 테스트가 표시 코드 부재로 실패하는지 확인**
+- [x] **Step 2: 새 테스트가 표시 코드 부재로 실패하는지 확인**
 
 Run: `node --test tests/app-version.test.mjs`
 
 Expected: FAIL because the settings source does not contain `버전 정보`.
 
-- [ ] **Step 3: 설정 화면에 버전 정보 추가**
+- [x] **Step 3: 설정 화면에 버전 정보 추가**
 
 페이지 함수 안에서 `const appVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? '개발 버전';`을 선언하고 계정 섹션 아래에 다음 카드를 렌더링한다.
 
@@ -129,7 +129,7 @@ Expected: FAIL because the settings source does not contain `버전 정보`.
 </section>
 ```
 
-- [ ] **Step 4: 기능 테스트 통과 확인**
+- [x] **Step 4: 기능 테스트 통과 확인**
 
 Run: `node --test tests/app-version.test.mjs`
 
@@ -140,26 +140,25 @@ Expected: 4 tests pass.
 **Files:**
 - Modify: `docs/superpowers/plans/2026-09-19-settings-version-information.md` (checkbox completion)
 
-- [ ] **Step 1: 정적 검사와 전체 테스트 실행**
+- [x] **Step 1: 정적 검사와 전체 테스트 실행**
 
 Run: `pnpm typecheck && pnpm lint && pnpm test`
 
 Expected: all commands exit 0.
 
-- [ ] **Step 2: 구현 커밋 생성**
+- [x] **Step 2: 구현 커밋 생성**
 
 ```powershell
 git add apps/web/app-version.mjs apps/web/next.config.ts 'apps/web/src/app/(workspace)/settings/page.tsx' tests/app-version.test.mjs docs/superpowers/plans/2026-09-19-settings-version-information.md
 git commit -m "Show Git version in settings"
 ```
 
-- [ ] **Step 3: 실제 커밋 버전으로 프로덕션 빌드 검증**
+- [x] **Step 3: 실제 커밋 버전으로 프로덕션 빌드 검증**
 
 Run: `pnpm build`
 
 Expected: build exits 0 and embeds the date plus the new commit's seven-character hash.
 
-- [ ] **Step 4: 설정 화면 표시 확인**
+- [x] **Step 4: 설정 화면 표시 확인**
 
 Run the production server, open `/settings`, and confirm the `버전 정보` card matches `git log -1 --format=%cs` plus `git rev-parse --short=7 HEAD`.
-
