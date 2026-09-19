@@ -775,6 +775,57 @@ export type Database = {
         }
         Relationships: []
       }
+      material_imports: {
+        Row: {
+          attempts: number
+          context: Json
+          created_at: string
+          error_code: string | null
+          id: string
+          input: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          page_title: string | null
+          result: Json | null
+          source_url: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          input: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          page_title?: string | null
+          result?: Json | null
+          source_url: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          context?: Json
+          created_at?: string
+          error_code?: string | null
+          id?: string
+          input?: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          page_title?: string | null
+          result?: Json | null
+          source_url?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pdf_imports: {
         Row: {
           attempts: number
@@ -1407,6 +1458,7 @@ export type Database = {
       }
       claim_expression_lookup: { Args: never; Returns: Json }
       claim_learning_job: { Args: never; Returns: Json }
+      claim_material_import: { Args: never; Returns: Json }
       claim_pdf_import: { Args: never; Returns: Json }
       claim_speech_job: { Args: never; Returns: Json }
       confirm_pdf_import: {
@@ -1468,6 +1520,15 @@ export type Database = {
           p_output: Json
           p_output_tokens: number
           p_provider_response_id: string
+        }
+        Returns: boolean
+      }
+      finish_material_import: {
+        Args: {
+          p_error_code: string
+          p_id: string
+          p_lease_token: string
+          p_result: Json
         }
         Returns: boolean
       }

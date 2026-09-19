@@ -54,8 +54,11 @@ const clampMinutes = (minutes: number) => (minutes < 1 ? 1 : minutes > 1440 ? 14
 
 /** 복사하면 따라오는 말들. 챕터 제목이 아니다. */
 const NOISE = /^(커리큘럼|curriculum|목차|미리보기|무료|잠금|재생|preview|free|new|모두 펼치기|모두 접기|해당 강의에서 제공:?|수업자료|미션|퀴즈|전체)$/i;
-/** "41개", "2개" 같은 개수 줄 */
-const COUNT_LINE = /^\d{1,4}\s*개$/;
+/**
+ * "41개", "2개" 같은 개수 줄. 합계 시간이 같은 줄에 붙어 오기도 한다("7개 ∙ (1시간 14분)").
+ * 화면에서는 한 줄이고, 글 사이에 빈 주석을 넣는 페이지에서는 글로 뽑아도 한 줄이다.
+ */
+const COUNT_LINE = /^\d{1,4}\s*개(?:\s*[∙·•|\-]?\s*(.+))?$/;
 const SECTION_LINE = /^(?:섹션|section|part|파트|chapter|챕터)\s*\d{1,3}\s*[.:)\-]?\s*(.*)$/i;
 /** "1.", "12)" 처럼 번호만 있는 줄. 제목은 다음 줄에 온다. */
 const BARE_NUMBER = /^(\d{1,4})\s*[.)]$/;
@@ -83,7 +86,16 @@ export function parseOutline(text: string): OutlineItem[] {
 
   for (const line of lines) {
     if (NOISE.test(line)) continue;
-    if (COUNT_LINE.test(line)) continue;
+    const counted = COUNT_LINE.exec(line);
+    if (counted) {
+      const total = counted[1] ? parseDuration(counted[1]) : null;
+      // "3개 국어로 배우는 회화"처럼 개수로 시작하는 제목은 개수 줄이 아니다.
+      if (!counted[1] || total !== null) {
+        const last = items.at(-1);
+        if (total !== null && afterSection && last?.section) sectionTotals.set(last, total);
+        continue;
+      }
+    }
 
     const alone = parseDuration(line);
     if (alone !== null) {
