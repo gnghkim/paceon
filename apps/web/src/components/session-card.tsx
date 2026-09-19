@@ -18,14 +18,18 @@ export function SessionCard({
   book,
   completedThroughPage,
   today,
+  lead = false,
 }: {
   session: ScheduleSession;
   book: Resource | undefined;
   completedThroughPage: number;
   today: string;
+  /** 다음에 읽을 일정이면 읽기 시작을 채운 색으로 보여 준다. 화면에 하나뿐이다. */
+  lead?: boolean;
 }) {
   const openRecord = useQuickRecord();
   const { running } = useReadingTimer();
+  const pausedHere = running?.pausedAt != null;
   const state = sessionState(session, completedThroughPage, today);
   const done = state.kind === 'COMPLETED';
   // 같은 책의 내일 일정까지 "읽는 중"으로 보이면 안 된다. 오늘 몫에만 표시한다.
@@ -41,7 +45,7 @@ export function SessionCard({
     // 버튼이고, 읽기 시작은 그 옆의 별도 버튼이다. 버튼 안에 버튼을 넣을 수 없다.
     <div
       className={cn(
-        'group flex w-full min-w-0 items-center gap-4 rounded-xl border p-5 transition-colors',
+        'group flex w-full min-w-0 flex-wrap items-center gap-4 rounded-xl border p-5 transition-colors sm:flex-nowrap',
         done
           ? 'border-border bg-muted/40 focus-within:border-primary/30'
           : 'border-border bg-card focus-within:border-primary/40 hover:border-primary/40',
@@ -96,11 +100,24 @@ export function SessionCard({
         <span className="sr-only">{status}</span>
       </button>
       {timing ? (
-        <span className="shrink-0 text-xs font-medium text-primary">읽는 중</span>
+        <span
+          className={cn(
+            'shrink-0 text-xs font-medium',
+            pausedHere ? 'text-muted-foreground' : 'text-primary',
+          )}
+        >
+          {pausedHere ? '잠시 멈춤' : '읽는 중'}
+        </span>
       ) : (
         <>
           {!done && (
-            <StartReadingButton resourceId={session.resource_id} className="shrink-0" />
+            <StartReadingButton
+              resourceId={session.resource_id}
+              {...(book?.title ? { title: book.title } : {})}
+              emphasis={lead ? 'primary' : 'quiet'}
+              // 좁은 화면에서 채운 단추는 아래 줄을 통째로 쓴다. 제목을 밀어내지 않고 더 잘 보인다.
+              className={lead ? 'order-last w-full sm:order-none sm:w-auto' : 'shrink-0'}
+            />
           )}
           <span
             aria-hidden="true"

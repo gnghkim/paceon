@@ -27,7 +27,7 @@ import {
   countWeekDays,
   currentWeek,
 } from '@/lib/study-heatmap';
-import { summarizeDay } from '@/lib/session-state';
+import { nextToRead, summarizeDay } from '@/lib/session-state';
 import type { WorkspaceData } from '@/lib/workspace-types';
 import type { StatisticsData } from '@/lib/statistics';
 import type { HeatmapDay } from '@/lib/study-heatmap';
@@ -49,6 +49,8 @@ function TodayContent({ data }: { data: WorkspaceData }) {
     (s) => s.study_date === data.today && s.status !== 'SKIPPED',
   );
   const day = summarizeDay(sessions, data.progress, data.today);
+  // 채운 색의 읽기 시작은 오늘 읽을 첫 일정 하나에만 붙는다.
+  const leadId = nextToRead(sessions, data.progress, data.today);
   const upcoming = data.sessions
     .filter((s) => s.study_date > data.today && s.status !== 'SKIPPED')
     .slice(0, 3);
@@ -129,6 +131,7 @@ function TodayContent({ data }: { data: WorkspaceData }) {
                       data.progress[s.resource_id]?.completedThroughPage ?? 0
                     }
                     today={data.today}
+                    lead={s.id === leadId}
                   />
                 ))}
               </div>

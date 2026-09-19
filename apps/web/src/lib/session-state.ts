@@ -81,3 +81,22 @@ export function summarizeDay(
     remainingMinutes,
   };
 }
+
+/**
+ * 다음에 읽을 일정 하나. 채운 색의 읽기 시작 단추는 이 일정에만 붙는다.
+ *
+ * 단추가 카드마다 채워져 있으면 어느 것도 눈에 띄지 않는다. 받은 순서에서
+ * 아직 다 읽지 않은 첫 일정을 고르며, 모두 읽었으면 없다.
+ */
+export function nextToRead<T extends SessionLike & { id: string }>(
+  sessions: readonly T[],
+  progress: WorkspaceData['progress'] | Record<string, { completedThroughPage: number }>,
+  today: string,
+): string | null {
+  for (const session of sessions) {
+    if (session.status === 'SKIPPED') continue;
+    const state = sessionState(session, progress[session.resource_id]?.completedThroughPage ?? 0, today);
+    if (state.kind !== 'COMPLETED') return session.id;
+  }
+  return null;
+}

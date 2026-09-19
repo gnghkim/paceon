@@ -687,7 +687,8 @@ export function LearningRoom({ id }: { id: string }) {
       </header>
       <section
         aria-label="학습 시간"
-        className="sticky top-16 z-10 rounded-xl border border-border bg-surface p-4 shadow-sm [@media(max-height:600px)]:static"
+        // 독서 타이머 띠가 떠 있으면 그 높이만큼 내려앉는다. 같은 자리에 겹치지 않게 한다.
+        className="sticky top-[calc(4rem+var(--reading-strip-h,0px))] z-10 rounded-xl border border-border bg-surface p-4 shadow-sm [@media(max-height:600px)]:static"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

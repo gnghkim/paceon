@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { sessionState, summarizeDay } from '../apps/web/src/lib/session-state.ts';
+import { nextToRead, sessionState, summarizeDay } from '../apps/web/src/lib/session-state.ts';
 
 const session = (extra = {}) => ({
   id: 's',
@@ -95,4 +95,34 @@ test('skipped sessions are excluded before the day is summarized', () => {
   const day = summarizeDay([session(), session({ id: 'x', status: 'SKIPPED', start_page: 41, end_page: 60 })], progress, '2026-09-16');
   assert.equal(day.total, 1);
   assert.equal(day.allDone, true);
+});
+
+test('the first unfinished session is the one to read next', () => {
+  const sessions = [
+    session({ id: 'a', resource_id: 'one', start_page: 1, end_page: 20 }),
+    session({ id: 'b', resource_id: 'two', start_page: 1, end_page: 20 }),
+    session({ id: 'c', resource_id: 'three', start_page: 1, end_page: 20 }),
+  ];
+  assert.equal(nextToRead(sessions, {}, '2026-09-16'), 'a');
+  // 첫 책을 다 읽으면 다음 책으로 넘어간다.
+  assert.equal(nextToRead(sessions, { one: { completedThroughPage: 20 } }, '2026-09-16'), 'b');
+  // 읽다 만 일정도 아직 읽을 것이다.
+  assert.equal(
+    nextToRead(sessions, { one: { completedThroughPage: 20 }, two: { completedThroughPage: 9 } }, '2026-09-16'),
+    'b',
+  );
+});
+
+test('nothing leads once the day is read, or when there is nothing to read', () => {
+  const sessions = [session({ id: 'a', start_page: 1, end_page: 20 })];
+  assert.equal(nextToRead(sessions, { book: { completedThroughPage: 20 } }, '2026-09-16'), null);
+  assert.equal(nextToRead([], {}, '2026-09-16'), null);
+});
+
+test('a skipped session never leads', () => {
+  const sessions = [
+    session({ id: 'a', status: 'SKIPPED', start_page: 1, end_page: 20 }),
+    session({ id: 'b', resource_id: 'two', start_page: 1, end_page: 20 }),
+  ];
+  assert.equal(nextToRead(sessions, {}, '2026-09-16'), 'b');
 });
