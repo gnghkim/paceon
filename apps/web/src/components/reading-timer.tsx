@@ -9,9 +9,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { BookOpen, Pause, Play, Square } from 'lucide-react';
+import { BookOpen, Maximize2, Pause, Play, Square } from 'lucide-react';
 import { useAuth } from './auth-provider';
 import { useQuickRecord } from './quick-record';
+import { ReadingFocus } from './reading-focus';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -58,6 +59,8 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
   const [running, setRunning] = useState<ReadingTimer | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [overCap, setOverCap] = useState<number | null>(null);
+  // 집중 화면. 새로고침으로 돌아왔을 때는 열지 않는다. 띠에서 다시 열 수 있다.
+  const [focusOpen, setFocusOpen] = useState(false);
 
   const key = readingTimerKey(userId);
 
@@ -116,6 +119,8 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
     (resourceId: string, title?: string) => {
       setOverCap(null);
       keep(newReadingTimer(resourceId, Date.now(), title));
+      // 타이머를 켜면 폰은 책 옆에 놓인다. 바로 큰 시계를 보여 준다.
+      setFocusOpen(true);
     },
     [keep],
   );
@@ -132,6 +137,7 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
     if (!running) return;
     const result = timerResult(running, Date.now());
     setRunning(null);
+    setFocusOpen(false);
     try {
       localStorage.removeItem(key);
     } catch {
@@ -161,29 +167,35 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
           )}
         >
           <div className="mx-auto flex max-w-[1216px] flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-8">
-            <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              aria-label="집중 화면 열기"
+              onClick={() => setFocusOpen(true)}
+              className="-m-1 flex min-w-0 items-center gap-3 rounded-lg p-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
               <BookOpen
                 size={22}
                 className={cn('shrink-0', paused ? 'text-muted-foreground' : 'text-primary')}
                 aria-hidden="true"
               />
-              <div className="min-w-0">
-                <p className="truncate text-xs text-muted-foreground">
+              <span className="block min-w-0">
+                <span className="block truncate text-xs text-muted-foreground">
                   {paused ? '잠시 멈춤' : '읽는 중'}
                   {running.title && ` · ${running.title}`}
-                </p>
-                <p
+                </span>
+                <span
                   role="timer"
                   aria-label={`읽은 시간 ${elapsed}${paused ? ', 잠시 멈춤' : ''}`}
                   className={cn(
-                    'font-mono text-3xl font-semibold leading-tight tabular-nums',
+                    'block font-mono text-3xl font-semibold leading-tight tabular-nums',
                     paused ? 'text-muted-foreground' : 'text-primary',
                   )}
                 >
                   {elapsed}
-                </p>
-              </div>
-            </div>
+                </span>
+              </span>
+              <Maximize2 size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+            </button>
             <div className="flex w-full gap-2 sm:w-auto sm:shrink-0">
               {paused ? (
                 <Button type="button" variant="outline" className="flex-1 sm:flex-none" onClick={resume}>
@@ -204,6 +216,16 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
+      <ReadingFocus
+        open={focusOpen && running !== null}
+        title={running?.title}
+        elapsed={elapsed}
+        paused={paused}
+        onClose={() => setFocusOpen(false)}
+        onPause={pause}
+        onResume={resume}
+        onStop={stop}
+      />
       {overCap !== null && (
         <p
           role="alert"
