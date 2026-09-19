@@ -14,6 +14,7 @@ from app.speech_worker import SpeechWorker
 from app.notify_worker import NotifySettings, NotifyWorker
 from app.pdf_worker import PdfSettings, PdfWorker
 from app.vocab_worker import VocabWorker
+from app.outline_worker import OutlineWorker
 
 
 @asynccontextmanager
@@ -26,6 +27,7 @@ async def lifespan(app: FastAPI):
         consumers.append(Worker(settings))
         consumers.append(LearningWorker(settings))
         consumers.append(VocabWorker(settings))
+        consumers.append(OutlineWorker(settings))
     # Speech is not gated on AI_ENABLED: audio retention and account-deletion
     # cleanup must keep running. It claims speech jobs only when AI is enabled.
     if settings.supabase_url and settings.service_key:

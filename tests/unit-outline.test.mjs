@@ -153,3 +153,34 @@ test('the default length is the median, so one two-hour live does not drag it', 
   assert.equal(suggestDefaultMinutes([{ title: 'a', minutes: 10 }, { title: 'b', minutes: 20 }]), 15);
   assert.equal(suggestDefaultMinutes(generateOutline('Unit', 5)), null, 'nothing known, nothing to suggest');
 });
+
+test('a count and its total on one line are read as the section total, not as a lecture', () => {
+  // 글 사이에 빈 주석을 넣는 페이지는 글로 뽑으면 개수와 합계가 한 줄로 붙는다.
+  const joined = `커리큘럼
+전체 41개 ∙ (7시간 16분)
+41개 ∙ (7시간 16분)
+섹션 1. 시작하기
+2개 ∙ (23분)
+1.
+강의 소개
+20:15
+2.
+수업 자료
+02:36
+섹션 2. 심화
+7개 ∙ (1시간 14분)
+섹션 3. 라이브
+1개 ∙ (1시간 57분)`;
+  assert.deepEqual(parseOutline(joined).filter((item) => item.title !== '전체 41개'), [
+    { title: '시작하기', section: true },
+    { title: '강의 소개', minutes: 21 },
+    { title: '수업 자료', minutes: 3 },
+    { title: '심화', minutes: 74 },
+    { title: '라이브', minutes: 117 },
+  ]);
+  assert.equal(parseOutline(joined).some((item) => /^\d+개$/.test(item.title)), false, 'no lecture is called "2개"');
+});
+
+test('a title that merely starts with a count is still a title', () => {
+  assert.deepEqual(parseOutline('1강 인사\n3개 국어로 배우는 회화\n2개'), [{ title: '1강 인사' }, { title: '3개 국어로 배우는 회화' }]);
+});

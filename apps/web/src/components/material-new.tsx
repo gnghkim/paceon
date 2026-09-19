@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeft, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { ArrowLeft, Link2, Loader2, Sparkles, X } from 'lucide-react';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -17,6 +17,7 @@ import {
   summarizeOutline,
   type OutlineItem,
 } from '@/lib/unit-outline';
+import { chooseOutline, fitPlan, trustRulesDespiteNotFound } from '@/lib/material-import';
 
 type Kind = 'TEXTBOOK' | 'COURSE';
 const labelChoices: Record<Kind, string[]> = {
@@ -38,7 +39,16 @@ export function MaterialNew() {
   const [title, setTitle] = useState('');
   const [unitLabel, setUnitLabel] = useState('Unit');
   const [sourceUrl, setSourceUrl] = useState('');
-  const [method, setMethod] = useState<'COUNT' | 'PASTE'>('COUNT');
+  const [method, setMethod] = useState<'COUNT' | 'PASTE' | 'LINK'>('COUNT');
+  // 링크에서 가져온 제안. 규칙으로 뽑은 것이 먼저 오고, AI의 정리가 끝나면 그것으로 바뀐다.
+  const [imported, setImported] = useState<OutlineItem[]>([]);
+  const [importing, setImporting] = useState<'IDLE' | 'READING' | 'THINKING'>('IDLE');
+  const [importNote, setImportNote] = useState('');
+  const [importError, setImportError] = useState('');
+  const [reason, setReason] = useState('');
+  // 새로 가져오기를 누르거나 화면을 떠나면 앞선 기다림을 버린다.
+  const importRun = useRef(0);
+  useEffect(() => () => void (importRun.current += 1), []);
   const [count, setCount] = useState('');
   const [pasted, setPasted] = useState('');
   const [removed, setRemoved] = useState<Set<number>>(new Set());
@@ -48,8 +58,9 @@ export function MaterialNew() {
   const [error, setError] = useState('');
 
   const parsed = useMemo<OutlineItem[]>(
-    () => (method === 'COUNT' ? generateOutline(unitLabel, Number(count)) : parseOutline(pasted)),
-    [method, unitLabel, count, pasted],
+    () =>
+      method === 'COUNT' ? generateOutline(unitLabel, Number(count)) : method === 'PASTE' ? parseOutline(pasted) : imported,
+    [method, unitLabel, count, pasted, imported],
   );
   // 지운 줄을 뺀 뒤, 딸린 챕터가 없어진 묶음 제목도 함께 뺀다.
   const outline = useMemo(() => {
@@ -64,8 +75,104 @@ export function MaterialNew() {
   function chooseKind(next: Kind) {
     setKind(next);
     setUnitLabel(labelChoices[next][0]!);
-    setMethod(next === 'COURSE' ? 'PASTE' : 'COUNT');
+    if (!imported.length) setMethod(next === 'COURSE' ? 'PASTE' : 'COUNT');
     setRemoved(new Set());
+  }
+
+  /**
+   * 링크의 페이지를 읽어 목차와 일정을 제안받는다. 서버가 규칙으로 먼저 뽑은 것을 바로
+   * 보여 주고, AI의 정리가 끝나면 그것으로 바꾼다. 어느 쪽이든 제안이고 아래에서 고칠 수 있다.
+   */
+  async function importFromLink() {
+    const url = sourceUrl.trim();
+    if (!url || importing !== 'IDLE') return;
+    const run = (importRun.current += 1);
+    const current = () => importRun.current === run;
+    setImporting('READING');
+    setImportError('');
+    setImportNote('');
+    setReason('');
+    try {
+      const started = await apiFetch('/api/resources/materials/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const body = await started.json();
+      if (!current()) return;
+      if (!started.ok) {
+        setImportError(body.error ?? '페이지를 읽지 못했어요.');
+        return;
+      }
+      if (body.sourceUrl) setSourceUrl(body.sourceUrl);
+      if (body.pageTitle && !title.trim()) setTitle(String(body.pageTitle).slice(0, 500));
+      const fallback = (body.fallback ?? []) as OutlineItem[];
+      if (fallback.length) {
+        setImported(fallback);
+        setRemoved(new Set());
+        setMethod('LINK');
+      }
+      if (!body.importId) {
+        if (fallback.length) setImportNote('페이지에서 목차를 뽑았어요. 아래에서 확인하고 고쳐 주세요.');
+        else setImportError('페이지에서 목차를 찾지 못했어요. 목차를 복사해 붙여 넣어 주세요.');
+        return;
+      }
+      setImporting('THINKING');
+      // 두 초마다, 길어도 두 분까지 기다린다.
+      for (let attempt = 0; attempt < 60; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        if (!current()) return;
+        const polled = await apiFetch(`/api/resources/materials/import/${body.importId}`, { cache: 'no-store' });
+        const answer = await polled.json().catch(() => ({}));
+        if (!current()) return;
+        if (!polled.ok || answer.status === 'PENDING') continue;
+        if (answer.status === 'READY') {
+          const proposal = answer.proposal as {
+            title: string;
+            kind: Kind;
+            unitLabel: string;
+            units: OutlineItem[];
+            plan: { dailyUnits: number; minutesPerUnit: number; reason: string };
+          };
+          // AI가 언제나 낫지는 않다. 규칙으로 뽑은 것이 더 온전하면 그것을 남기고,
+          // 하루 분량은 남긴 목차에 맞춰 다시 계산한다.
+          const chosen = chooseOutline(fallback, proposal.units);
+          const free = Array.isArray(body.freeMinutesByWeekday) ? (body.freeMinutesByWeekday as number[]) : [];
+          const plan = fitPlan(proposal.plan, chosen.units, free);
+          setKind(proposal.kind);
+          setUnitLabel(proposal.unitLabel);
+          if (proposal.title) setTitle(proposal.title.slice(0, 500));
+          setImported(chosen.units);
+          setRemoved(new Set());
+          setMethod('LINK');
+          setDailyUnits(String(plan.dailyUnits));
+          setMinutesPerUnit(String(plan.minutesPerUnit));
+          setReason(plan.reason);
+          setImportNote(
+            chosen.source === 'AI'
+              ? 'AI가 목차와 일정을 제안했어요. 저장하기 전에 확인하고 고쳐 주세요.'
+              : 'AI가 일정을 제안했어요. 목차는 페이지에서 직접 뽑은 쪽이 더 온전해서 그것을 썼어요. 저장하기 전에 확인해 주세요.',
+          );
+          return;
+        }
+        // AI가 실패했으면 규칙으로 뽑은 것을 남긴다. AI가 "목차가 없다"고 답했으면 규칙의
+        // 결과가 넉넉할 때만 남긴다. 몇 줄뿐이면 페이지의 다른 차례를 목차로 착각한 것이다.
+        const keep = fallback.length > 0 && (answer.status === 'FAILED' || trustRulesDespiteNotFound(fallback));
+        if (keep) setImportNote('AI는 정리하지 못했지만 페이지에서 목차를 뽑았어요. 확인하고 고쳐 주세요.');
+        else {
+          setImported([]);
+          setMethod(kind === 'COURSE' ? 'PASTE' : 'COUNT');
+          setImportError('이 페이지에서는 목차를 찾지 못했어요. 목차를 복사해 붙여 넣거나 개수로 만들어 주세요.');
+        }
+        return;
+      }
+      if (fallback.length) setImportNote('AI의 정리가 오래 걸려요. 먼저 뽑은 목차를 확인해 주세요.');
+      else setImportError('정리가 오래 걸려요. 잠시 후 다시 시도하거나 목차를 복사해 붙여 넣어 주세요.');
+    } catch {
+      if (current()) setImportError('연결을 확인하고 다시 시도해 주세요.');
+    } finally {
+      if (current()) setImporting('IDLE');
+    }
   }
 
   async function submit(event: FormEvent) {
@@ -125,6 +232,50 @@ export function MaterialNew() {
       </header>
 
       <form onSubmit={submit} className="space-y-6">
+        <Card className="space-y-3 p-5">
+          <label className="block space-y-2 text-sm" htmlFor="material-url">
+            <span className="flex items-center gap-2 font-medium">
+              <Link2 size={16} className="text-primary" aria-hidden="true" />
+              강의나 책의 링크가 있나요? (선택)
+            </span>
+            <span className="flex flex-wrap gap-2">
+              <Input
+                id="material-url"
+                type="url"
+                maxLength={2000}
+                value={sourceUrl}
+                placeholder="https://"
+                className="min-w-0 flex-1"
+                disabled={importing !== 'IDLE'}
+                onChange={(event) => setSourceUrl(event.target.value)}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={importing !== 'IDLE' || !sourceUrl.trim()}
+                onClick={() => void importFromLink()}
+              >
+                {importing === 'IDLE' ? <Sparkles aria-hidden="true" /> : <Loader2 className="animate-spin" aria-hidden="true" />}
+                {importing === 'READING' ? '페이지 읽는 중…' : importing === 'THINKING' ? 'AI가 정리하는 중…' : '링크에서 가져오기'}
+              </Button>
+            </span>
+          </label>
+          <p className="text-xs leading-5 text-muted-foreground">
+            공개된 소개 페이지를 한 번 읽어 목차와 일정을 제안해요. 로그인해야 보이는 페이지는 읽지 못해요. 그럴 때는 아래에서
+            목차를 붙여 넣으세요.
+          </p>
+          {importNote && (
+            <p role="status" className="rounded-lg bg-accent/60 p-3 text-sm leading-6">
+              {importNote}
+            </p>
+          )}
+          {importError && (
+            <p role="alert" className="rounded-lg bg-danger-soft p-3 text-sm leading-6 text-danger">
+              {importError}
+            </p>
+          )}
+        </Card>
+
         <Card className="space-y-5 p-5">
           <fieldset>
             <legend className="mb-2 text-sm font-medium">무엇을 공부하나요?</legend>
@@ -185,17 +336,6 @@ export function MaterialNew() {
               />
             </div>
           </div>
-          <label className="block space-y-2 text-sm" htmlFor="material-url">
-            <span className="font-medium">링크 (선택)</span>
-            <Input
-              id="material-url"
-              type="url"
-              maxLength={2000}
-              value={sourceUrl}
-              placeholder="https://"
-              onChange={(event) => setSourceUrl(event.target.value)}
-            />
-          </label>
         </Card>
 
         <Card className="space-y-4 p-5">
@@ -204,6 +344,7 @@ export function MaterialNew() {
             <div className="mt-3 flex flex-wrap gap-2">
               {(
                 [
+                  ...(imported.length ? ([['LINK', '링크에서 가져온 것']] as const) : []),
                   ['COUNT', '개수로 만들기'],
                   ['PASTE', '목차 붙여넣기'],
                 ] as const
@@ -224,7 +365,11 @@ export function MaterialNew() {
               ))}
             </div>
           </div>
-          {method === 'COUNT' ? (
+          {method === 'LINK' ? (
+            <p className="text-sm leading-6 text-muted-foreground">
+              링크의 페이지에서 가져온 목차예요. 잘못 들어온 줄은 오른쪽의 ×로 빼 주세요.
+            </p>
+          ) : method === 'COUNT' ? (
             <label className="block space-y-2 text-sm" htmlFor="unit-count">
               <span className="font-medium">모두 몇 {unitLabel || '개'}인가요?</span>
               <Input
@@ -282,7 +427,7 @@ export function MaterialNew() {
                       {item.minutes !== undefined && (
                         <span className="shrink-0 text-xs text-muted-foreground">{item.minutes}분</span>
                       )}
-                      {method === 'PASTE' && (
+                      {method !== 'COUNT' && (
                         <button
                           type="button"
                           aria-label={`${item.title} 빼기`}
@@ -337,6 +482,12 @@ export function MaterialNew() {
               />
             </label>
           </div>
+          {reason && (
+            <p className="flex items-start gap-2 rounded-lg bg-accent/60 p-3 text-sm leading-6">
+              <Sparkles size={16} className="mt-1 shrink-0 text-primary" aria-hidden="true" />
+              <span>{reason}</span>
+            </p>
+          )}
           <p className="text-xs leading-5 text-muted-foreground">
             하루 개수 안에서, 그날 남은 학습 시간에 들어가는 만큼만 담아요.
             {summary.units > 0 && ` 모두 하면 약 ${formatMinutes(totalMinutes)}이에요.`} 계획은 나중에 바꿀 수 있어요.
