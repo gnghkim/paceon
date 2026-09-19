@@ -33,6 +33,7 @@ import type { StatisticsData } from '@/lib/statistics';
 import type { HeatmapDay } from '@/lib/study-heatmap';
 import { cn } from '@/lib/utils';
 import { LearningToday } from './learning-today';
+import { TodayReview } from './today-review';
 import { CatchUpNotice } from './catch-up-notice';
 import { WORKSPACE_CHANGED } from '@/lib/quick-record';
 
@@ -161,6 +162,7 @@ function TodayContent({ data }: { data: WorkspaceData }) {
               </div>
             )}
           </section>
+          <TodayReview />
           <LearningToday
             minutes={
               statistics?.days.find((day) => day.date === data.today)

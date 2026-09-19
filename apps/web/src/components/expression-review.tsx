@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Check, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Trash2 } from 'lucide-react';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
@@ -147,7 +147,7 @@ export function ExpressionReview() {
         <section className="rounded-xl border border-border bg-card px-6 py-12 text-center">
           <Check size={28} className="mx-auto mb-4 text-success" aria-hidden="true" />
           <h2 className="font-semibold">
-            {done > 0 ? '오늘 복습을 마쳤어요' : '오늘 복습할 표현이 없어요'}
+            {done > 0 ? '오늘 복습을 마쳤어요' : '오늘 복습할 것이 없어요'}
           </h2>
           <p className="mx-auto mt-2 mb-6 max-w-sm text-sm leading-6 text-muted-foreground">
             {done > 0
@@ -155,8 +155,8 @@ export function ExpressionReview() {
                 ? `다음 복습은 ${formatDate(nextDue)}부터예요.`
                 : '다음 예정일에 다시 꺼내 볼게요.'
               : data.saved > 0
-                ? '저장한 표현은 예정일이 되면 여기 나와요.'
-                : '단어장에 단어를 넣거나, AI 피드백에서 기억할 표현을 담아 보세요.'}
+                ? '저장한 것은 예정일이 되면 여기 나와요.'
+                : '단어장에 단어를 넣거나, 책을 읽은 뒤 기억나는 것을 적어 두면 여기서 다시 물어봐요.'}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             {more > 0 && (
@@ -182,18 +182,39 @@ export function ExpressionReview() {
             <p className="text-sm text-muted-foreground">
               {index + 1} / {data!.cards.length}
             </p>
+            {card.kind === 'RECALL' && (
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
+                <BookOpen size={13} aria-hidden="true" />
+                독서 회상
+              </p>
+            )}
             <p className="text-xl font-semibold break-words">{card.phrase}</p>
             {!revealed ? (
               <>
                 <p className="text-sm text-muted-foreground">{reviewPrompt(card)}</p>
                 <Button type="button" onClick={() => setRevealed(true)}>
-                  뜻 확인하기
+                  {card.kind === 'RECALL' ? '내가 적은 것 보기' : '뜻 확인하기'}
                 </Button>
               </>
             ) : (
               <>
                 <div className="space-y-2 rounded-lg bg-accent/50 p-4">
-                  <p className="text-sm leading-6">{card.meaning}</p>
+                  <p className="whitespace-pre-wrap break-words text-sm leading-6">{card.meaning}</p>
+                  {card.kind === 'RECALL' && (
+                    // 꺼낸 뒤에는 맞는지 확인해야 한다. 틀린 기억을 되풀이하면 굳는다.
+                    // 여기서 답은 그때 적은 것뿐이라, 진짜 답인 책으로 가는 길을 함께 둔다.
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      떠올린 것과 다르거나 빠진 것이 있으면 책의 그 범위를 펼쳐 확인해 보세요.
+                      {card.resource_id && (
+                        <>
+                          {' '}
+                          <Link href={`/resources/${card.resource_id}`} className="text-primary underline">
+                            책 보기
+                          </Link>
+                        </>
+                      )}
+                    </p>
+                  )}
                   {card.examples.map((example) => (
                     <p key={example} className="text-sm leading-6 text-muted-foreground">
                       {example}

@@ -8,6 +8,8 @@ import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { formatDate } from "@/lib/planning";
+import { rangeForRecord, type PageRange } from "@/lib/recall";
+import { RecallPrompt } from "./recall-prompt";
 
 export interface ProgressSummary {
   /** 결과 카드의 첫 줄. 기록 저장과 계획 변경을 구분한다. */
@@ -136,6 +138,26 @@ export function ProgressForm({
   }, [busy, ambiguous, onLockedChange]);
   const inFlight = useRef(false);
   const requestBody = useRef<string | null>(null);
+  // 저장한 뒤 "덮고 떠올리기"를 먼저 보여 준다. 그동안은 저장을 알리는 일을 미뤄 둔다.
+  // 바로 알리면 부르는 쪽이 창을 닫거나 자료를 다시 불러와 이 단계가 사라진다.
+  const [recall, setRecall] = useState<{ range: PageRange } | null>(null);
+  const announce = useRef<(() => void) | null>(null);
+  function finishRecall() {
+    const run = announce.current;
+    announce.current = null;
+    setRecall(null);
+    run?.();
+  }
+  // 떠올리는 도중에 창을 닫아도 기록은 이미 저장돼 있다. 화면이 옛 진도에 머물지 않게
+  // 사라질 때 밀린 알림을 마저 보낸다.
+  useEffect(
+    () => () => {
+      const run = announce.current;
+      announce.current = null;
+      run?.();
+    },
+    [],
+  );
   function changeKind(next: Kind) {
     setKind(next);
     setError("");
@@ -202,8 +224,19 @@ export function ProgressForm({
       }
       setAmbiguous(false);
       setResult(payload as ProgressSummary);
-      onResult?.(payload as ProgressSummary);
-      onSaved();
+      const finish = () => {
+        onResult?.(payload as ProgressSummary);
+        onSaved();
+      };
+      // 방금 읽은 범위가 있으면 덮고 떠올릴 기회를 준다. 정정은 읽은 것이 아니다.
+      const range = rangeForRecord(kind, completed, {
+        startPage: Number(startPage),
+        endPage: Number(endPage),
+      });
+      if (range) {
+        announce.current = finish;
+        setRecall({ range });
+      } else finish();
     } catch {
       setAmbiguous(true);
       setError(
@@ -225,10 +258,13 @@ export function ProgressForm({
     >
       <div>
         {!compact && <h2 className="text-lg font-semibold">학습 기록</h2>}
-        <p className="mt-1 text-sm text-muted-foreground">
-          현재 {completed}쪽까지 읽었어요 · 남은{" "}
-          {Math.max(0, (book.total_pages ?? 0) - completed)}쪽
-        </p>
+        {/* 떠올리는 동안에는 새 진도를 아직 불러오지 않았다. 옛 숫자를 보이면 방금 저장한 것과 어긋난다. */}
+        {!recall && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            현재 {completed}쪽까지 읽었어요 · 남은{" "}
+            {Math.max(0, (book.total_pages ?? 0) - completed)}쪽
+          </p>
+        )}
       </div>
       {book.replan_required && (
         <p className="rounded-lg bg-muted p-3 text-sm">
@@ -236,6 +272,14 @@ export function ProgressForm({
           분량이나 목표 날짜를 확인해 주세요.
         </p>
       )}
+      {recall && result ? (
+        <RecallPrompt
+          resourceId={book.id}
+          range={recall.range}
+          savedLine={`기록을 저장했어요 · 현재 ${result.completedThroughPage}쪽`}
+          onDone={finishRecall}
+        />
+      ) : (
       <form
         onSubmit={submit}
         className="space-y-4"
@@ -467,7 +511,8 @@ export function ProgressForm({
           </Button>
         )}
       </form>
-      {result && !onResult && <ProgressResult result={result} />}
+      )}
+      {result && !onResult && !recall && <ProgressResult result={result} />}
     </Card>
   );
 }
