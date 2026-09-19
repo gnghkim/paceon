@@ -162,7 +162,7 @@ function BookDetailPanel({ id }: { id: string }) {
           </p>
           {book.status === 'ACTIVE' && (
             <div className="mt-4">
-              <ReadingControl resourceId={book.id} />
+              <ReadingControl resourceId={book.id} title={book.title} />
             </div>
           )}
         </div>
@@ -315,13 +315,16 @@ function BookDetailPanel({ id }: { id: string }) {
 }
 
 /** 이 책을 재는 중이면 상태를, 아니면 시작 버튼을 보여 준다. */
-function ReadingControl({ resourceId }: { resourceId: string }) {
+function ReadingControl({ resourceId, title }: { resourceId: string; title: string }) {
   const { running } = useReadingTimer();
   if (running?.resourceId === resourceId)
     return (
       <p className="text-sm text-primary">
-        읽는 시간을 재고 있어요. 위쪽 띠에서 끝낼 수 있어요.
+        {running.pausedAt !== null
+          ? '잠시 멈춰 두었어요. 위쪽 띠에서 이어 읽거나 끝낼 수 있어요.'
+          : '읽는 시간을 재고 있어요. 위쪽 띠에서 멈추거나 끝낼 수 있어요.'}
       </p>
     );
-  return <StartReadingButton resourceId={resourceId} />;
+  // 이 화면에서는 이 단추가 주인공이다.
+  return <StartReadingButton resourceId={resourceId} title={title} emphasis="large" />;
 }
