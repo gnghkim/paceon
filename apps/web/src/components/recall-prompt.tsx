@@ -17,11 +17,14 @@ import { MAX_RECALL_LENGTH, normalizeRecall, rangeLabel, type PageRange } from '
 export function RecallPrompt({
   resourceId,
   range,
+  unit,
   savedLine,
   onDone,
 }: {
   resourceId: string;
   range: PageRange | null;
+  /** 챕터로 공부하는 자료에서는 쪽 범위 대신 방금 공부한 챕터를 넘긴다. */
+  unit?: { id: string; title: string };
   /** 방금 저장한 기록을 알리는 한 줄. 이 단계가 저장을 가로막은 것처럼 보이지 않게 한다. */
   savedLine: string;
   onDone: () => void;
@@ -48,7 +51,7 @@ export function RecallPrompt({
       const response = await apiFetch('/api/learning/recall', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resourceId, content, ...(range ?? {}) }),
+        body: JSON.stringify({ resourceId, content, ...(unit ? { unitId: unit.id } : (range ?? {})) }),
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -72,10 +75,10 @@ export function RecallPrompt({
       </p>
       <div>
         <h3 ref={heading} tabIndex={-1} className="font-semibold focus-visible:outline-none">
-          책을 덮고, 기억나는 것을 적어 보세요
+          {unit ? '자료를 덮고, 기억나는 것을 적어 보세요' : '책을 덮고, 기억나는 것을 적어 보세요'}
         </h3>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          {range && `${rangeLabel(range)} · `}
+          {unit ? `${unit.title} · ` : range && `${rangeLabel(range)} · `}
           다시 펼쳐 보지 말고 떠오르는 대로 한두 줄이면 돼요. 내일부터 복습에서 다시 물어봐요.
         </p>
       </div>

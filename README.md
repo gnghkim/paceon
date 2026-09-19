@@ -11,6 +11,7 @@
 | --- | --- |
 | 도서·교재 라이브러리 | 직접 등록, Google Books·YES24 검색, PDF 페이지·목차 추출 후 등록 |
 | 학습 계획 | 목표와 가용 시간에 따른 일정 생성, 진도 기록 후 재계획, 오늘 할 일·캘린더 |
+| 교재·강의 | Unit이나 강처럼 챕터로 나뉜 자료를 등록. 강의 페이지의 커리큘럼을 붙여 넣으면 목차와 길이를 뽑음. 일정은 순서대로 잡히지만 아무 챕터나 골라 공부하면 남은 일정에서 빠짐 |
 | 계획 수정 | 속도·방식·목표 변경, 잠시 멈춤과 보관, 요일별 가용 시간 조정 |
 | 오늘 화면 | 세션의 완료·진행 중·놓침 구분, 이번 주 일곱 칸 요약, 밀린 분량 정리 안내 |
 | 간편 기록·통계 | 모바일에서 빠르게 학습 기록, 기간별 학습량·시간·활동일 확인 |
@@ -37,7 +38,7 @@
 4. 학습 중 메모·녹음·글을 남기고 필요한 시점에 AI 피드백을 요청합니다.
 5. **학습 종료**로 시간을 확정하고 다음에 같은 공간에서 이어갑니다. 도서 기록은 **통계**에서 확인합니다.
 
-자세한 사용법은 [영어학습 안내](docs/LEARNING_ROOM.md), [독서 기록](docs/QUICK_RECORD.md), [학습 통계](docs/STATISTICS.md), [매일 알림](docs/NOTIFICATIONS.md), [표현 복습](docs/EXPRESSION_REVIEW.md), [단어장](docs/WORD_BOOK.md), [독서 회상](docs/READING_RECALL.md)을 참고하세요.
+자세한 사용법은 [영어학습 안내](docs/LEARNING_ROOM.md), [독서 기록](docs/QUICK_RECORD.md), [학습 통계](docs/STATISTICS.md), [매일 알림](docs/NOTIFICATIONS.md), [표현 복습](docs/EXPRESSION_REVIEW.md), [단어장](docs/WORD_BOOK.md), [독서 회상](docs/READING_RECALL.md), [교재와 강의](docs/MATERIALS.md)를 참고하세요.
 
 ## 준비
 

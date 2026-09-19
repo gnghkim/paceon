@@ -29,14 +29,25 @@ export interface ReadingTimer {
   pausedMs: number;
   /** 띠에 보여 줄 책 제목. 옛 저장값에는 없다. */
   title?: string;
+  /**
+   * 챕터로 공부하는 자료를 재는 중이면 있다. 끝낼 때 책의 기록 창이 아니라 챕터의
+   * 기록 창을 열어야 하기 때문이다. id가 없으면 끝낼 때 챕터를 고른다.
+   */
+  unit?: { id?: string };
 }
 
-export const newReadingTimer = (resourceId: string, now: number, title?: string): ReadingTimer => ({
+export const newReadingTimer = (
+  resourceId: string,
+  now: number,
+  title?: string,
+  unit?: { id?: string },
+): ReadingTimer => ({
   resourceId,
   startedAt: now,
   pausedAt: null,
   pausedMs: 0,
   ...(title ? { title } : {}),
+  ...(unit ? { unit: unit.id ? { id: unit.id } : {} } : {}),
 });
 
 export const readingTimerKey = (userId: string) => `paceon:reading-timer:${userId}`;
@@ -60,12 +71,21 @@ export function parseReadingTimer(raw: string | null, now: number): ReadingTimer
     if (pausedAt !== null && (pausedAt < value.startedAt || pausedAt > now)) return null;
     if (pausedMs > (pausedAt ?? now) - value.startedAt) return null;
     const title = typeof value.title === 'string' && value.title.trim() ? value.title.trim().slice(0, 200) : undefined;
+    // 모양이 어긋난 챕터 정보는 버리되 타이머는 살린다. 잰 시간까지 잃을 일은 아니다.
+    const rawUnit: unknown = value.unit;
+    const unit =
+      rawUnit && typeof rawUnit === 'object' && !Array.isArray(rawUnit)
+        ? typeof (rawUnit as { id?: unknown }).id === 'string' && (rawUnit as { id: string }).id
+          ? { id: (rawUnit as { id: string }).id }
+          : {}
+        : undefined;
     return {
       resourceId: value.resourceId,
       startedAt: value.startedAt,
       pausedAt,
       pausedMs,
       ...(title ? { title } : {}),
+      ...(unit ? { unit } : {}),
     };
   } catch {
     return null;

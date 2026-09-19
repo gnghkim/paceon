@@ -126,3 +126,20 @@ test('a skipped session never leads', () => {
   ];
   assert.equal(nextToRead(sessions, {}, '2026-09-16'), 'b');
 });
+
+test('a chapter session has no pages, so all of its time remains until it is done', () => {
+  const chapter = (extra) => session({ start_page: null, end_page: null, planned_workload: 1, estimated_minutes: 30, ...extra });
+  const day = summarizeDay([chapter({ id: 'a', resource_id: 'course' }), chapter({ id: 'b', resource_id: 'course', status: 'COMPLETED' })], {}, '2026-09-16');
+  assert.equal(day.total, 2);
+  assert.equal(day.completed, 1);
+  assert.equal(day.remainingMinutes, 30, 'only the unfinished chapter counts');
+  assert.equal(day.allDone, false);
+});
+
+test('a finished chapter never leads, and the next unfinished one does', () => {
+  const chapters = [
+    session({ id: 'a', start_page: null, end_page: null, status: 'COMPLETED' }),
+    session({ id: 'b', start_page: null, end_page: null, status: 'PLANNED' }),
+  ];
+  assert.equal(nextToRead(chapters, {}, '2026-09-16'), 'b');
+});

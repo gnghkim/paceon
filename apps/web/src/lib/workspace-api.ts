@@ -20,6 +20,7 @@ import type { Config } from './books-api.ts';
 import { parsePlanOptions, createInitialSchedule } from './planning.ts';
 import type { WorkspaceData } from './workspace-types.ts';
 import { projectProgress, ProgressError } from './progress.ts';
+import { completedUnits, unitProgress } from './unit-progress.ts';
 
 const uuid = z.uuid();
 export function createWorkspaceHandlers(
@@ -145,9 +146,13 @@ export function createWorkspaceHandlers(
           throw new ApiError(400, '조회 기간은 93일 이내로 선택해 주세요.');
         const id = url.searchParams.get('resourceId');
         if (id) uuid.parse(id);
-        const [resources, plans, sessions, events, replans] = await Promise.all([
+        const [resources, materials, plans, sessions, events, replans] = await Promise.all([
           rows<Resource>(auth, 'resources', {
             type: 'eq.BOOK',
+            ...(id ? { id: `eq.${id}` } : {}),
+          }),
+          rows<Resource>(auth, 'resources', {
+            workload_unit: 'eq.UNIT',
             ...(id ? { id: `eq.${id}` } : {}),
           }),
           rows<Plan>(auth, 'plans', {
@@ -161,15 +166,37 @@ export function createWorkspaceHandlers(
           rows<ProgressEvent>(auth, 'progress_events', { ...(id ? { resource_id: `eq.${id}` } : {}) }),
           rows<ReplanRun>(auth, 'replan_runs', { ...(id ? { resource_id: `eq.${id}` } : {}) }),
         ]);
-        if (id && !resources.length)
+        // 서버 필터만 믿지 않는다. 두 목록이 섞이면 책 화면이 챕터형 자료를 책처럼 그린다.
+        const pageBooks = resources.filter((item) => item.workload_unit !== 'UNIT');
+        const unitMaterials = materials.filter((item) => item.workload_unit === 'UNIT');
+        if (id && !pageBooks.length && !unitMaterials.length)
           throw new ApiError(404, '자료를 찾을 수 없습니다.');
+        // 일정 카드가 챕터 제목을 보여 줄 수 있게, 조회 기간의 일정이 가리키는 챕터만 읽는다.
+        const unitIds = [...new Set(sessions.map((s) => s.unit_id).filter((value): value is string => !!value))];
+        const unitRows: { id: string; title: string; estimated_minutes: number | null; sequence: number }[] = [];
+        for (let index = 0; index < unitIds.length; index += 100)
+          unitRows.push(
+            ...(await rows<{ id: string; title: string; estimated_minutes: number | null; sequence: number }>(auth, 'resource_units', {
+              select: 'id,title,estimated_minutes,sequence',
+              id: `in.(${unitIds.slice(index, index + 100).join(',')})`,
+            })),
+          );
         const active = new Set(
           plans.filter((p) => p.status === 'ACTIVE').map((p) => p.id),
         );
+        const sequenceOf = new Map(unitRows.map((unit) => [unit.id, unit.sequence]));
         const data: WorkspaceData = {
-          resources,
+          resources: pageBooks,
+          materials: unitMaterials,
+          units: Object.fromEntries(unitRows.map((unit) => [unit.id, { title: unit.title, minutes: unit.estimated_minutes }])),
+          materialProgress: Object.fromEntries(
+            unitMaterials.map((item) => {
+              const done = completedUnits(events.filter((event) => event.resource_id === item.id));
+              return [item.id, unitProgress(item.total_units ?? 0, done.size)];
+            }),
+          ),
           plans: plans.sort((a, b) => b.created_at.localeCompare(a.created_at)),
-          progress: Object.fromEntries(resources.map(book => {
+          progress: Object.fromEntries(pageBooks.map(book => {
             const projection = projectProgress(book, events.filter(event => event.resource_id === book.id));
             return [book.id, { completedThroughPage: projection.completedThroughPage, percent: projection.percent, latestLearningId: projection.latestLearningId }];
           })),
@@ -180,6 +207,9 @@ export function createWorkspaceHandlers(
             .sort(
               (a, b) =>
                 a.study_date.localeCompare(b.study_date) ||
+                // 같은 날의 챕터는 챕터 순서대로. 일정의 id는 무작위라 순서를 말해 주지 않는다.
+                a.resource_id.localeCompare(b.resource_id) ||
+                (sequenceOf.get(a.unit_id ?? '') ?? 0) - (sequenceOf.get(b.unit_id ?? '') ?? 0) ||
                 a.id.localeCompare(b.id),
             ),
           ...preferences,

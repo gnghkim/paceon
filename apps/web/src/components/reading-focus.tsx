@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 export function ReadingFocus({
   open,
   title,
+  studying = false,
   elapsed,
   paused,
   onClose,
@@ -26,6 +27,8 @@ export function ReadingFocus({
 }: {
   open: boolean;
   title: string | undefined;
+  /** 책이 아니라 챕터(강의, 교재의 Unit)를 재는 중이면 읽는다는 말을 쓰지 않는다. */
+  studying?: boolean;
   elapsed: string;
   paused: boolean;
   onClose: () => void;
@@ -113,7 +116,7 @@ export function ReadingFocus({
 
         <div className="flex min-w-0 max-w-full flex-col items-center text-center">
           <p className={cn('text-sm font-medium', paused ? 'text-muted-foreground' : 'text-primary')}>
-            {paused ? '잠시 멈춤' : '읽는 중'}
+            {paused ? '잠시 멈춤' : studying ? '학습 중' : '읽는 중'}
           </p>
           {title && (
             <p className="mt-1 line-clamp-2 max-w-md break-words text-base text-muted-foreground [@media(max-height:500px)]:line-clamp-1 [@media(max-height:500px)]:text-sm">
@@ -168,7 +171,7 @@ export function ReadingFocus({
             }}
           >
             <Square aria-hidden="true" />
-            다 읽었어요
+            {studying ? '다 했어요' : '다 읽었어요'}
           </Button>
         </div>
       </div>

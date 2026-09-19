@@ -128,6 +128,8 @@ function TodayContent({ data }: { data: WorkspaceData }) {
                     key={s.id}
                     session={s}
                     book={data.resources.find((r) => r.id === s.resource_id)}
+                    material={data.materials.find((r) => r.id === s.resource_id)}
+                    unit={s.unit_id ? data.units[s.unit_id] : undefined}
                     completedThroughPage={
                       data.progress[s.resource_id]?.completedThroughPage ?? 0
                     }
@@ -210,6 +212,8 @@ function TodayContent({ data }: { data: WorkspaceData }) {
                     <SessionCard
                       session={s}
                       book={data.resources.find((r) => r.id === s.resource_id)}
+                    material={data.materials.find((r) => r.id === s.resource_id)}
+                    unit={s.unit_id ? data.units[s.unit_id] : undefined}
                       completedThroughPage={
                         data.progress[s.resource_id]?.completedThroughPage ?? 0
                       }

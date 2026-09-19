@@ -51,8 +51,10 @@ export const rangeLabel = (range: PageRange) =>
  * 복습 때 보여 줄 앞면. 책 제목과 범위만 말하고 내용의 단서는 주지 않는다.
  * 제목이 길면 제목을 줄인다. 범위는 어디를 떠올릴지 알려 주는 유일한 단서라 남긴다.
  */
-export function recallPrompt(title: string, range: PageRange | null): string {
-  const suffix = range ? ` · ${rangeLabel(range)}` : '';
+export function recallPrompt(title: string, range: PageRange | null, unitTitle?: string): string {
+  // 챕터로 공부하는 자료는 쪽 범위 대신 챕터 이름이 어디를 떠올릴지 알려 준다.
+  const where = unitTitle?.replace(/\s+/g, ' ').trim().slice(0, 120) || (range ? rangeLabel(range) : '');
+  const suffix = where ? ` · ${where}` : '';
   const room = MAX_PROMPT_LENGTH - suffix.length;
   const clean = title.replace(/\s+/g, ' ').trim() || '책';
   const shown = clean.length > room ? `${clean.slice(0, room - 1).trimEnd()}…` : clean;

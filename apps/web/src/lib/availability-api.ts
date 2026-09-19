@@ -208,6 +208,32 @@ export function createAvailabilityHandler(
           undefined,
           { method: 'DELETE', headers: { Prefer: 'return=minimal' } },
         );
+      // 챕터로 공부하는 자료의 앞으로의 일정도 비운다. 책을 먼저 새 예산에 담고,
+      // 챕터형은 마지막에 남은 시간을 채운다. 비우지 않으면 책이 옛 일정을 피해 담긴다.
+      const materials = (
+        await storage.rows<Resource>(auth, 'resources', { workload_unit: 'eq.UNIT' })
+      ).filter(
+        item =>
+          // 서버 필터만 믿지 않는다. 책이 섞여 들어오면 책의 일정을 챕터 일정처럼 다루게 된다.
+          item.workload_unit === 'UNIT' &&
+          item.status !== 'ARCHIVED' &&
+          plans.some(plan => plan.resource_id === item.id && plan.status === 'ACTIVE'),
+      );
+      if (materials.length)
+        await storage.rest(
+          auth,
+          'schedule_sessions',
+          {
+            user_id: `eq.${auth.userId}`,
+            resource_id: `in.(${materials.map(item => item.id).join(',')})`,
+            unit_id: 'not.is.null',
+            study_date: `gt.${toStudyDate(new Date().toISOString(), preferences.timezone)}`,
+            is_locked: 'is.false',
+            status: 'neq.COMPLETED',
+          },
+          undefined,
+          { method: 'DELETE', headers: { Prefer: 'return=minimal' } },
+        );
 
       // 3단계: 한 권씩 다시 채운다. 실패한 책은 기존 일정을 잃은 채 남으므로 표시해 알린다.
       const rescheduled: string[] = [];
@@ -271,6 +297,30 @@ export function createAvailabilityHandler(
             title: entry.book.title,
             code: 'REPLAN_FAILED',
           });
+        }
+      }
+      // 4단계: 챕터형 자료가 남은 시간을 채운다. 일정은 DB 함수가 계산한다.
+      for (const item of materials) {
+        try {
+          const result = (await storage.rest(
+            auth,
+            'rpc/replan_unit_plan',
+            {},
+            { p_resource_id: item.id, p_dry_run: false },
+          )) as { status?: string } | null;
+          if (result?.status === 'conflict') throw new Error('conflict');
+          rescheduled.push(item.title);
+        } catch {
+          await storage
+            .rest(
+              auth,
+              'resources',
+              { id: `eq.${item.id}`, user_id: `eq.${auth.userId}` },
+              { replan_required: true },
+              { method: 'PATCH', headers: { Prefer: 'return=minimal' } },
+            )
+            .catch(() => {});
+          needsAttention.push({ resourceId: item.id, title: item.title, code: 'REPLAN_FAILED' });
         }
       }
       return json({ rules: input.rules, rescheduled, needsAttention });

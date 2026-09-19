@@ -167,3 +167,39 @@ test('reading without saying which book is refused', async () => {
   const response = await api.GET(new Request('http://localhost/api/learning/recall', { headers: { authorization: 'Bearer token' } }));
   assert.equal(response.status, 400);
 });
+
+test('a chapter names the place instead of a page range', () => {
+  assert.equal(recallPrompt('Basic Grammar in Use', null, 'Unit 12 I have done'), 'Basic Grammar in Use · Unit 12 I have done');
+  assert.equal(recallPrompt('Course', { startPage: 1, endPage: 2 }, '3강 설치'), 'Course · 3강 설치', 'the chapter wins over a range');
+  const long = recallPrompt('가'.repeat(400), null, 'Unit 1');
+  assert.ok(long.length <= 200 && long.endsWith(' · Unit 1'));
+});
+
+test('a recall against a chapter stores the chapter and reads its title on the server', async () => {
+  const unitId = '52345678-1234-4234-9234-123456789abc';
+  const writes = [];
+  const api = createRecallHandlers(config, async (url, init = {}) => {
+    const target = new URL(url);
+    if (target.pathname.endsWith('/user')) return Response.json({ id: user });
+    if (init.method && init.method !== 'GET') {
+      const body = JSON.parse(init.body);
+      writes.push(body);
+      return Response.json([{ ...body, id: 'c1', created_at: '2026-09-19T01:00:00Z', review_count: 0 }]);
+    }
+    if (target.pathname === '/rest/v1/resources') return Response.json([{ id: bookId, user_id: user, title: 'Basic Grammar in Use' }]);
+    if (target.pathname === '/rest/v1/resource_units') {
+      assert.equal(target.searchParams.get('resource_id'), `eq.${bookId}`, 'the chapter must belong to this material');
+      return Response.json(target.searchParams.get('id') === `eq.${unitId}` ? [{ id: unitId, title: 'Unit 12 I have done' }] : []);
+    }
+    if (target.pathname === '/rest/v1/learner_profiles') return Response.json([{ user_id: user, timezone: 'Asia/Seoul', daily_learning_minutes: null }]);
+    return Response.json([]);
+  });
+  const ok = await api.POST(post({ resourceId: bookId, unitId, content: '현재완료는 경험을 말한다' }));
+  assert.equal(ok.status, 201);
+  assert.equal(writes[0].unit_id, unitId);
+  assert.equal(writes[0].phrase, 'Basic Grammar in Use · Unit 12 I have done');
+  assert.deepEqual([writes[0].start_page, writes[0].end_page], [null, null]);
+  const missing = await api.POST(post({ resourceId: bookId, unitId: '62345678-1234-4234-9234-123456789abc', content: '기억' }));
+  assert.equal(missing.status, 404);
+  assert.equal(writes.length, 1, 'nothing is written for a chapter that is not there');
+});

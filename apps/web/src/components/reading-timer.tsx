@@ -13,6 +13,7 @@ import { BookOpen, Maximize2, Pause, Play, Square } from 'lucide-react';
 import { useAuth } from './auth-provider';
 import { useQuickRecord } from './quick-record';
 import { ReadingFocus } from './reading-focus';
+import { useUnitRecord } from './unit-record';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -32,7 +33,7 @@ import {
 interface TimerApi {
   /** 지금 재고 있는 책. 없으면 null이다. */
   running: ReadingTimer | null;
-  start: (resourceId: string, title?: string) => void;
+  start: (resourceId: string, title?: string, unit?: { id?: string }) => void;
   pause: () => void;
   resume: () => void;
   stop: () => void;
@@ -55,6 +56,7 @@ export const useReadingTimer = () => useContext(TimerContext);
 export function ReadingTimerProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const openRecord = useQuickRecord();
+  const openUnitRecord = useUnitRecord();
   const userId = session?.user.id ?? '';
   const [running, setRunning] = useState<ReadingTimer | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -117,9 +119,9 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
   );
 
   const start = useCallback(
-    (resourceId: string, title?: string) => {
+    (resourceId: string, title?: string, unit?: { id?: string }) => {
       setOverCap(null);
-      keep(newReadingTimer(resourceId, Date.now(), title));
+      keep(newReadingTimer(resourceId, Date.now(), title, unit));
     },
     [keep],
   );
@@ -142,14 +144,17 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
     } catch {
       /* 이미 상태에서 지웠다. */
     }
-    if (result.overCap) {
-      // 끄는 것을 잊은 기록이 통계를 조용히 망가뜨리지 않게, 직접 확인하게 한다.
-      setOverCap(result.seconds);
-      openRecord(running.resourceId);
-      return;
-    }
-    openRecord(running.resourceId, result.minutes ?? undefined);
-  }, [running, key, openRecord]);
+    // 상한을 넘으면 분을 채우지 않는다. 끄는 것을 잊은 기록이 통계를 조용히 망가뜨리지 않게 한다.
+    if (result.overCap) setOverCap(result.seconds);
+    const minutes = result.overCap ? undefined : (result.minutes ?? undefined);
+    if (running.unit)
+      openUnitRecord({
+        materialId: running.resourceId,
+        ...(running.unit.id ? { unitId: running.unit.id } : {}),
+        ...(minutes === undefined ? {} : { minutes }),
+      });
+    else openRecord(running.resourceId, minutes);
+  }, [running, key, openRecord, openUnitRecord]);
 
   const paused = running !== null && isPaused(running);
   const elapsed = running ? formatElapsed(elapsedSeconds(running, now)) : '';
@@ -175,7 +180,7 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
                 />
                 <div className="min-w-0">
                   <p className="truncate text-xs text-muted-foreground">
-                    {paused ? '잠시 멈춤' : '읽는 중'}
+                    {paused ? '잠시 멈춤' : running.unit ? '학습 중' : '읽는 중'}
                     {running.title && ` · ${running.title}`}
                   </p>
                   <p
@@ -214,7 +219,7 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
               )}
               <Button type="button" className="flex-1 sm:flex-none" onClick={stop}>
                 <Square aria-hidden="true" />
-                다 읽었어요
+                {running.unit ? '다 했어요' : '다 읽었어요'}
               </Button>
             </div>
           </div>
@@ -223,6 +228,7 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
       <ReadingFocus
         open={focusOpen && running !== null}
         title={running?.title}
+        studying={!!running?.unit}
         elapsed={elapsed}
         paused={paused}
         onClose={() => setFocusOpen(false)}
@@ -253,11 +259,17 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
 export function StartReadingButton({
   resourceId,
   title,
+  unit,
+  label = '읽기 시작',
   emphasis = 'quiet',
   className,
 }: {
   resourceId: string;
   title?: string;
+  /** 챕터로 공부하는 자료면 넘긴다. 끝낼 때 챕터의 기록 창이 열린다. */
+  unit?: { id?: string };
+  /** 강의는 읽지 않는다. 자료에 맞는 말을 부르는 쪽이 정한다. */
+  label?: string;
   /** primary는 채운 색, large는 책 상세처럼 단추 하나가 주인공인 자리다. */
   emphasis?: 'quiet' | 'primary' | 'large';
   className?: string;
@@ -272,12 +284,12 @@ export function StartReadingButton({
       className={cn(emphasis === 'large' && 'w-full sm:w-auto', className)}
       onClick={(event) => {
         event.stopPropagation();
-        start(resourceId, title);
+        start(resourceId, title, unit);
       }}
     >
       {/* 조용한 단추는 좁은 카드 안에서 제목과 자리를 다툰다. 아이콘은 강조할 때만 붙인다. */}
       {emphasis !== 'quiet' && <Play aria-hidden="true" />}
-      읽기 시작
+      {label}
     </Button>
   );
 }
