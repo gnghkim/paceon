@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, BookOpen, Check } from 'lucide-react';
+import { ArrowRight, BookOpen, Check, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
+import { LoginLanding } from '@/components/login-landing';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getSupabaseBrowser } from '@/lib/supabase-browser';
@@ -16,9 +17,28 @@ export default function LoginPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const emailField = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!loading && session) router.replace('/today');
   }, [loading, session, router]);
+
+  // 움직임을 줄이도록 설정한 사람에게는 부드러운 스크롤도 쓰지 않는다.
+  const scrollBehavior = (): ScrollBehavior =>
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+
+  /** 소개를 다 읽고 누른 단추. 폼으로 돌아가 바로 입력할 수 있게 한다. */
+  function startFrom(next: 'login' | 'signup') {
+    setMode(next);
+    setError(null);
+    setMessage(null);
+    window.scrollTo({ top: 0, behavior: scrollBehavior() });
+    // 스크롤이 끝나기 전에 초점을 옮기면 브라우저가 그 자리로 건너뛴다.
+    emailField.current?.focus({ preventScroll: true });
+  }
+
+  function showAbout() {
+    document.getElementById('about')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,7 +96,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-dvh lg:grid-cols-2">
+    <main>
+      {/* 첫 화면은 그대로 로그인이다. 매일 여는 사람이 소개를 지나쳐야 하면 안 된다. */}
+      <div className="grid min-h-dvh lg:grid-cols-2">
       <section className="hidden flex-col justify-between bg-primary-soft p-12 lg:flex xl:p-16">
         <div className="flex items-center gap-2.5 text-xl font-bold">
           <BookOpen className="text-primary" aria-hidden="true" />
@@ -109,9 +131,19 @@ export default function LoginPage() {
             ))}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          조금씩 나아가는 당신의 학습 파트너
-        </p>
+        <div className="flex items-end justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            조금씩 나아가는 당신의 학습 파트너
+          </p>
+          <button
+            type="button"
+            onClick={showAbout}
+            className="flex shrink-0 flex-col items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground hover:text-primary"
+          >
+            자세히 알아보기
+            <ChevronDown size={18} className="motion-safe:animate-bounce" aria-hidden="true" />
+          </button>
+        </div>
       </section>
       <section className="flex flex-col justify-center px-6 py-12 sm:px-12">
         <div className="mx-auto w-full max-w-sm">
@@ -147,6 +179,7 @@ export default function LoginPage() {
               </label>
               <Input
                 id="email"
+                ref={emailField}
                 name="email"
                 type={mode === 'login' ? 'text' : 'email'}
                 autoComplete={mode === 'login' ? 'username' : 'email'}
@@ -226,8 +259,19 @@ export default function LoginPage() {
               {mode === 'login' ? '가입하기' : '로그인'}
             </Button>
           </div>
+          {/* 좁은 화면에는 왼쪽 소개가 없다. 처음 온 사람이 아래에 더 있다는 것을 알 수 있게 한다. */}
+          <button
+            type="button"
+            onClick={showAbout}
+            className="mx-auto mt-10 flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:text-primary lg:hidden"
+          >
+            PaceOn이 처음이라면
+            <ChevronDown size={18} className="motion-safe:animate-bounce" aria-hidden="true" />
+          </button>
         </div>
       </section>
+      </div>
+      <LoginLanding onStart={startFrom} />
     </main>
   );
 }
