@@ -29,6 +29,10 @@ const row = (id, due_on, extra = {}) => ({
   lease_token: null,
   lease_expires_at: null,
   source_workspace_id: null,
+  kind: 'EXPRESSION',
+  resource_id: null,
+  start_page: null,
+  end_page: null,
   review_step: 0,
   due_on,
   last_reviewed_on: null,
@@ -144,7 +148,8 @@ test('a meaning of only spaces counts as not given', async () => {
 test('a card never carries its source or timestamps to the browser', async () => {
   const { api } = stub({ rows: [row(cardId, '2026-01-01', { source_workspace_id: user })] });
   const body = await (await api.GET(get())).json();
-  assert.deepEqual(Object.keys(body.cards[0]).sort(), ['due_on', 'examples', 'id', 'lookup', 'meaning', 'phrase', 'review_step']);
+  assert.deepEqual(Object.keys(body.cards[0]).sort(), // kind와 resource_id는 복습 화면이 카드 종류를 구별하고 책으로 돌아가는 데 쓴다.
+  ['due_on', 'examples', 'id', 'kind', 'lookup', 'meaning', 'phrase', 'resource_id', 'review_step']);
 });
 
 test('saving an expression schedules it for tomorrow rather than today', async () => {
@@ -227,4 +232,27 @@ test('deleting is scoped to the signed-in learner', async () => {
   assert.equal(writes[0].method, 'DELETE');
   assert.equal(writes[0].query.id, `eq.${cardId}`);
   assert.equal(writes[0].query.user_id, `eq.${user}`);
+});
+
+const bookId = '32345678-1234-4234-9234-123456789abc';
+const recallRow = (id, due_on) =>
+  row(id, due_on, { kind: 'RECALL', resource_id: bookId, start_page: 41, end_page: 60, phrase: 'Deep Work · 41–60쪽', meaning: '몰입은 훈련된다' });
+
+test('reading recall is asked in review alongside words, and says which kind it is', async () => {
+  const rows = [row(cardId, '2026-01-01'), recallRow('a2345678-1234-4234-9234-123456789abc', '2026-01-02')];
+  const { api } = stub({ rows });
+  const body = await (await api.GET(get())).json();
+  assert.deepEqual(body.cards.map((c) => c.kind).sort(), ['EXPRESSION', 'RECALL']);
+  const recalled = body.cards.find((c) => c.kind === 'RECALL');
+  assert.equal(recalled.resource_id, bookId, 'the review screen can link back to the book');
+  assert.equal(recalled.meaning, '몰입은 훈련된다');
+  assert.equal('start_page' in recalled, false, 'only what the screen needs is sent');
+});
+
+test('the wordbook does not list reading recall', async () => {
+  const rows = [row(cardId, '2026-01-01'), recallRow('a2345678-1234-4234-9234-123456789abc', '2026-01-02')];
+  const { api } = stub({ rows });
+  const body = await (await api.GET(get('?all=true'))).json();
+  assert.deepEqual(body.cards.map((c) => c.kind), ['EXPRESSION']);
+  assert.equal(body.saved, 1, 'the wordbook counts words, not everything in review');
 });

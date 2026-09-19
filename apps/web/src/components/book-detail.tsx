@@ -15,6 +15,7 @@ import { PdfSourceCard } from '@/components/pdf-source';
 import { PlanForm } from '@/components/plan-form';
 import { PlanSettings } from '@/components/plan-settings';
 import { StartReadingButton, useReadingTimer } from '@/components/reading-timer';
+import { RecallNotes } from '@/components/recall-notes';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { formatDate, summarizeBook } from '@/lib/planning';
@@ -198,6 +199,7 @@ function BookDetailPanel({ id }: { id: string }) {
           onResult={setSaved}
         />
       )}
+      <RecallNotes resourceId={book.id} refreshKey={book.progress_version} />
       {plan && (
         <Card className="p-4 md:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

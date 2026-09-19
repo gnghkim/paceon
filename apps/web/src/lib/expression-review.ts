@@ -39,8 +39,14 @@ export function nextReview(step: number, grade: ReviewGrade, today: string): Rev
   return { step: next, dueOn: addDays(today, REVIEW_INTERVALS[next]!) };
 }
 
+export type CardKind = 'EXPRESSION' | 'RECALL';
+
 export interface ExpressionCard {
   id: string;
+  /** 표현은 뜻을 묻고, 회상은 그 범위에서 기억나는 것을 묻는다. 간격 규칙은 같다. */
+  kind: CardKind;
+  /** 회상 카드가 가리키는 책. 표현 카드는 null이다. */
+  resource_id: string | null;
   phrase: string;
   /** AI가 아직 채우지 않았으면 빈 문자열이다. */
   meaning: string;
@@ -51,21 +57,47 @@ export interface ExpressionCard {
   lookup: 'DONE' | 'PENDING' | 'FAILED';
 }
 
+const oldestFirst = (a: ExpressionCard, b: ExpressionCard) =>
+  a.due_on.localeCompare(b.due_on) || a.id.localeCompare(b.id);
+
 /**
- * 오늘 물어볼 카드. 예정일이 지난 것부터 오래된 순으로 고른다.
- * 밀린 카드가 아무리 많아도 한 번에 보여 주는 수는 같다.
+ * 오늘 물어볼 카드. 밀린 카드가 아무리 많아도 한 번에 보여 주는 수는 같다.
+ *
+ * 종류마다 오래된 순으로 줄을 세우고 번갈아 뽑는다. 예정일 순으로만 고르면 밀린
+ * 단어 수십 개가 앞을 막아 오늘 읽은 책의 회상이 몇 주 뒤에야 나온다. 그 사이
+ * 기억은 다시 배워야 할 만큼 흐려진다. 가장 오래 기다린 종류부터 시작한다.
  */
 export function dueToday(
   cards: readonly ExpressionCard[],
   today: string,
   size = DAILY_REVIEW_SIZE,
 ): ExpressionCard[] {
-  return cards
-    .filter(card => card.due_on <= today)
-    .sort((a, b) => a.due_on.localeCompare(b.due_on) || a.id.localeCompare(b.id))
-    .slice(0, Math.max(0, size));
+  const queues = new Map<CardKind, ExpressionCard[]>();
+  for (const card of cards) {
+    if (card.due_on > today) continue;
+    const queue = queues.get(card.kind);
+    if (queue) queue.push(card);
+    else queues.set(card.kind, [card]);
+  }
+  const lines = [...queues.values()]
+    .map(queue => queue.sort(oldestFirst))
+    .sort((a, b) => oldestFirst(a[0]!, b[0]!));
+  const picked: ExpressionCard[] = [];
+  const limit = Math.max(0, size);
+  while (picked.length < limit && lines.some(line => line.length > 0))
+    for (const line of lines) {
+      const next = line.shift();
+      if (next) picked.push(next);
+      if (picked.length >= limit) break;
+    }
+  return picked;
 }
 
-/** 뜻을 먼저 보여 주지 않는다. 표현을 보고 뜻을 떠올리게 한다. */
-export const reviewPrompt = (card: Pick<ExpressionCard, 'phrase'>) =>
-  `${card.phrase}는 무슨 뜻이었나요?`;
+/**
+ * 답을 먼저 보여 주지 않는다. 표현은 뜻을, 회상은 그 범위에서 기억나는 것을
+ * 떠올리게 한다.
+ */
+export const reviewPrompt = (card: Pick<ExpressionCard, 'phrase'> & { kind?: CardKind }) =>
+  card.kind === 'RECALL'
+    ? '책을 펼치지 말고, 이 범위에서 기억나는 것을 떠올려 보세요.'
+    : `${card.phrase}는 무슨 뜻이었나요?`;

@@ -21,7 +21,6 @@ export function LearningToday({
 }) {
   const { apiFetch } = useAuth();
   const [list, setList] = useState<LearningList | null>(null);
-  const [due, setDue] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     const timer = setTimeout(() => {
@@ -34,15 +33,6 @@ export function LearningToday({
           if (!controller.signal.aborted && body) setList(body);
         })
         // 이어하기는 보조 정보다. 실패해도 카드의 나머지는 그대로 쓸 수 있다.
-        .catch(() => {});
-      void apiFetch('/api/learning/expressions', {
-        signal: controller.signal,
-        cache: 'no-store',
-      })
-        .then((response) => (response.ok ? response.json() : null))
-        .then((body: { due: number } | null) => {
-          if (!controller.signal.aborted && body) setDue(body.due);
-        })
         .catch(() => {});
     }, 0);
     return () => {
@@ -114,17 +104,6 @@ export function LearningToday({
         <p className="mt-4 text-sm leading-6 text-muted-foreground">
           {minutes ? '오늘도 이어서 해 볼까요?' : '한 문장부터 시작해요.'}
         </p>
-      )}
-      {due > 0 && (
-        <Link
-          href="/learn/review"
-          className="mt-3 flex min-h-11 items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5 text-sm hover:border-primary"
-        >
-          <span>
-            오늘의 복습 <span className="font-medium text-primary">{due}개</span>
-          </span>
-          <ArrowRight size={15} className="shrink-0 text-primary" aria-hidden="true" />
-        </Link>
       )}
       <Link
         href="/learn"

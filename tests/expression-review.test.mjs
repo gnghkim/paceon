@@ -12,6 +12,8 @@ import {
 const today = '2026-09-16';
 const card = (id, due_on, extra = {}) => ({
   id,
+  kind: 'EXPRESSION',
+  resource_id: null,
   phrase: `phrase ${id}`,
   meaning: `meaning ${id}`,
   examples: [],
@@ -90,4 +92,43 @@ test('the prompt asks for the meaning rather than showing it', () => {
   const prompt = reviewPrompt({ phrase: 'get around to' });
   assert.match(prompt, /get around to/);
   assert.doesNotMatch(prompt, /meaning/);
+});
+
+const recall = (id, due_on) => card(id, due_on, { kind: 'RECALL', resource_id: 'book' });
+
+test('a vocabulary backlog does not bury what was read today', () => {
+  // 단어 스무 개가 오래 밀려 있고, 회상 카드는 오늘 막 예정일이 됐다.
+  const cards = [
+    ...Array.from({ length: 20 }, (_, i) => card(`w${String(i).padStart(2, '0')}`, '2026-08-01')),
+    recall('r1', today),
+  ];
+  const picked = dueToday(cards, today);
+  assert.equal(picked.length, 3);
+  assert.ok(picked.some((c) => c.id === 'r1'), 'the recall card is asked today, not weeks from now');
+  assert.equal(picked[0].id, 'w00', 'the kind that waited longest still goes first');
+});
+
+test('kinds alternate, each in its own oldest-first order', () => {
+  const cards = [
+    card('w1', '2026-09-01'), card('w2', '2026-09-02'), card('w3', '2026-09-03'),
+    recall('r1', '2026-09-05'), recall('r2', '2026-09-06'),
+  ];
+  assert.deepEqual(dueToday(cards, today, 5).map((c) => c.id), ['w1', 'r1', 'w2', 'r2', 'w3']);
+  // 회상이 더 오래 기다렸다면 회상부터다.
+  const older = [card('w1', '2026-09-10'), recall('r1', '2026-09-01'), recall('r2', '2026-09-02')];
+  assert.deepEqual(dueToday(older, today).map((c) => c.id), ['r1', 'w1', 'r2']);
+});
+
+test('one kind alone behaves exactly as before', () => {
+  const cards = [recall('r2', '2026-09-02'), recall('r1', '2026-09-01'), recall('r3', '2030-01-01')];
+  assert.deepEqual(dueToday(cards, today).map((c) => c.id), ['r1', 'r2']);
+});
+
+test('a recall card asks what is remembered instead of asking for a meaning', () => {
+  const prompt = reviewPrompt({ kind: 'RECALL', phrase: 'Deep Work · 41–60쪽' });
+  // 제목과 범위는 바로 위에 크게 나온다. 안내문이 되풀이하지 않는다.
+  assert.doesNotMatch(prompt, /Deep Work/);
+  assert.match(prompt, /펼치지 말고/);
+  assert.match(prompt, /기억나는 것/);
+  assert.doesNotMatch(prompt, /뜻/);
 });

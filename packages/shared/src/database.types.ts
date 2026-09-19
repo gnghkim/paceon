@@ -291,9 +291,11 @@ export type Database = {
         Row: {
           created_at: string
           due_on: string
+          end_page: number | null
           example: string | null
           examples: string[]
           id: string
+          kind: string
           last_reviewed_on: string | null
           lease_expires_at: string | null
           lease_token: string | null
@@ -301,18 +303,22 @@ export type Database = {
           lookup_status: string
           meaning: string | null
           phrase: string
+          resource_id: string | null
           review_count: number
           review_step: number
           source_workspace_id: string | null
+          start_page: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           due_on: string
+          end_page?: number | null
           example?: string | null
           examples?: string[]
           id?: string
+          kind?: string
           last_reviewed_on?: string | null
           lease_expires_at?: string | null
           lease_token?: string | null
@@ -320,18 +326,22 @@ export type Database = {
           lookup_status?: string
           meaning?: string | null
           phrase: string
+          resource_id?: string | null
           review_count?: number
           review_step?: number
           source_workspace_id?: string | null
+          start_page?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           due_on?: string
+          end_page?: number | null
           example?: string | null
           examples?: string[]
           id?: string
+          kind?: string
           last_reviewed_on?: string | null
           lease_expires_at?: string | null
           lease_token?: string | null
@@ -339,13 +349,22 @@ export type Database = {
           lookup_status?: string
           meaning?: string | null
           phrase?: string
+          resource_id?: string | null
           review_count?: number
           review_step?: number
           source_workspace_id?: string | null
+          start_page?: number | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "learning_expressions_resource_fk"
+            columns: ["resource_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id", "user_id"]
+          },
           {
             foreignKeyName: "learning_expressions_source_workspace_id_fkey"
             columns: ["source_workspace_id"]
@@ -1483,9 +1502,11 @@ export type Database = {
         Returns: {
           created_at: string
           due_on: string
+          end_page: number | null
           example: string | null
           examples: string[]
           id: string
+          kind: string
           last_reviewed_on: string | null
           lease_expires_at: string | null
           lease_token: string | null
@@ -1493,9 +1514,11 @@ export type Database = {
           lookup_status: string
           meaning: string | null
           phrase: string
+          resource_id: string | null
           review_count: number
           review_step: number
           source_workspace_id: string | null
+          start_page: number | null
           updated_at: string
           user_id: string
         }
