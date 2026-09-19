@@ -6,7 +6,15 @@ test('areas keep a fixed tab order and fall back to listening',()=>{
  assert.deepEqual(learningAreas.map(a=>a.slug),['listening','speaking','writing']);
  assert.equal(resolveLearningArea('writing'),'writing');
  for(const stored of [null,'','reading','WRITING']) assert.equal(resolveLearningArea(stored),'listening');
- assert.equal(areaForKind('SPEAKING').label,'스피킹');
+ assert.equal(areaForKind('SPEAKING').label,'말하기');
+});
+
+test('resume filters the selected area before applying its limit and excludes archived items',()=>{
+ const workspace=(id,kind,updated_at)=>({id,kind,updated_at});
+ const list={workspaces:[workspace('other','WRITING','2026-09-20'),workspace('archived','LISTENING','2026-09-19'),workspace('a','LISTENING','2026-09-18'),workspace('b','LISTENING','2026-09-17'),workspace('c','LISTENING','2026-09-16'),workspace('d','LISTENING','2026-09-15')],videos:[{workspace_id:'archived',archived:true}]};
+ assert.deepEqual(resumeWorkspaces(list,3,'LISTENING').map(w=>w.id),['a','b','c']);
+ assert.deepEqual(resumeWorkspaces(list,3,'SPEAKING'),[]);
+ assert.equal(list.workspaces[0].id,'other');
 });
 test('workspace links keep existing room addresses',()=>{
  assert.equal(workspaceHref({id:'a',kind:'LISTENING'}),'/learn/items/a');

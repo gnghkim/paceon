@@ -174,7 +174,7 @@ export function LearningRoom({ id }: { id: string }) {
     });
     if (!res.ok)
       throw new LearningError(
-        '영어학습을 불러오지 못했어요. 로그인과 연결을 확인해 주세요.',
+        '영어 학습을 불러오지 못했어요. 로그인과 연결을 확인해 주세요.',
         res.status,
       );
     const body = (await res.json()) as LearningSnapshot;
@@ -635,9 +635,9 @@ export function LearningRoom({ id }: { id: string }) {
   if (!data)
     return (
       <div className="space-y-4">
-        <Link href="/learn">← 영어학습</Link>
+        <Link href="/learn">← 영어 학습</Link>
         <p role={error ? 'alert' : 'status'}>
-          {error || '영어학습을 불러오는 중…'}
+          {error || '영어 학습을 불러오는 중…'}
         </p>
         {error && (
           <Button

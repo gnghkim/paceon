@@ -54,7 +54,7 @@ export function UnitRecordProvider({ children }: { children: ReactNode }) {
       {notice && (
         <div
           role="status"
-          className="fixed inset-x-4 bottom-24 z-40 mx-auto flex max-w-md items-start gap-3 rounded-xl border border-primary/30 bg-surface p-4 shadow-lg md:bottom-6"
+          className="fixed inset-x-4 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-start gap-3 rounded-xl border border-primary/30 bg-surface p-4 shadow-lg md:bottom-6"
         >
           <p className="flex-1 text-sm font-semibold">{notice}</p>
           <button

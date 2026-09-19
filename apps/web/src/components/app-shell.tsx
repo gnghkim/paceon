@@ -2,14 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import {
   BookOpen,
   CalendarDays,
   ChartColumn,
-  LogOut,
   Plus,
-  PencilLine,
   Settings,
   Sun,
   MessageSquare,
@@ -21,33 +19,14 @@ import { cn } from '@/lib/utils';
 import {
   QuickRecordProvider,
   RecordButton,
-  useQuickRecord,
 } from './quick-record';
 import { ReadingTimerProvider } from './reading-timer';
 import { UnitRecordProvider } from './unit-record';
+import { AccountControls } from './account-controls';
+import { activeNavigation, pageTitle, primaryNavigation } from '@/lib/navigation';
 
-const navigation = [
-  { href: '/today', label: '오늘', english: 'Today', icon: Sun },
-  { href: '/learn', label: '영어학습', english: 'Learn', icon: MessageSquare },
-  {
-    href: '/calendar',
-    label: '캘린더',
-    english: 'Calendar',
-    icon: CalendarDays,
-  },
-  {
-    href: '/resources',
-    label: '서재',
-    english: 'Library',
-    icon: BookOpen,
-  },
-  {
-    href: '/statistics',
-    label: '통계',
-    english: 'Statistics',
-    icon: ChartColumn,
-  },
-];
+const icons = { '/today': Sun, '/learn': MessageSquare, '/calendar': CalendarDays, '/resources': BookOpen, '/statistics': ChartColumn };
+const navigation = primaryNavigation.map(item => ({ ...item, icon: icons[item.href] }));
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { session } = useAuth();
@@ -61,12 +40,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function AppShellContent({ children }: { children: ReactNode }) {
-  const openRecord = useQuickRecord();
-  const { session, loading, configured, error, signOut } = useAuth();
+  const { session, loading, configured, error } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [signingOut, setSigningOut] = useState(false);
-  const [signOutError, setSignOutError] = useState<string | null>(null);
   useEffect(() => {
     if (!loading && configured && !session && !error) router.replace('/login');
   }, [loading, configured, session, error, router]);
@@ -103,31 +79,8 @@ function AppShellContent({ children }: { children: ReactNode }) {
       </main>
     );
 
-  async function handleSignOut() {
-    setSigningOut(true);
-    setSignOutError(null);
-    try {
-      await signOut();
-      router.replace('/login');
-    } catch (cause) {
-      setSignOutError(
-        cause instanceof Error ? cause.message : '로그아웃하지 못했습니다.',
-      );
-    } finally {
-      setSigningOut(false);
-    }
-  }
-  const active = (href: string) =>
-    href === '/resources'
-      ? pathname.startsWith(href) && pathname !== '/resources/new'
-      : pathname === href ||
-        (href === '/learn' && pathname.startsWith('/learn/'));
-  const title =
-    pathname === '/resources/new'
-      ? '책 추가'
-      : pathname === '/settings'
-        ? '설정'
-        : (navigation.find((item) => active(item.href))?.label ?? '서재');
+  const active = (href: string) => activeNavigation(pathname) === href;
+  const title = pageTitle(pathname);
 
   return (
     <div className="min-h-dvh bg-background">
@@ -165,29 +118,19 @@ function AppShellContent({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <div className="px-4">
-          <Button asChild className="w-full">
-            <Link href="/resources/new">
+          <Button asChild className="min-h-11 w-full">
+            <Link href="/resources/add">
               <Plus aria-hidden="true" />
-              책 추가
+              자료 추가
             </Link>
           </Button>
         </div>
-        <div className="mt-auto border-t border-border p-4">
-          <p
-            className="mb-3 truncate text-xs text-muted-foreground"
-            title={session.user.email}
-          >
-            {session.user.email}
-          </p>
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-muted-foreground"
-            disabled={signingOut}
-            onClick={handleSignOut}
-          >
-            <LogOut aria-hidden="true" />
-            {signingOut ? '로그아웃 중…' : '로그아웃'}
-          </Button>
+        <div className="mt-auto space-y-3 border-t border-border p-4">
+          <Link href="/settings" aria-current={pathname === '/settings' ? 'page' : undefined}
+            className={cn('flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm', pathname === '/settings' ? 'bg-primary-soft font-medium text-primary' : 'text-muted-foreground hover:bg-surface-subtle')}>
+            <Settings size={18} aria-hidden="true" />설정
+          </Link>
+          <AccountControls />
         </div>
       </aside>
       <div className="md:pl-56">
@@ -197,37 +140,19 @@ function AppShellContent({ children }: { children: ReactNode }) {
           </Link>
           <p className="hidden text-sm font-medium md:block">{title}</p>
           <div className="flex items-center gap-2">
-            <RecordButton className="hidden md:inline-flex" />
-            <Button asChild variant="ghost" size="icon" aria-label="설정">
+            <RecordButton className="min-h-11 px-3" />
+            <Button asChild variant="ghost" size="icon" aria-label="설정" className={cn("size-11", pathname === "/settings" && "bg-primary-soft text-primary")}>
               <Link href="/settings" aria-current={pathname === '/settings' ? 'page' : undefined}>
                 <Settings aria-hidden="true" />
               </Link>
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={signingOut ? '로그아웃 중' : '로그아웃'}
-              disabled={signingOut}
-              onClick={handleSignOut}
-              className="md:hidden"
-            >
-              <LogOut aria-hidden="true" />
-            </Button>
           </div>
         </header>
-        {signOutError && (
-          <p
-            role="alert"
-            className="mx-4 mt-4 rounded-lg bg-danger-soft p-3 text-sm text-danger"
-          >
-            {signOutError}
-          </p>
-        )}
         <ReadingTimerProvider>
           <main
             key={session.user.id}
             id="main-content"
-            className="mx-auto max-w-[1216px] px-4 pt-8 pb-28 sm:px-8 md:pb-12"
+            className="mx-auto max-w-[1216px] px-4 pt-8 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-8 md:pb-12"
           >
             {children}
           </main>
@@ -237,44 +162,13 @@ function AppShellContent({ children }: { children: ReactNode }) {
         aria-label="모바일 주 메뉴"
         className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
       >
-        {[
-          navigation[0]!,
-          navigation[1]!,
-          {
-            href: '#quick-record',
-            label: '독서',
-            english: 'Record',
-            icon: PencilLine,
-          },
-          navigation[3]!,
-          navigation[4]!,
-        ].map(({ href, label, icon: Icon }) =>
-          href === '#quick-record' ? (
-            <button
-              key={href}
-              type="button"
-              onClick={() => openRecord()}
-              aria-label="독서 기록"
-              className="flex min-h-16 flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
-            >
-              <Icon size={20} aria-hidden="true" />
-              <span>{label}</span>
-            </button>
-          ) : (
-            <Link
-              key={href}
-              href={href}
-              aria-current={active(href) ? 'page' : undefined}
-              className={cn(
-                'flex min-h-16 flex-col items-center justify-center gap-1 text-xs text-muted-foreground',
-                active(href) && 'text-primary',
-              )}
-            >
-              <Icon size={20} aria-hidden="true" />
-              <span>{label}</span>
-            </Link>
-          ),
-        )}
+        {navigation.map(({ href, label, icon: Icon }) => (
+          <Link key={href} href={href} aria-current={active(href) ? 'page' : undefined}
+            className={cn('flex min-h-16 flex-col items-center justify-center gap-1 border-t-2 border-transparent text-xs text-muted-foreground', active(href) && 'border-primary bg-primary-soft font-semibold text-primary')}>
+            <Icon size={20} aria-hidden="true" />
+            <span>{label}</span>
+          </Link>
+        ))}
       </nav>
     </div>
   );

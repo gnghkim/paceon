@@ -184,3 +184,31 @@ test('an archived book is left out of the shared budget entirely', async () => {
 test('today is never treated as a movable day', () => {
   assert.equal(isMovable({ id: 'a', study_date: today, status: 'PLANNED', is_locked: false }, today, new Set()), false);
 });
+
+test('first availability save works without a book or plan and an identical retry makes no writes', async () => {
+  let saved = [];
+  const writes = [];
+  const api = createAvailabilityHandler(config, async (url, init = {}) => {
+    const target = new URL(url);
+    const path = target.pathname;
+    if (path.endsWith('/user')) return Response.json({ id: user });
+    if (init.method && init.method !== 'GET') {
+      writes.push(path);
+      assert.equal(path, '/rest/v1/rpc/replace_availability_rules');
+      saved = JSON.parse(init.body).p_rules.map(rule => ({ iso_weekday: rule.isoWeekday, available_minutes: rule.availableMinutes }));
+      return Response.json({});
+    }
+    if (path === '/rest/v1/availability_rules') return Response.json(saved);
+    // A newly registered course does not require a book or an existing plan.
+    if (path === '/rest/v1/resources' && target.searchParams.get('workload_unit') === 'eq.UNIT')
+      return Response.json([{ id: bookId, title: '첫 강의', type: 'COURSE', workload_unit: 'UNIT', status: 'ACTIVE' }]);
+    return Response.json([]);
+  });
+  const input = { rules: [{ isoWeekday: 2, availableMinutes: 45 }] };
+  const response = await api(put(input));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { rules: input.rules, rescheduled: [], needsAttention: [] });
+  assert.deepEqual(saved, [{ iso_weekday: 2, available_minutes: 45 }]);
+  assert.equal((await api(put(input))).status, 200);
+  assert.deepEqual(writes, ['/rest/v1/rpc/replace_availability_rules']);
+});

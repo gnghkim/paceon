@@ -8,12 +8,12 @@ import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { LearningVideoLibrary } from './learning-video-library';
 import { sessionStatusLabel } from './learning-room-view';
-import { areaForKind, workspaceHref } from './learning-areas';
+import { areaForKind, resumeWorkspaces, workspaceHref } from './learning-areas';
 import { learningDuration, type LearningKind, type LearningList } from './learning-types';
 
 const start = {
-  SPEAKING: { icon: Mic, title: '영어로 한 문장 말해 볼까요?', body: 'AI가 만든 문장을 듣고 따라 읽거나 자유롭게 말해 보세요. 마이크와 AI는 버튼을 눌러야 시작돼요.', action: '새 스피킹 시작', name: '나의 영어 말하기', prompt: '', empty: '말하기를 시작하면 학습 시간이 기록돼요.' },
-  WRITING: { icon: PencilLine, title: '영어로 한 문장 써 볼까요?', body: '목표나 수준 설정 없이 바로 시작하세요. 글은 자동 저장되고, 원할 때만 AI 피드백을 요청할 수 있어요.', action: '새 글 쓰기', name: '나의 영어 쓰기', prompt: '오늘 있었던 일이나 지금 떠오르는 생각을 영어로 써 보세요.', empty: '글을 쓰기 시작하면 학습 시간이 기록돼요.' },
+  SPEAKING: { icon: Mic, title: '영어로 한 문장 말해 볼까요?', body: 'AI가 만든 문장을 듣고 따라 읽거나 자유롭게 말해 보세요. 마이크와 AI는 버튼을 눌러야 시작돼요.', action: '말하기 시작', name: '나의 영어 말하기', prompt: '', empty: '말하기를 시작하면 학습 시간이 기록돼요.' },
+  WRITING: { icon: PencilLine, title: '영어로 한 문장 써 볼까요?', body: '목표나 수준 설정 없이 바로 시작하세요. 글은 자동 저장되고, 원할 때만 AI 피드백을 요청할 수 있어요.', action: '글쓰기 시작', name: '나의 영어 쓰기', prompt: '오늘 있었던 일이나 지금 떠오르는 생각을 영어로 써 보세요.', empty: '글을 쓰기 시작하면 학습 시간이 기록돼요.' },
 } as const;
 
 export function LearningAreaHome({ kind }: { kind: LearningKind }) {
@@ -22,11 +22,12 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
   const [data, setData] = useState<LearningList | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const creation = useRef<{ requestId: string; workspaceId: string } | null>(null);
   const reload = useCallback(async () => {
     try {
       const res = await apiFetch(`/api/learning/workspaces?kind=${kind}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error('영어학습을 불러오지 못했어요. 다시 시도해 주세요.');
+      if (!res.ok) throw new Error('영어 학습을 불러오지 못했어요. 다시 시도해 주세요.');
       setData(await res.json());
       setError('');
     } catch (e) { setError((e as Error).message); }
@@ -38,7 +39,7 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
     creation.current ??= { requestId: crypto.randomUUID(), workspaceId: crypto.randomUUID() };
     try {
       const res = await apiFetch('/api/learning/workspaces', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...creation.current, kind: target, title: start[target].name, prompt: start[target].prompt }) });
-      if (!res.ok) throw new Error('영어학습을 만들지 못했어요. 다시 시도하면 같은 요청을 이어갑니다.');
+      if (!res.ok) throw new Error('영어 학습을 만들지 못했어요. 다시 시도하면 같은 요청을 이어갑니다.');
       const body = await res.json();
       router.push(`/learn/${body.workspace.id}`);
     } catch (e) { setError((e as Error).message); setBusy(false); }
@@ -59,6 +60,27 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
   const creator = kind === 'LISTENING' ? null : start[kind];
+  const resume = resumeWorkspaces(data, data?.workspaces.length ?? 0, kind);
+  const resumeSection = resume.length > 0 && (
+    <section aria-labelledby="resume-title" className="space-y-3">
+      <h2 id="resume-title" className="font-semibold">{areaForKind(kind).label} 이어서 공부하기</h2>
+      <div id="area-resume-list" className="space-y-3">
+        {resume.map((w, index) => {
+          const video = data?.videos?.find((v) => v.workspace_id === w.id);
+          return (
+            <Link key={w.id} href={workspaceHref(w)} className={`min-h-20 items-center justify-between gap-4 rounded-xl border border-border bg-card p-4 hover:border-primary ${index === 0 ? 'flex' : index < 3 ? (expanded ? 'flex' : 'hidden md:flex') : (expanded ? 'flex md:hidden' : 'hidden')}`}>
+              <div className="min-w-0">
+                <h3 className="break-words font-medium">{w.title}</h3>
+                <p className="mt-1 truncate text-sm text-muted-foreground">{video ? `YouTube · ${learningDuration(video.position_seconds)}에서 이어 보기` : w.draft || w.prompt || '이전 기록 이어 보기'}</p>
+              </div>
+              <ArrowRight className="shrink-0 text-primary" aria-hidden="true" />
+            </Link>
+          );
+        })}
+      </div>
+      {resume.length > 1 && <Button variant="outline" className="min-h-11 md:hidden" aria-expanded={expanded} aria-controls="area-resume-list" onClick={() => setExpanded(value => !value)}>{expanded ? '이어하기 접기' : '이어하기 더 보기'}</Button>}
+    </section>
+  );
   return (
     <div className="space-y-8">
       {error && (
@@ -67,7 +89,7 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
           <Button variant="outline" onClick={() => void reload()}>다시 불러오기</Button>
         </div>
       )}
-      {kind === 'LISTENING' && <LearningVideoLibrary data={data} reload={reload} />}
+      {kind === 'LISTENING' && <LearningVideoLibrary data={data} reload={reload} afterStart={resumeSection} />}
       {kind === 'LISTENING' && data?.nextOffset != null && (
         <Button variant="outline" disabled={busy} onClick={() => void more()}>영상 더 보기</Button>
       )}
@@ -82,6 +104,7 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
           </Button>
         </section>
       )}
+      {kind !== 'LISTENING' && resumeSection}
       {kind !== 'LISTENING' && data?.aiEnabled === false && (
         <p className="text-sm text-muted-foreground">현재 AI 피드백은 사용할 수 없어요. 기록과 시간 저장은 계속할 수 있어요.</p>
       )}

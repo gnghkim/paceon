@@ -1,6 +1,6 @@
 # 표현 저장과 오늘의 복습
 
-영어학습에서 만난 표현을 복습함에 넣고, 간격을 두고 다시 꺼내 본다. 간격을 두고 기억에서 꺼내 보는 연습을 설계 원칙으로 삼는다. 특정 사용자에게 효과나 성적 향상을 보장하지 않는다. [Spacing and retrieval practice guide](https://www.edresearch.edu.au/guides-resources/practice-guides/spacing-and-retrieval-practice-guide-full-publication)
+영어 학습에서 만난 표현을 복습함에 넣고, 간격을 두고 다시 꺼내 본다. 간격을 두고 기억에서 꺼내 보는 연습을 설계 원칙으로 삼는다. 특정 사용자에게 효과나 성적 향상을 보장하지 않는다. [Spacing and retrieval practice guide](https://www.edresearch.edu.au/guides-resources/practice-guides/spacing-and-retrieval-practice-guide-full-publication)
 
 ## 저장
 
@@ -12,7 +12,7 @@ AI 피드백의 **기억할 표현** 아래 **복습함에 넣기**를 누르면
 
 ## 복습
 
-**오늘** 화면의 독립된 줄과 영어학습 화면 위쪽에 복습할 개수가 뜬다. 읽은 책에서 떠올린 [독서 회상](READING_RECALL.md)도 같은 자리에서 함께 묻는다. 없으면 자리를 차지하지 않는다. `/learn/review`에서 한 번에 세 개를 묻는다.
+**오늘** 화면의 **오늘의 복습**과 영어 학습의 **공통 복습**에서 `/review`로 들어간다. 읽은 책에서 떠올린 [독서 회상](READING_RECALL.md)도 같은 자리에서 함께 묻는다. 오늘의 진입점은 예정 항목이 없어도 유지하며, 저장 자료 없음·예정 없음·조회 실패를 구분한다. 복습은 오늘 메뉴에 속하고 돌아가기는 **오늘로**다. 기존 `/learn/review`는 `/review`로 이동한다. 한 번에 세 개를 묻는 규칙은 그대로다.
 
 - 뜻을 먼저 보여 주지 않는다. 표현만 보여 주고 떠올리게 한 뒤 **뜻 확인하기**로 연다.
 - 확인한 뒤 **어려웠어요 / 보통이에요 / 쉬웠어요** 중 하나를 고른다.

@@ -56,7 +56,7 @@ export function LoginLanding({ onStart }: { onStart: (mode: 'login' | 'signup') 
               number="03"
               title="영어도 같은 자리에서 이어 갑니다"
               body="YouTube 링크로 듣고, 말하고, 씁니다. 공부하다 만난 단어는 그 자리에서 담으면 AI가 뜻과 예문을 채우고, 다음 날부터 복습에 나옵니다."
-              points={['구간 반복, 배속, 시각별 메모', 'AI 첨삭과 스피킹 피드백', '1·3·7·14·30일 간격 복습']}
+              points={['구간 반복, 배속, 시각별 메모', 'AI 첨삭과 말하기 피드백', '1·3·7·14·30일 간격 복습']}
               mock={<WordsMock />}
               mockLabel="단어장 예시: 단어 담기 입력칸과 뜻, 예문이 채워진 단어 카드"
             />
@@ -70,7 +70,7 @@ export function LoginLanding({ onStart }: { onStart: (mode: 'login' | 'signup') 
             id="preview-title"
             eyebrow="오늘 화면"
             title="열면 오늘 할 일부터 보입니다"
-            lead="오늘의 분량, 이번 주의 흐름, 영어학습과 복습이 한 화면에 있습니다."
+            lead="오늘의 분량, 이번 주의 흐름, 영어 학습과 복습이 한 화면에 있습니다."
           />
           <TodayMock />
           <p className="mt-4 text-center text-xs text-muted-foreground">
@@ -358,7 +358,7 @@ function TodayMock() {
   return (
     <div
       role="img"
-      aria-label="오늘 화면 예시: 오늘의 분량 두 권, 이번 주 요약, 영어학습과 복습 카드"
+      aria-label="오늘 화면 예시: 오늘의 분량 두 권, 이번 주 요약, 영어 학습과 복습 카드"
       className="mx-auto mt-12 max-w-3xl"
     >
       <div aria-hidden="true" className="overflow-hidden rounded-2xl border border-border bg-background shadow-lg">
@@ -412,7 +412,7 @@ function TodayMock() {
             </div>
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-center justify-between">
-                <p className="font-medium">오늘의 영어학습</p>
+                <p className="font-medium">오늘의 영어 학습</p>
                 <p className="text-xs text-muted-foreground">12분</p>
               </div>
               <div className="mt-3 flex items-center justify-between rounded-lg bg-surface-subtle px-3 py-2 text-xs">

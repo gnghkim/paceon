@@ -8,7 +8,7 @@ import { Input } from './ui/input';
 import { Skeleton } from './ui/skeleton';
 
 /**
- * 하루 영어학습 목표 시간. 비워 두면 목표 없이 쌓인 시간만 보여 준다.
+ * 하루 영어 학습 목표 시간. 비워 두면 목표 없이 쌓인 시간만 보여 준다.
  * 목표는 격려용이며 계획 계산이나 통계 집계에 쓰지 않는다.
  */
 export function LearningGoalForm() {
@@ -66,7 +66,7 @@ function GoalFields({
   return (
     <form onSubmit={submit} className="space-y-3 rounded-xl border border-border bg-card p-5">
       <label className="block space-y-2 text-sm" htmlFor="daily-learning-minutes">
-        <span className="font-medium">하루 영어학습 목표 (분)</span>
+        <span className="font-medium">하루 영어 학습 목표 (분)</span>
         <Input
           id="daily-learning-minutes"
           type="number"

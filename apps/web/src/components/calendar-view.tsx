@@ -11,7 +11,8 @@ import {
 } from './workspace-data';
 import { Button } from './ui/button';
 import { SessionCard } from './session-card';
-import type { ScheduleSession } from '@paceon/shared';
+import type { Resource, ScheduleSession } from '@paceon/shared';
+import { describeSession } from '@/lib/session-presentation';
 import {
   sessionState,
   summarizeDay,
@@ -164,10 +165,8 @@ function CalendarContent({ initialDate }: { initialDate: string }) {
                           <DayChip
                             key={s.id}
                             session={s}
-                            title={
-                              data.resources.find((r) => r.id === s.resource_id)
-                                ?.title
-                            }
+                            resource={data.resources.find((r) => r.id === s.resource_id) ?? data.materials.find((r) => r.id === s.resource_id)}
+                            unit={s.unit_id ? data.units[s.unit_id] : undefined}
                             completedThroughPage={
                               data.progress[s.resource_id]
                                 ?.completedThroughPage ?? 0
@@ -256,26 +255,29 @@ const chipClass: Record<SessionStateKind, string> = {
 
 function DayChip({
   session,
-  title,
+  resource,
+  unit,
   completedThroughPage,
   today,
 }: {
   session: ScheduleSession;
-  title: string | undefined;
+  resource: Resource | undefined;
+  unit: { title: string; minutes: number | null } | undefined;
   completedThroughPage: number;
   today: string;
 }) {
   const { kind } = sessionState(session, completedThroughPage, today);
+  const { title, detail, href } = describeSession(session, resource, unit);
+  const className = `block truncate rounded border-l-2 px-2 py-2 text-xs ${chipClass[kind]}`;
+  const content = <>{title}{detail && <span className="mt-1 block text-[11px]">{detail}</span>}</>;
+  if (!href) return <span title={title} className={className}>{content}</span>;
   return (
     <Link
-      href={`/resources/${session.resource_id}`}
-      title={title}
-      className={`block truncate rounded border-l-2 px-2 py-2 text-xs ${chipClass[kind]}`}
+      href={href}
+      title={[title, detail].filter(Boolean).join(' · ')}
+      className={className}
     >
-      {title ?? '도서'}
-      <span className="mt-1 block text-[11px]">
-        {session.start_page}–{session.end_page}쪽
-      </span>
+      {content}
     </Link>
   );
 }

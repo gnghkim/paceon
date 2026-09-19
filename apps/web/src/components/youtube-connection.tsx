@@ -28,7 +28,7 @@ export function YouTubeConnection() {
   async function run(work: () => Promise<void>) { setBusy(true); setMessage(''); try { await work(); } catch (error) { setMessage(error instanceof Error ? error.message : '요청을 처리하지 못했습니다.'); } finally { setBusy(false); } }
   return <div className="space-y-3 rounded-xl border border-border bg-card p-5" aria-label="YouTube 계정 연결">
     <h3 className="font-semibold">YouTube</h3>
-    <p className="text-sm text-muted-foreground">연결하면 영어학습 리스닝에서 내 재생목록과 구독 채널의 영상을 골라 가져올 수 있어요. 읽기 권한만 사용하며, Premium 활성화나 전체 시청 기록·나중에 볼 동영상 동기화는 제공하지 않아요.</p>
+    <p className="text-sm text-muted-foreground">연결하면 영어 학습 듣기에서 내 재생목록과 구독 채널의 영상을 골라 가져올 수 있어요. 읽기 권한만 사용하며, Premium 활성화나 전체 시청 기록·나중에 볼 동영상 동기화는 제공하지 않아요.</p>
     {!status && !message && <p role="status" className="text-sm">연결 상태 확인 중…</p>}
     {status && !status.configured && <p className="text-sm">YouTube 계정 연결 설정이 아직 준비되지 않았습니다. 영상 링크 저장과 학습은 이용할 수 있습니다.</p>}
     {status?.configured && <div className="flex flex-wrap items-center gap-2">

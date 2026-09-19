@@ -9,11 +9,7 @@ import { formatDate } from '@/lib/planning';
  * 서재의 교재·강의 목록. 하나도 없으면 자리를 차지하지 않는다.
  * 책은 쪽으로, 여기 자료는 챕터로 진도를 말한다.
  */
-export function MaterialList({ data, query }: { data: WorkspaceData; query: string }) {
-  const needle = query.trim().toLocaleLowerCase();
-  const items = data.materials.filter(
-    (item) => item.status !== 'ARCHIVED' && item.title.toLocaleLowerCase().includes(needle),
-  );
+export function MaterialList({ data, items }: { data: WorkspaceData; items: WorkspaceData['materials'] }) {
   if (!items.length) return null;
   return (
     <section aria-labelledby="materials-title" className="space-y-3">
@@ -35,6 +31,7 @@ export function MaterialList({ data, query }: { data: WorkspaceData; query: stri
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{item.title}</span>
+                  {item.author && <span className="mt-1 block truncate text-sm text-muted-foreground">{item.author}</span>}
                   <span className="mt-1 block text-sm text-muted-foreground">
                     {progress.done} / {progress.total}
                     {item.unit_label ?? ''}

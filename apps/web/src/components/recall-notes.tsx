@@ -79,7 +79,7 @@ export function RecallNotes({
     <Card className="p-4 md:p-6">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">읽고 떠올린 것</h2>
-        <Link href="/learn/review" className="text-sm text-primary underline">
+        <Link href="/review" className="text-sm text-primary underline">
           오늘의 복습
         </Link>
       </div>

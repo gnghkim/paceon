@@ -54,7 +54,7 @@ export function LegacySpeechRecords({ workspaceId }: { workspaceId: string }) {
   return (
     <details className="rounded-xl border border-border p-4">
       <summary className="min-h-11 cursor-pointer py-3 text-sm font-medium">이전 말하기 기록 {items.length}개</summary>
-      <p className="text-xs text-muted-foreground">영역을 나누기 전에 이 공간에서 녹음한 기록이에요. 새 녹음은 스피킹에서 할 수 있어요. 여기서 재생한 시간은 학습 시간에 포함되지 않아요.</p>
+      <p className="text-xs text-muted-foreground">영역을 나누기 전에 이 공간에서 녹음한 기록이에요. 새 녹음은 말하기에서 할 수 있어요. 여기서 재생한 시간은 학습 시간에 포함되지 않아요.</p>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       {items.map((item) => (
         <SpeechResult key={`${item.id}:${item.status}`} item={item} busy={busy} readOnly

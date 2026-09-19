@@ -119,7 +119,7 @@ export function WordBook() {
           className="mb-4 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground"
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          영어학습
+          영어 학습
         </Link>
         <h1 className="text-2xl font-semibold">단어장</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -187,7 +187,7 @@ export function WordBook() {
 
       {data && data.due > 0 && (
         <Link
-          href="/learn/review"
+          href="/review"
           className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 hover:border-primary"
         >
           <span className="text-sm">

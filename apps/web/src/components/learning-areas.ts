@@ -3,9 +3,9 @@ import type { LearningKind, LearningList, LearningWorkspace } from './learning-t
 export type LearningAreaSlug = 'listening' | 'speaking' | 'writing';
 export const LAST_AREA_KEY = 'paceon:learn:last-area';
 export const learningAreas: readonly { kind: LearningKind; slug: LearningAreaSlug; label: string }[] = [
-  { kind: 'LISTENING', slug: 'listening', label: '리스닝' },
-  { kind: 'SPEAKING', slug: 'speaking', label: '스피킹' },
-  { kind: 'WRITING', slug: 'writing', label: '라이팅' },
+  { kind: 'LISTENING', slug: 'listening', label: '듣기' },
+  { kind: 'SPEAKING', slug: 'speaking', label: '말하기' },
+  { kind: 'WRITING', slug: 'writing', label: '쓰기' },
 ];
 
 export const resolveLearningArea = (stored: string | null): LearningAreaSlug =>
@@ -24,11 +24,11 @@ export const learningRoomFeatures = (kind: LearningKind) => ({
   legacySpeech: kind === 'WRITING',
 });
 
-export function resumeWorkspaces(list: LearningList | null, limit = 3): LearningWorkspace[] {
+export function resumeWorkspaces(list: LearningList | null, limit = 3, kind?: LearningKind): LearningWorkspace[] {
   if (!list) return [];
   const archived = new Set((list.videos ?? []).filter(video => video.archived).map(video => video.workspace_id));
   return list.workspaces
-    .filter(workspace => !archived.has(workspace.id))
+    .filter(workspace => !archived.has(workspace.id) && (!kind || workspace.kind === kind))
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
     .slice(0, limit);
 }

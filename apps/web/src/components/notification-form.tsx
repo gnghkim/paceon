@@ -182,7 +182,7 @@ function Fields({
             />
           </label>
           <p className="text-xs leading-5 text-muted-foreground">
-            그 시각에 오늘 읽을 분량과 영어학습 목표를 한 줄로 보내요. 못 채운 날을 따로
+            그 시각에 오늘 읽을 분량과 영어 학습 목표를 한 줄로 보내요. 못 채운 날을 따로
             알리지는 않아요. 기기마다 한 번씩 켜야 하고, iPhone은 홈 화면에 추가한 뒤 열어야
             알림을 받을 수 있어요.
           </p>

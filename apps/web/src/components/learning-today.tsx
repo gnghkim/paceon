@@ -9,7 +9,7 @@ import { areaForKind, resumeWorkspaces, workspaceHref } from './learning-areas';
 import { learningDuration, type LearningList } from './learning-types';
 
 /**
- * 오늘 화면의 영어학습 카드. 오늘 쌓인 시간, 목표(정했다면), 이어하기 하나를 보여 준다.
+ * 오늘 화면의 영어 학습 카드. 오늘 쌓인 시간, 목표(정했다면), 이어하기 하나를 보여 준다.
  * 목표를 못 채워도 경고하지 않는다. 시간은 통계에서 이미 받아 온 값을 그대로 쓴다.
  */
 export function LearningToday({
@@ -56,7 +56,7 @@ export function LearningToday({
           className="flex items-center gap-2 font-semibold"
         >
           <MessageSquare size={18} className="text-primary" aria-hidden="true" />
-          오늘의 영어학습
+          오늘의 영어 학습
         </h2>
         {minutes === null ? (
           <Skeleton className="h-5 w-20" />
@@ -109,7 +109,7 @@ export function LearningToday({
         href="/learn"
         className="mt-4 inline-flex min-h-10 items-center gap-2 text-sm font-medium text-primary"
       >
-        영어학습 열기
+        영어 학습 열기
         <ArrowRight size={15} aria-hidden="true" />
       </Link>
     </section>

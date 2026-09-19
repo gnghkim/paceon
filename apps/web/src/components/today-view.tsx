@@ -46,6 +46,7 @@ export function TodayView() {
 
 function TodayContent({ data }: { data: WorkspaceData }) {
   const statistics = useYearStatistics(data.today);
+  const hasResources = data.resources.length + data.materials.length > 0;
   const sessions = data.sessions.filter(
     (s) => s.study_date === data.today && s.status !== 'SKIPPED',
   );
@@ -84,10 +85,10 @@ function TodayContent({ data }: { data: WorkspaceData }) {
               캘린더
             </Link>
           </Button>
-          {!data.resources.length && (
+          {!hasResources && (
             <Button asChild>
-              <Link href="/resources/new">
-                <Plus size={16} />책 추가
+              <Link href="/resources/add">
+                <Plus size={16} />자료 추가
               </Link>
             </Button>
           )}
@@ -142,22 +143,22 @@ function TodayContent({ data }: { data: WorkspaceData }) {
               <div className="rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
                 <BookOpen size={30} className="mx-auto mb-4 text-primary" />
                 <h3 className="font-semibold">
-                  {data.resources.length
+                  {hasResources
                     ? '오늘은 예정된 학습이 없어요'
-                    : '첫 책으로 시작해 볼까요?'}
+                    : '첫 학습 자료로 시작해 볼까요?'}
                 </h3>
                 <p className="mx-auto mt-2 mb-6 max-w-sm text-sm leading-6 text-muted-foreground">
-                  {data.resources.length
-                    ? '다가오는 일정을 확인하거나, 아직 계획이 없는 책의 분량을 나눠 보세요.'
-                    : '읽고 있는 책과 현재 페이지를 알려 주세요. 내 시간에 맞는 학습 계획을 만들 수 있어요.'}
+                  {hasResources
+                    ? '다가오는 일정을 확인하거나, 서재에서 자료의 학습 계획을 만들어 보세요.'
+                    : '책·교재·강의를 추가하면 내 시간에 맞는 학습 계획을 만들 수 있어요.'}
                 </p>
                 <Button asChild>
                   <Link
                     href={
-                      data.resources.length ? '/calendar' : '/resources/new'
+                      hasResources ? '/calendar' : '/resources/add'
                     }
                   >
-                    {data.resources.length ? '캘린더 보기' : '첫 책 추가'}
+                    {hasResources ? '캘린더 보기' : '자료 추가'}
                     <ArrowRight size={16} />
                   </Link>
                 </Button>
@@ -267,11 +268,11 @@ function TodayContent({ data }: { data: WorkspaceData }) {
   );
 }
 
-/** 오늘 화면의 잔디와 영어학습 카드가 같은 1년치 통계를 한 번만 받아 쓴다. */
+/** 오늘 화면의 잔디와 영어 학습 카드가 같은 1년치 통계를 한 번만 받아 쓴다. */
 function useYearStatistics(today: string) {
   const { apiFetch } = useAuth();
   const [data, setData] = useState<StatisticsData | null>(null);
-  // 기록을 저장하면 잔디·연속일·이번 주·영어학습 분이 모두 달라진다.
+  // 기록을 저장하면 잔디·연속일·이번 주·영어 학습 분이 모두 달라진다.
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
@@ -311,7 +312,7 @@ function StudyStreakCard({ today, data }: { today: string; data: StatisticsData 
         </span>
       </p>
       <p className="mt-2 text-sm text-muted-foreground">
-        오늘 · 도서 {todayEntry?.recordedMinutes ?? 0}분 · 영어학습{' '}
+        오늘 · 도서 {todayEntry?.recordedMinutes ?? 0}분 · 영어 학습{' '}
         {todayEntry?.learningMinutes ?? 0}분
       </p>
       <ThisWeek days={heatmapDays} today={today} />

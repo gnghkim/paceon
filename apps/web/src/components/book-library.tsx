@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { formatDate, summarizeBook } from '@/lib/planning';
+import { filterLibrary, type LibraryType, type BookStatusFilter } from '@/lib/library-filters';
 
 export function BookCover({
   url,
@@ -46,67 +47,58 @@ export function BookCover({
 export function BookLibrary() {
   const { data, loading, error, reload } = useWorkspace();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState('all');
-  // 보관한 책은 따로 찾을 때만 보여 준다. 전체는 지금 읽는 책들의 목록이다.
-  const books =
-    data?.resources.filter(
-      (book) =>
-        (filter === 'all'
-          ? book.status !== 'ARCHIVED'
-          : book.status === filter) &&
-        `${book.title} ${book.author ?? ''}`
-          .toLocaleLowerCase()
-          .includes(query.trim().toLocaleLowerCase()),
-    ) ?? [];
+  const [type, setType] = useState<LibraryType>('all');
+  const [filter, setFilter] = useState<BookStatusFilter>('all');
+  const { books, materials, empty } = filterLibrary(data?.resources ?? [], data?.materials ?? [], type, filter, query);
+  const showArchivedBooks = empty === 'filter' && type === 'all' && data?.resources.some(book => book.status === 'ARCHIVED');
+  const emptyTitle = empty === 'library' ? '첫 번째 자료를 서재에 담아 보세요'
+    : empty === 'type' ? (type === 'books' ? '아직 등록한 책이 없어요' : '아직 등록한 교재·강의가 없어요')
+      : empty === 'search' ? '검색 결과가 없어요' : '조건에 맞는 자료가 없어요';
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-[28px] font-bold tracking-tight">내 서재</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            읽고 있는 책과 앞으로의 여정을 한곳에서 확인하세요.
+            책·교재·강의를 한곳에서 관리하세요
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-        <Button asChild variant="outline"><Link href="/resources/materials/new">교재·강의 추가</Link></Button>
-        <Button asChild variant="outline"><Link href="/resources/import">PDF 가져오기</Link></Button>
         <Button asChild>
-          <Link href="/resources/new">
-            <Plus className="size-4" />책 추가
+          <Link href="/resources/add">
+            <Plus className="size-4" />자료 추가
           </Link>
         </Button>
-        </div>
       </header>
       <div className="flex flex-col justify-between gap-3 sm:flex-row">
-        <div className="flex gap-1" aria-label="도서 상태 필터">
-          {[
+        <div role="group" className="flex flex-wrap gap-1" aria-label="자료 종류 필터">
+          {([['all', '전체'], ['books', '책'], ['materials', '교재·강의']] as const).map(([value, label]) => (
+            <Button key={value} variant={type === value ? 'secondary' : 'ghost'} aria-pressed={type === value} onClick={() => setType(value)}>{label}</Button>
+          ))}
+        </div>
+        <div className="relative sm:w-72">
+          <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
+          <Input aria-label="서재에서 제목 또는 저자 검색" placeholder="제목 또는 저자 검색" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" />
+        </div>
+      </div>
+      {type === 'books' && (
+        <div role="group" className="flex flex-wrap gap-1" aria-label="도서 상태 필터">
+          {([
             ['all', '전체'],
             ['ACTIVE', '읽는 중'],
             ['COMPLETED', '완독'],
             ['ARCHIVED', '보관'],
-          ].map(([value, label]) => (
+          ] as const).map(([value, label]) => (
             <Button
               key={value}
               variant={filter === value ? 'secondary' : 'ghost'}
               aria-pressed={filter === value}
-              onClick={() => setFilter(value!)}
+              onClick={() => setFilter(value)}
             >
               {label}
             </Button>
           ))}
         </div>
-        <div className="relative sm:w-72">
-          <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
-          <Input
-            aria-label="서재에서 제목 또는 저자 검색"
-            placeholder="제목 또는 저자 검색"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-      </div>
-      {data && filter === 'all' && <MaterialList data={data} query={query} />}
+      )}
       {loading ? (
         <div role="status" aria-label="서재 불러오는 중" className="space-y-3">
           {[1, 2, 3].map((i) => (
@@ -120,37 +112,43 @@ export function BookLibrary() {
             다시 불러오기
           </Button>
         </Card>
-      ) : books.length === 0 ? (
+      ) : empty ? (
         <Card className="px-6 py-16 text-center">
           <BookOpen className="mx-auto mb-4 size-9 text-muted-foreground" />
           <h2 className="text-lg font-semibold">
-            {data?.resources.length
-              ? '조건에 맞는 책이 없어요'
-              : '첫 번째 책을 서재에 담아 보세요'}
+            {emptyTitle}
           </h2>
           <p className="mb-6 mt-2 text-sm text-muted-foreground">
-            {data?.resources.length
+            {empty === 'search' || empty === 'filter'
               ? '다른 제목으로 검색하거나 필터를 바꿔 보세요.'
-              : '현재 읽은 페이지부터 나에게 맞는 독서 계획을 만들 수 있어요.'}
+              : '자료를 등록하고 나에게 맞는 학습 계획을 만들어 보세요.'}
           </p>
-          {data?.resources.length ? (
+          {empty === 'search' || (empty === 'filter' && type === 'books') || showArchivedBooks ? (
             <Button
               variant="outline"
               onClick={() => {
                 setQuery('');
                 setFilter('all');
+                if (showArchivedBooks) {
+                  setType('books');
+                  setFilter('ARCHIVED');
+                }
               }}
             >
-              검색과 필터 초기화
+              {showArchivedBooks ? '보관한 책 보기' : '검색과 필터 초기화'}
             </Button>
           ) : (
             <Button asChild>
-              <Link href="/resources/new">책 추가하기</Link>
+              <Link href={type === 'books' ? '/resources/new' : type === 'materials' ? '/resources/materials/new' : '/resources/add'}>
+                {type === 'books' ? '책 추가' : type === 'materials' ? '교재·강의 추가' : '자료 추가'}
+              </Link>
             </Button>
           )}
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-6">
+          {books.length > 0 && <section aria-labelledby="books-title" className="space-y-3">
+          <h2 id="books-title" className="text-sm font-semibold text-muted-foreground">책</h2>
           {books.map((book) => {
             const bookPlans =
               data?.plans.filter((p) => p.resource_id === book.id) ?? [];
@@ -191,9 +189,9 @@ export function BookLibrary() {
                                 ? '계획 진행 중'
                                 : '계획 대기'}
                     </p>
-                    <h2 className="break-words text-lg font-semibold">
+                    <h3 className="break-words text-lg font-semibold">
                       {book.title}
-                    </h2>
+                    </h3>
                     <p className="mt-1 truncate text-sm text-muted-foreground">
                       {book.author || '저자 정보 없음'}
                     </p>
@@ -235,6 +233,8 @@ export function BookLibrary() {
               </Link>
             );
           })}
+          </section>}
+          {data && <MaterialList data={data} items={materials} />}
         </div>
       )}
     </div>

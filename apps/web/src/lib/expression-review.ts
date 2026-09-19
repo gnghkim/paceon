@@ -9,6 +9,24 @@ export const REVIEW_INTERVALS = [1, 3, 7, 14, 30] as const;
 /** 한 번에 보여 주는 복습 카드 수. 밀린 개수는 세어 보여 주지 않는다. */
 export const DAILY_REVIEW_SIZE = 3;
 
+/** Completion is only confirmed after grading and a fresh successful due-count query. */
+export function reviewStatus(summary: { saved: number; due: number } | null, graded = 0, failed = false) {
+  if (failed) return 'error';
+  if (!summary) return 'loading';
+  if (summary.due > 0) return 'ready';
+  if (graded > 0) return 'complete';
+  return summary.saved > 0 ? 'scheduled' : 'empty';
+}
+
+export const reviewStatusLabel = {
+  loading: '복습을 불러오는 중…',
+  error: '복습을 불러오지 못했어요',
+  ready: '읽은 것과 담아 둔 단어를 다시 꺼내 봐요',
+  complete: '오늘 복습 완료',
+  scheduled: '오늘 예정된 복습이 없어요',
+  empty: '복습할 내용을 아직 담지 않았어요',
+} as const;
+
 export type ReviewGrade = 'HARD' | 'OK' | 'EASY';
 
 export interface ReviewState {

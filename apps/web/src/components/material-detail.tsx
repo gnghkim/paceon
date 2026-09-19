@@ -17,6 +17,7 @@ import { WORKSPACE_CHANGED } from '@/lib/quick-record';
 import type { MaterialDetail as Detail, MaterialUnit } from '@/lib/unit-materials-api';
 import type { RecallNote } from '@/lib/recall-api';
 import { findStall } from '@/lib/unit-progress';
+import { useWorkspace } from './workspace-data';
 
 /**
  * 챕터로 공부하는 자료 하나. 진도, 계획, 챕터 목록, 그리고 챕터마다 남긴 공부 내용.
@@ -26,6 +27,8 @@ import { findStall } from '@/lib/unit-progress';
  */
 export function MaterialDetail({ id }: { id: string }) {
   const { apiFetch } = useAuth();
+  const { data: workspace } = useWorkspace();
+  const settingsHref = `/settings?returnTo=${encodeURIComponent(`/resources/materials/${id}`)}#availability`;
   const openRecord = useUnitRecord();
   const notice = useSearchParams().get('notice');
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -139,6 +142,12 @@ export function MaterialDetail({ id }: { id: string }) {
           {error || notice}
         </p>
       )}
+      {workspace?.availability.length === 0 && (
+        <div className="rounded-xl bg-warning-soft p-4 text-sm leading-6">
+          <p>계획을 만들려면 요일별 학습 가능 시간을 먼저 정해 주세요.</p>
+          <Link href={settingsHref} className="inline-flex min-h-11 items-center font-medium text-primary underline">학습 시간 설정</Link>
+        </div>
+      )}
 
       <Card className="space-y-4 p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -192,8 +201,8 @@ export function MaterialDetail({ id }: { id: string }) {
           <span className="font-medium">{stall.title}</span>
           {stall.minutes !== null && `(${stall.minutes}분)`}이(가) {formatDate(stall.scheduledOn, true)}로 밀려 있어요.
           하루에 남는 학습 시간보다 길어서, 다른 계획이 끝나 시간이 날 때까지 기다리는 중이에요.{' '}
-          <Link href="/settings" className="text-primary underline">
-            설정
+          <Link href={settingsHref} className="text-primary underline">
+            학습 시간 설정
           </Link>
           에서 요일별 학습 시간을 늘리거나 다른 계획의 하루 분량을 줄이면 앞당겨져요. 일정과 상관없이 지금 바로 골라서
           공부할 수도 있어요.

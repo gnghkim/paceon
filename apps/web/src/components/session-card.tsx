@@ -6,6 +6,8 @@ import { sessionState, type SessionStateKind } from '@/lib/session-state';
 import { StartReadingButton, useReadingTimer } from './reading-timer';
 import { useUnitRecord } from './unit-record';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { describeSession } from '@/lib/session-presentation';
 
 const label: Record<SessionStateKind, string> = {
   COMPLETED: '완료',
@@ -28,6 +30,8 @@ interface SessionCardProps {
 
 /** 일정 하나. 쪽 범위가 있으면 책의 카드, 챕터를 가리키면 챕터의 카드다. */
 export function SessionCard(props: SessionCardProps) {
+  const presentation = describeSession(props.session, props.material ?? props.book, props.unit);
+  if (!presentation.href) return <p className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">{presentation.title}</p>;
   return props.session.unit_id ? <UnitSessionCard {...props} /> : <PageSessionCard {...props} />;
 }
 
@@ -46,6 +50,7 @@ function UnitSessionCard({ session, material, unit, today, lead = false }: Sessi
   const status = done ? '완료' : state.kind === 'MISSED' ? '아직 안 함' : '학습 기록';
   // 강의는 읽지 않는다. 자료의 종류에 맞는 말을 쓴다.
   const startLabel = material?.type === 'COURSE' ? '수강 시작' : '학습 시작';
+  const presentation = describeSession(session, material, unit);
   return (
     <div
       className={cn(
@@ -84,7 +89,7 @@ function UnitSessionCard({ session, material, unit, today, lead = false }: Sessi
           {unit?.title ?? label}
         </span>
         <span className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-          <span className="truncate">{material?.title ?? '자료'}</span>
+          <span className="truncate">{presentation.title}</span>
           {!done && (
             <span className="inline-flex items-center gap-1.5">
               <Clock3 size={14} aria-hidden="true" />약 {unit?.minutes ?? session.estimated_minutes ?? '—'}분
@@ -120,7 +125,7 @@ function UnitSessionCard({ session, material, unit, today, lead = false }: Sessi
           </span>
         </>
       )}
-      <ArrowUpRight size={18} aria-hidden="true" className="shrink-0 text-muted-foreground group-hover:text-primary" />
+      <Link href={presentation.href!} aria-label={`${presentation.title} 상세`} className="inline-flex min-h-11 min-w-11 items-center justify-center text-muted-foreground hover:text-primary"><ArrowUpRight size={18} aria-hidden="true" /></Link>
     </div>
   );
 }
@@ -137,6 +142,7 @@ function PageSessionCard({
   const pausedHere = running?.pausedAt != null;
   const state = sessionState(session, completedThroughPage, today);
   const done = state.kind === 'COMPLETED';
+  const presentation = describeSession(session, book);
   // 같은 책의 내일 일정까지 "읽는 중"으로 보이면 안 된다. 오늘 몫에만 표시한다.
   const timing =
     running?.resourceId === session.resource_id && session.study_date === today;
@@ -184,7 +190,7 @@ function PageSessionCard({
         </span>
         <span className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
           <span>
-            {session.start_page}–{session.end_page}쪽{' '}
+            {presentation.detail}{' '}
             <span className={done ? undefined : 'text-foreground'}>
               · {session.planned_workload}쪽
             </span>
@@ -239,11 +245,11 @@ function PageSessionCard({
           </span>
         </>
       )}
-      <ArrowUpRight
+      <Link href={presentation.href!} aria-label={`${presentation.title} 상세`} className="inline-flex min-h-11 min-w-11 items-center justify-center text-muted-foreground hover:text-primary"><ArrowUpRight
         size={18}
         aria-hidden="true"
         className="shrink-0 text-muted-foreground group-hover:text-primary"
-      />
+      /></Link>
     </div>
   );
 }

@@ -60,7 +60,7 @@ export function QuickRecordProvider({ children }: { children: ReactNode }) {
       {notice && (
         <div
           role="status"
-          className="fixed inset-x-4 bottom-24 z-40 mx-auto flex max-w-md items-start gap-3 rounded-xl border border-primary/30 bg-surface p-4 shadow-lg md:bottom-6"
+          className="fixed inset-x-4 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-start gap-3 rounded-xl border border-primary/30 bg-surface p-4 shadow-lg md:bottom-6"
         >
           <div className="flex-1 text-sm">
             <p className="font-semibold">
@@ -232,7 +232,7 @@ function RecordContent({
           <p className="text-sm text-muted-foreground">
             영어 학습 시간은{' '}
             <Link href="/learn" className="underline" onClick={onClose}>
-              영어학습
+              영어 학습
             </Link>
             에서 자동으로 기록돼요.
           </p>

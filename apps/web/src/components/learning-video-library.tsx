@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { YouTubeImport } from './youtube-import';
@@ -35,7 +35,7 @@ function useDisplayTitles(pending: readonly string[]) {
 }
 
 type ImportResult = { index: number; workspace?: LearningWorkspace; duplicate?: boolean; error?: string };
-export function LearningVideoLibrary({ data, reload }: { data: LearningList | null; reload: () => Promise<void> }) {
+export function LearningVideoLibrary({ data, reload, afterStart }: { data: LearningList | null; reload: () => Promise<void>; afterStart?: ReactNode }) {
   const { apiFetch } = useAuth();
   const [urls, setUrls] = useState('');
   const [results, setResults] = useState<ImportResult[]>([]);
@@ -83,6 +83,8 @@ export function LearningVideoLibrary({ data, reload }: { data: LearningList | nu
       {results.some((r) => r.error) && <Button variant="outline" onClick={() => { setUrls(results.filter((r) => r.error).map((r) => submitted[r.index]).filter(Boolean).join('\n')); setResults([]); request.current = null; }}>실패한 링크만 다시 입력</Button>}
       <YouTubeImport onSaved={() => void reload()} />
     </div>
+    {afterStart}
+    <h2 className="font-semibold">저장한 듣기 자료</h2>
     <div className="flex flex-wrap gap-4 text-sm"><label><input type="checkbox" checked={favorites} onChange={(e) => setFavorites(e.target.checked)} /> 즐겨찾기만</label><label><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> 보관한 영상 포함</label></div>
     <div className="grid gap-3 sm:grid-cols-2">{videos.map((v) => <div key={v.workspace_id} className="min-w-0 space-y-2 rounded-xl border border-border bg-card p-5">
       <Link href={`/learn/items/${v.workspace_id}`} className="block space-y-2 hover:text-primary">

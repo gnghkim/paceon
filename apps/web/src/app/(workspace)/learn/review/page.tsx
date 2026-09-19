@@ -1,5 +1,5 @@
-import { ExpressionReview } from '@/components/expression-review';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <ExpressionReview />;
+  redirect('/review');
 }

@@ -3,7 +3,7 @@
 **Your learning, at your pace.**  
 내 속도에 맞춰 계획하고, 자투리 시간에 공부하고, 배운 내용을 기록하는 개인 학습 웹앱입니다.
 
-현재 **도서 학습 관리, LR3 스피킹·쉐도잉, LR4 표현 복습과 단어장까지 구현**되어 있습니다. 홈 화면에 설치해 앱처럼 쓰고 정한 시각에 알림을 받을 수 있습니다. Next.js 웹앱, Supabase의 인증·DB·비공개 파일 저장소, Python Worker로 구성됩니다.
+현재 **도서 학습 관리, LR3 말하기·쉐도잉, LR4 표현 복습과 단어장까지 구현**되어 있습니다. 홈 화면에 설치해 앱처럼 쓰고 정한 시각에 알림을 받을 수 있습니다. Next.js 웹앱, Supabase의 인증·DB·비공개 파일 저장소, Python Worker로 구성됩니다.
 
 ## 주요 기능
 
@@ -17,28 +17,28 @@
 | 간편 기록·통계 | 모바일에서 빠르게 학습 기록, 기간별 학습량·시간·활동일 확인 |
 | 독서 타이머 | 읽기 시작으로 시간을 재고, 집중 화면을 누르면 화면 가득 큰 시계. 그동안 화면이 꺼지지 않고, 잠시 멈췄다 이어 읽기. 끝내면 기록창에 시간이 채워짐 |
 | AI 독서 도우미 | 도서 정보와 입력한 목차를 바탕으로 분석, 실제 진도에 따른 학습 코칭 |
-| 영어 라이팅 | 영어학습에서 초안 작성·복원, AI 대화·첨삭·표현 정리 |
+| 영어 쓰기 | 영어 학습에서 초안 작성·복원, AI 대화·첨삭·표현 정리 |
 | YouTube 학습 | 링크 일괄 저장, 마지막 위치 이어보기, 배속·구간 반복, 시각별 메모와 자막 기반 질문 |
-| 스피킹·쉐도잉 | AI 단문·모범 음성, 녹음·전사·표현 피드백, YouTube 5–30초 구간 연습 |
+| 말하기·쉐도잉 | AI 단문·모범 음성, 녹음·전사·표현 피드백, YouTube 5–30초 구간 연습 |
 | 학습 타이머 | 일시 정지·종료, 실제 재생·녹음 시간 기록, 화면 숨김 시 자동 정지 |
 | 홈 화면 설치 | 브라우저에서 설치해 앱처럼 열기. 오프라인 사용은 제공하지 않음 |
 | 매일 알림 | 정한 시각에 오늘 할 분량을 한 줄로 알림. 못 채운 날은 알리지 않음 |
 | 독서 회상 | 기록한 직후 책을 덮고 기억나는 것을 적으면, 간격을 두고 복습에서 다시 물음 |
 | 표현 복습 | AI 피드백의 표현을 복습함에 저장하고 1·3·7·14·30일 간격으로 다시 확인 |
 | 단어장 | 단어만 적어 넣으면 AI가 한국어 뜻과 짧은 예문을 채우고 다음 날부터 복습에 등장 |
-| 학습 중 단어 담기 | 듣거나 쓰다가 만난 단어를 화면을 떠나지 않고 담기. 리스닝·스피킹·라이팅 공통 |
+| 학습 중 단어 담기 | 듣거나 쓰다가 만난 단어를 화면을 떠나지 않고 담기. 듣기·말하기·쓰기 공통 |
 
-영어학습에서는 버튼을 눌렀을 때만 AI로 내용을 전송합니다. 녹음은 분석 전에 기기에서 확인할 수 있고, 서버 음성은 기본 30일 보관하며 계속 보관하거나 삭제할 수 있습니다. 원래 인식 문장과 수정본을 구분하며 발음 점수는 제공하지 않습니다.
+영어 학습에서는 버튼을 눌렀을 때만 AI로 내용을 전송합니다. 녹음은 분석 전에 기기에서 확인할 수 있고, 서버 음성은 기본 30일 보관하며 계속 보관하거나 삭제할 수 있습니다. 원래 인식 문장과 수정본을 구분하며 발음 점수는 제공하지 않습니다.
 
 ## 사용 흐름
 
 1. 로그인 화면에서 이메일로 가입합니다. 확인 메일이 필요하면 로컬 테스트 메일함에서 확인합니다.
-2. **라이브러리**에 교재를 등록하고 계획을 만들거나, **영어학습**에 YouTube 링크를 미리 저장합니다.
-3. **이어서 공부하기**, **새 글 쓰기**, **스피킹 시작** 중 하나를 선택합니다.
+2. **서재 → 자료 추가**에서 책·교재·강의를 등록하고 계획을 만들거나, **영어 학습**에 YouTube 링크를 미리 저장합니다.
+3. **이어서 공부하기**, **글쓰기 시작**, **말하기 시작** 중 하나를 선택합니다.
 4. 학습 중 메모·녹음·글을 남기고 필요한 시점에 AI 피드백을 요청합니다.
 5. **학습 종료**로 시간을 확정하고 다음에 같은 공간에서 이어갑니다. 도서 기록은 **통계**에서 확인합니다.
 
-자세한 사용법은 [영어학습 안내](docs/LEARNING_ROOM.md), [독서 기록](docs/QUICK_RECORD.md), [학습 통계](docs/STATISTICS.md), [매일 알림](docs/NOTIFICATIONS.md), [표현 복습](docs/EXPRESSION_REVIEW.md), [단어장](docs/WORD_BOOK.md), [독서 회상](docs/READING_RECALL.md), [교재와 강의](docs/MATERIALS.md)를 참고하세요.
+자세한 사용법은 [영어 학습 안내](docs/LEARNING_ROOM.md), [독서 기록](docs/QUICK_RECORD.md), [학습 통계](docs/STATISTICS.md), [매일 알림](docs/NOTIFICATIONS.md), [표현 복습](docs/EXPRESSION_REVIEW.md), [단어장](docs/WORD_BOOK.md), [독서 회상](docs/READING_RECALL.md), [교재와 강의](docs/MATERIALS.md)를 참고하세요.
 
 ## 준비
 
@@ -135,7 +135,7 @@ Worker가 실행되면 웹의 `apps/web/.env.local`에서도 사용할 기능의
 - **YouTube 계정**: [Google 프로젝트·OAuth 설정 안내](docs/YOUTUBE_SETUP.md)에 따라 설정합니다. 계정 연결 없이도 영상 링크 저장과 재생은 가능합니다.
 - **비밀 값**: OpenAI 키는 Worker에만 둡니다. YouTube OAuth를 설정할 때 필요한 웹 서버 전용 서비스 키·클라이언트 시크릿에도 `NEXT_PUBLIC_`를 붙이지 않습니다. 실제 환경 파일과 CLI의 키 출력은 Git에 포함하지 않습니다.
 
-세부 설정은 [AI](docs/AI.md), [PDF](docs/PDF.md), [영어학습](docs/LEARNING_ROOM.md) 문서를 참고하세요.
+세부 설정은 [AI](docs/AI.md), [PDF](docs/PDF.md), [영어 학습](docs/LEARNING_ROOM.md) 문서를 참고하세요.
 
 ## 검증
 
@@ -164,7 +164,7 @@ docker exec supabase_db_PaceOn pg_isready -U postgres
 
 `pnpm test`는 도서 입력·Provider·API 테스트와 scheduler 독립 import, Vitest 일정 계산 테스트를 실행한다. DB·Docker·웹 서버 없이 실행 가능하다. `test:books:integration`은 빌드 후 Supabase Local과 임시 프로덕션 서버에서 실제 인증·도서 등록·격리를 확인하고 테스트 계정을 삭제한다. `pnpm --filter @paceon/scheduler test`로 엔진만 검사할 수 있다. `test:smoke`는 실제 HTTP 응답 상태·JSON 계약을 검사한다. 필요하면 `WEB_HEALTH_URL`과 `WORKER_HEALTH_URL`로 주소를 바꿀 수 있다.
 
-영어학습 API·YouTube·음성 요청·단어 비교도 `pnpm test`에 포함됩니다. `test:learning:integration`은 실제 Auth와 LR1/LR2 경로를, `test:speech:integration`은 실제 Storage 업로드·재시도·격리·음성 삭제를 검증합니다. 영어학습 통합 검사는 AI 큐에 요청을 접수하므로 실제 Worker가 켜져 있으면 제공자 호출이 발생할 수 있습니다. 음성 통합 검사는 잘못된 오디오를 사용해 제공자 호출 전에 거절되는지 확인합니다.
+영어 학습 API·YouTube·음성 요청·단어 비교도 `pnpm test`에 포함됩니다. `test:learning:integration`은 실제 Auth와 LR1/LR2 경로를, `test:speech:integration`은 실제 Storage 업로드·재시도·격리·음성 삭제를 검증합니다. 영어 학습 통합 검사는 AI 큐에 요청을 접수하므로 실제 Worker가 켜져 있으면 제공자 호출이 발생할 수 있습니다. 음성 통합 검사는 잘못된 오디오를 사용해 제공자 호출 전에 거절되는지 확인합니다.
 
 2026-09-17 기준 웹/스케줄러 **305개**(단위 253, 스케줄러 52), Worker **93개**, DB **536개** 검사가 통과합니다. 실제 OpenAI 음성 생성·전사·피드백 저장과 단어 뜻 채우기도 확인했습니다. 이는 당시 검증 결과이며 현재 변경의 검증은 위 명령으로 수행합니다.
 
@@ -192,7 +192,7 @@ supabase stop
 ## 구조와 다음 단계
 
 ```text
-apps/web              인증 · Today/서재/캘린더 · 영어학습·복습·단어장 · 도서/계획 API · 디자인 토큰
+apps/web              인증 · Today/서재/캘린더 · 영어 학습·복습·단어장 · 도서/계획 API · 디자인 토큰
 packages/books        도서 검증 · Google Books/Manual/YES24 Provider
 packages/shared       공통 타입
 packages/scheduler    일정 생성·재계획·속도 추정 · Vitest
@@ -205,19 +205,19 @@ tests                 패키지 import · health HTTP · Auth/REST 격리·동�
 docs                  요구사항 · 설계 · 구현 준비 및 실행 계획
 ```
 
-LR4의 표현 저장·복습과 단어장, PWA 설치와 알림은 구현했습니다. 다음 단계는 **영어학습 기록의 통계 통합**과 **LR5 추천**입니다. 확장 범위는 [영어학습 명세서](docs/LEARNING_ROOM_SPEC.md)에 정리되어 있습니다.
+LR4의 표현 저장·복습과 단어장, PWA 설치와 알림은 구현했습니다. 다음 단계는 **영어 학습 기록의 통계 통합**과 **LR5 추천**입니다. 확장 범위는 [영어 학습 명세서](docs/LEARNING_ROOM_SPEC.md)에 정리되어 있습니다.
 
 현재 제한:
 
 - YouTube OAuth 실제 계정 검증은 Google 프로젝트 설정 후 필요합니다. 계정 연결만으로 Premium 적용·광고 제거·전체 시청 기록 동기화를 보장하지 않습니다.
 - YouTube 자동 자막 수집, PDF OCR, 오프라인 PWA는 구현하지 않았습니다.
-- 영어학습 기록은 기존 도서 페이지 진도·통계에 아직 합산하지 않습니다.
+- 영어 학습 기록은 기존 도서 페이지 진도·통계에 아직 합산하지 않습니다.
 - 복습과 단어장에 쓴 시간은 학습 시간에 들어가지 않습니다. 타이머가 학습 공간에 묶여 있고 복습은 공간을 넘나듭니다.
 - 뜻을 채우지 못한 단어를 화면에서 바로 다시 시도하는 단추는 없습니다. 지운 뒤 다시 넣습니다.
 - 모바일 크기의 브라우저와 테스트 마이크를 검증했으며, 실제 iOS/Android 마이크·권한 동작은 추가 검증이 필요합니다.
 - AI 응답은 저장된 작업을 처리한 뒤 조회하는 방식이며 토큰 스트리밍은 지원하지 않습니다.
 
-개발 문서: [영어학습](docs/LEARNING_ROOM.md) · [표현 복습](docs/EXPRESSION_REVIEW.md) · [단어장](docs/WORD_BOOK.md) · [매일 알림](docs/NOTIFICATIONS.md) · [통계](docs/STATISTICS.md) · [PDF](docs/PDF.md) · [AI](docs/AI.md) · [도서](docs/BOOKS.md) · [스케줄러](docs/SCHEDULER.md) · [데이터베이스](docs/DATABASE.md) · [아키텍처](docs/ARCHITECTURE.md) · [제품 요구사항](docs/PRD.md) · [디자인](docs/DESIGN.md).
+개발 문서: [영어 학습](docs/LEARNING_ROOM.md) · [표현 복습](docs/EXPRESSION_REVIEW.md) · [단어장](docs/WORD_BOOK.md) · [매일 알림](docs/NOTIFICATIONS.md) · [통계](docs/STATISTICS.md) · [PDF](docs/PDF.md) · [AI](docs/AI.md) · [도서](docs/BOOKS.md) · [스케줄러](docs/SCHEDULER.md) · [데이터베이스](docs/DATABASE.md) · [아키텍처](docs/ARCHITECTURE.md) · [제품 요구사항](docs/PRD.md) · [디자인](docs/DESIGN.md).
 
 ## 라이선스
 
