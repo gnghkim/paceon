@@ -71,6 +71,9 @@ export function summarizeDay(
     // 남은 시간은 남은 분량에 비례해 추정한다. 저장된 예상 시간은 일정 전체 기준이다.
     if (planned > 0 && session.estimated_minutes !== null)
       remainingMinutes += Math.ceil((session.estimated_minutes * state.remainingPages) / planned);
+    // 챕터 일정은 쪽 범위가 없다. 통째로 하거나 안 하거나이므로 안 했으면 전부 남은 시간이다.
+    else if (planned === 0 && state.kind !== 'COMPLETED' && session.estimated_minutes !== null)
+      remainingMinutes += session.estimated_minutes;
   }
   return {
     total: visible.length,

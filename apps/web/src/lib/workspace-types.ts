@@ -10,7 +10,13 @@ import type {
 export type PushSubscriptionRow = Tables<'push_subscriptions'>;
 
 export interface WorkspaceData {
+  /** 쪽으로 읽는 자료(책). 기존 화면은 이것만 본다. */
   resources: Resource[];
+  /** 챕터로 공부하는 자료(교재, 강의). 진도는 숫자 하나가 아니라 챕터별 완료다. */
+  materials: Resource[];
+  /** 조회 기간의 일정이 가리키는 챕터. 일정 카드에 제목을 보여 주는 데 쓴다. */
+  units: Record<string, { title: string; minutes: number | null }>;
+  materialProgress: Record<string, { done: number; total: number; percent: number }>;
   plans: Plan[];
   sessions: ScheduleSession[];
   progress: Record<string, { completedThroughPage: number; percent: number; latestLearningId: string | null }>;

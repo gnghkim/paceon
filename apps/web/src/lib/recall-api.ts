@@ -15,6 +15,8 @@ const save = z
     content: z.string().max(MAX_RECALL_LENGTH * 4),
     startPage: z.number().int().optional(),
     endPage: z.number().int().optional(),
+    /** 챕터로 공부하는 자료에서는 쪽 범위 대신 챕터를 가리킨다. */
+    unitId: z.uuid().optional(),
   })
   .strict();
 
@@ -23,6 +25,7 @@ export interface RecallNote {
   content: string;
   startPage: number | null;
   endPage: number | null;
+  unitId: string | null;
   createdOn: string;
   dueOn: string;
   reviewCount: number;
@@ -34,6 +37,7 @@ const toNote = (row: CardRow): RecallNote => ({
   content: row.meaning ?? '',
   startPage: row.start_page,
   endPage: row.end_page,
+  unitId: row.unit_id,
   createdOn: row.created_at.slice(0, 10),
   dueOn: row.due_on,
   reviewCount: row.review_count,
@@ -75,7 +79,18 @@ export function createRecallHandlers(
         // 앞면에 쓸 제목은 서버가 자기 책에서 읽는다. 보낸 제목을 믿지 않는다.
         const [book] = await storage.rows<Resource>(auth, 'resources', { id: `eq.${input.resourceId}` });
         if (!book) throw new ApiError(404, '책을 찾을 수 없어요.');
-        const range = validRange(input.startPage, input.endPage);
+        const range = input.unitId ? null : validRange(input.startPage, input.endPage);
+        // 챕터 이름도 서버가 자기 자료에서 읽는다. 남의 챕터를 가리키면 찾지 못한다.
+        let unitTitle: string | undefined;
+        if (input.unitId) {
+          const [unit] = await storage.rows<{ id: string; title: string }>(auth, 'resource_units', {
+            select: 'id,title',
+            id: `eq.${input.unitId}`,
+            resource_id: `eq.${book.id}`,
+          });
+          if (!unit) throw new ApiError(404, '챕터를 찾을 수 없어요.');
+          unitTitle = unit.title;
+        }
         const { timezone } = await storage.settings(auth);
         const start = firstReview(toStudyDate(new Date().toISOString(), timezone));
         const created = await storage.rest(
@@ -88,7 +103,8 @@ export function createRecallHandlers(
             resource_id: book.id,
             start_page: range?.startPage ?? null,
             end_page: range?.endPage ?? null,
-            phrase: recallPrompt(book.title, range),
+            unit_id: input.unitId ?? null,
+            phrase: recallPrompt(book.title, range, unitTitle),
             meaning: content,
             review_step: start.step,
             due_on: start.dueOn,

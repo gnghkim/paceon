@@ -308,6 +308,7 @@ export type Database = {
           review_step: number
           source_workspace_id: string | null
           start_page: number | null
+          unit_id: string | null
           updated_at: string
           user_id: string
         }
@@ -331,6 +332,7 @@ export type Database = {
           review_step?: number
           source_workspace_id?: string | null
           start_page?: number | null
+          unit_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -354,6 +356,7 @@ export type Database = {
           review_step?: number
           source_workspace_id?: string | null
           start_page?: number | null
+          unit_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -371,6 +374,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "learning_workspaces"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_expressions_unit_fk"
+            columns: ["unit_id", "resource_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "resource_units"
+            referencedColumns: ["id", "resource_id", "user_id"]
           },
         ]
       }
@@ -1217,6 +1227,7 @@ export type Database = {
           total_pages: number | null
           total_units: number | null
           type: Database["public"]["Enums"]["resource_type"]
+          unit_label: string | null
           updated_at: string
           user_id: string
           workload_unit: Database["public"]["Enums"]["workload_unit"]
@@ -1238,6 +1249,7 @@ export type Database = {
           total_pages?: number | null
           total_units?: number | null
           type: Database["public"]["Enums"]["resource_type"]
+          unit_label?: string | null
           updated_at?: string
           user_id: string
           workload_unit?: Database["public"]["Enums"]["workload_unit"]
@@ -1259,6 +1271,7 @@ export type Database = {
           total_pages?: number | null
           total_units?: number | null
           type?: Database["public"]["Enums"]["resource_type"]
+          unit_label?: string | null
           updated_at?: string
           user_id?: string
           workload_unit?: Database["public"]["Enums"]["workload_unit"]
@@ -1411,6 +1424,7 @@ export type Database = {
         }
         Returns: string
       }
+      create_unit_material: { Args: { p_input: Json }; Returns: string }
       discard_pdf_import: { Args: { p_id: string }; Returns: boolean }
       enqueue_ai_job: {
         Args: {
@@ -1490,6 +1504,10 @@ export type Database = {
       }
       learning_speech_command: { Args: { p_command: Json }; Returns: Json }
       learning_video_command: { Args: { p_command: Json }; Returns: Json }
+      plan_unit_material: {
+        Args: { p_options: Json; p_resource_id: string }
+        Returns: Json
+      }
       queue_pdf_import: { Args: { p_id: string }; Returns: Json }
       queue_speech_recording: { Args: { p_id: string }; Returns: Json }
       record_expression_review: {
@@ -1519,6 +1537,7 @@ export type Database = {
           review_step: number
           source_workspace_id: string | null
           start_page: number | null
+          unit_id: string | null
           updated_at: string
           user_id: string
         }
@@ -1532,6 +1551,10 @@ export type Database = {
       replace_availability_rules: {
         Args: { p_rules: Json }
         Returns: undefined
+      }
+      replan_unit_plan: {
+        Args: { p_dry_run?: boolean; p_resource_id: string }
+        Returns: Json
       }
       retry_pdf_import: { Args: { p_id: string }; Returns: Json }
       speech_audio_path: { Args: { p_id: string }; Returns: Json }
@@ -1550,6 +1573,10 @@ export type Database = {
           p_request: Json
           p_resource_id: string
         }
+        Returns: Json
+      }
+      submit_unit_progress: {
+        Args: { p_request: Json; p_resource_id: string }
         Returns: Json
       }
       youtube_connection_command: { Args: { p_command: Json }; Returns: Json }

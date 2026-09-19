@@ -24,6 +24,7 @@ import {
   useQuickRecord,
 } from './quick-record';
 import { ReadingTimerProvider } from './reading-timer';
+import { UnitRecordProvider } from './unit-record';
 
 const navigation = [
   { href: '/today', label: '오늘', english: 'Today', icon: Sun },
@@ -52,7 +53,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   return (
     <QuickRecordProvider key={session?.user.id ?? 'anonymous'}>
-      <AppShellContent>{children}</AppShellContent>
+      <UnitRecordProvider>
+        <AppShellContent>{children}</AppShellContent>
+      </UnitRecordProvider>
     </QuickRecordProvider>
   );
 }

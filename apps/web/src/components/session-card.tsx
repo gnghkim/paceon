@@ -4,6 +4,7 @@ import { ArrowUpRight, BookOpen, Check, Clock3 } from 'lucide-react';
 import type { Resource, ScheduleSession } from '@paceon/shared';
 import { sessionState, type SessionStateKind } from '@/lib/session-state';
 import { StartReadingButton, useReadingTimer } from './reading-timer';
+import { useUnitRecord } from './unit-record';
 import { cn } from '@/lib/utils';
 
 const label: Record<SessionStateKind, string> = {
@@ -13,20 +14,124 @@ const label: Record<SessionStateKind, string> = {
   PLANNED: '학습 기록',
 };
 
-export function SessionCard({
-  session,
-  book,
-  completedThroughPage,
-  today,
-  lead = false,
-}: {
+interface SessionCardProps {
   session: ScheduleSession;
   book: Resource | undefined;
   completedThroughPage: number;
   today: string;
   /** 다음에 읽을 일정이면 읽기 시작을 채운 색으로 보여 준다. 화면에 하나뿐이다. */
   lead?: boolean;
-}) {
+  /** 챕터 일정일 때의 자료와 챕터. 책 일정에는 없다. */
+  material?: Resource | undefined;
+  unit?: { title: string; minutes: number | null } | undefined;
+}
+
+/** 일정 하나. 쪽 범위가 있으면 책의 카드, 챕터를 가리키면 챕터의 카드다. */
+export function SessionCard(props: SessionCardProps) {
+  return props.session.unit_id ? <UnitSessionCard {...props} /> : <PageSessionCard {...props} />;
+}
+
+/**
+ * 챕터 하나의 일정. 책의 카드와 같은 모양이지만 쪽 범위 대신 챕터 이름을 말하고,
+ * 누르면 그 챕터가 골라진 채로 기록 창이 열린다.
+ */
+function UnitSessionCard({ session, material, unit, today, lead = false }: SessionCardProps) {
+  const openUnitRecord = useUnitRecord();
+  const { running } = useReadingTimer();
+  const state = sessionState(session, 0, today);
+  const done = state.kind === 'COMPLETED';
+  const timing = running?.resourceId === session.resource_id && running.unit?.id === session.unit_id;
+  const pausedHere = running?.pausedAt != null;
+  const label = material?.unit_label ?? '챕터';
+  const status = done ? '완료' : state.kind === 'MISSED' ? '아직 안 함' : '학습 기록';
+  // 강의는 읽지 않는다. 자료의 종류에 맞는 말을 쓴다.
+  const startLabel = material?.type === 'COURSE' ? '수강 시작' : '학습 시작';
+  return (
+    <div
+      className={cn(
+        'group flex w-full min-w-0 flex-wrap items-center gap-4 rounded-xl border p-5 transition-colors sm:flex-nowrap',
+        done
+          ? 'border-border bg-muted/40 focus-within:border-primary/30'
+          : 'border-border bg-card focus-within:border-primary/40 hover:border-primary/40',
+        state.kind === 'MISSED' && 'border-warning',
+      )}
+    >
+      <span
+        className={cn(
+          'flex h-11 w-11 shrink-0 items-center justify-center rounded-lg',
+          done ? 'bg-success-soft text-success' : 'bg-accent text-primary',
+        )}
+      >
+        {done ? <Check size={20} aria-hidden="true" /> : <BookOpen size={20} aria-hidden="true" />}
+      </span>
+      <button
+        type="button"
+        onClick={() =>
+          openUnitRecord({
+            materialId: session.resource_id,
+            ...(session.unit_id ? { unitId: session.unit_id } : {}),
+            ...(done ? { mode: 'REPEAT' as const } : {}),
+          })
+        }
+        className="min-w-0 flex-1 text-left"
+      >
+        <span
+          className={cn(
+            'block truncate font-semibold',
+            done && 'text-muted-foreground line-through decoration-1',
+          )}
+        >
+          {unit?.title ?? label}
+        </span>
+        <span className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          <span className="truncate">{material?.title ?? '자료'}</span>
+          {!done && (
+            <span className="inline-flex items-center gap-1.5">
+              <Clock3 size={14} aria-hidden="true" />약 {unit?.minutes ?? session.estimated_minutes ?? '—'}분
+            </span>
+          )}
+        </span>
+        <span className="sr-only">{status}</span>
+      </button>
+      {timing ? (
+        <span className={cn('shrink-0 text-xs font-medium', pausedHere ? 'text-muted-foreground' : 'text-primary')}>
+          {pausedHere ? '잠시 멈춤' : '학습 중'}
+        </span>
+      ) : (
+        <>
+          {!done && (
+            <StartReadingButton
+              resourceId={session.resource_id}
+              title={unit?.title ?? material?.title ?? label}
+              unit={session.unit_id ? { id: session.unit_id } : {}}
+              label={startLabel}
+              emphasis={lead ? 'primary' : 'quiet'}
+              className={lead ? 'order-last w-full sm:order-none sm:w-auto' : 'shrink-0'}
+            />
+          )}
+          <span
+            aria-hidden="true"
+            className={cn(
+              'hidden shrink-0 text-xs font-medium sm:inline',
+              done ? 'text-success' : state.kind === 'MISSED' ? 'text-warning' : 'text-primary',
+            )}
+          >
+            {status}
+          </span>
+        </>
+      )}
+      <ArrowUpRight size={18} aria-hidden="true" className="shrink-0 text-muted-foreground group-hover:text-primary" />
+    </div>
+  );
+}
+
+function PageSessionCard({
+  session,
+  book,
+  completedThroughPage,
+  today,
+  lead = false,
+}: SessionCardProps) {
   const openRecord = useQuickRecord();
   const { running } = useReadingTimer();
   const pausedHere = running?.pausedAt != null;

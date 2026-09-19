@@ -186,3 +186,20 @@ test('a clock that jumps backwards never produces negative paused time', () => {
   assert.equal(resumed.pausedMs, 0);
   assert.equal(pauseTimer(timer, start - 5000).pausedAt, start, 'a pause never lands before the start');
 });
+
+test('a timer for a chapter remembers which chapter, so finishing opens the right record', () => {
+  const forUnit = newReadingTimer('course', start, '강의', { id: 'unit-7' });
+  assert.deepEqual(parseReadingTimer(JSON.stringify(forUnit), after(60)).unit, { id: 'unit-7' });
+  // 챕터를 정하지 않고 시작했어도 챕터형 자료라는 것은 남는다. 끝낼 때 고른다.
+  const open = newReadingTimer('course', start, '강의', {});
+  assert.deepEqual(parseReadingTimer(JSON.stringify(open), after(60)).unit, {});
+  assert.equal('unit' in newReadingTimer('book', start, '책'), false, 'a book timer carries no chapter');
+});
+
+test('a damaged chapter marker is dropped but the measured time is kept', () => {
+  for (const unit of [{ id: 42 }, { id: '' }, { id: null }])
+    assert.deepEqual(parseReadingTimer(JSON.stringify({ ...timer, unit }), after(600)).unit, {}, JSON.stringify(unit));
+  for (const unit of ['unit-7', 7, [], null])
+    assert.equal('unit' in parseReadingTimer(JSON.stringify({ ...timer, unit }), after(600)), false, JSON.stringify(unit));
+  assert.equal(elapsedSeconds(parseReadingTimer(JSON.stringify({ ...timer, unit: 'x' }), after(600)), after(600)), 600);
+});

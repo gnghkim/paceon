@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { BookOpen, Plus, Search } from 'lucide-react';
+import { MaterialList } from './material-list';
 import { useWorkspace } from '@/components/workspace-data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +68,7 @@ export function BookLibrary() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+        <Button asChild variant="outline"><Link href="/resources/materials/new">교재·강의 추가</Link></Button>
         <Button asChild variant="outline"><Link href="/resources/import">PDF 가져오기</Link></Button>
         <Button asChild>
           <Link href="/resources/new">
@@ -104,6 +106,7 @@ export function BookLibrary() {
           />
         </div>
       </div>
+      {data && filter === 'all' && <MaterialList data={data} query={query} />}
       {loading ? (
         <div role="status" aria-label="서재 불러오는 중" className="space-y-3">
           {[1, 2, 3].map((i) => (
