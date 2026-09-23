@@ -77,6 +77,16 @@ For a local Python process use `http://127.0.0.1:55321`, Python 3.13, install
 `python -m uvicorn app.main:app` from this directory. The application does not
 automatically load `.env` files; Docker's `--env-file` handles that explicitly.
 
+## Polling cost
+
+Consumers ask their queue for work every `AI_POLL_SECONDS` seconds (default 15).
+Each consumer keeps its connection to Supabase between asks instead of opening a
+new one, because a TLS handshake costs several kilobytes while an empty answer
+costs a few hundred bytes. A connection left idle longer than 30 seconds, one the
+server asks to close, and one that failed are all dropped rather than reused; the
+next ask opens a fresh connection. Seven consumers at three seconds moved about a
+gigabyte a day with no work queued at all.
+
 ## Processing and verification
 
 Only `claim_ai_job` and `finish_ai_job` service-role RPCs access jobs. The database

@@ -83,7 +83,7 @@ class PdfSettings:
     enabled: bool
     supabase_url: str
     service_key: str = field(repr=False)
-    poll_seconds: float = 3
+    poll_seconds: float = 15
 
     @classmethod
     def from_env(cls):

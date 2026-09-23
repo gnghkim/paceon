@@ -18,7 +18,7 @@ services:
       OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-mini-transcribe}
       OPENAI_TTS_MODEL: ${OPENAI_TTS_MODEL:-gpt-4o-mini-tts}
       OPENAI_TTS_VOICE: ${OPENAI_TTS_VOICE:-marin}
-      AI_POLL_SECONDS: ${AI_POLL_SECONDS:-3}
+      AI_POLL_SECONDS: ${AI_POLL_SECONDS:-15}
       # 매일 알림. 키가 비어 있으면 발송기는 아예 돌지 않고 나머지는 그대로 동작한다.
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}

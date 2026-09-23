@@ -1,10 +1,13 @@
 """Durable queue consumer. Credentials and provider bodies are never logged."""
 
+import http.client
 import json
 import math
 import os
 import threading
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from typing import Annotated, Literal
@@ -78,7 +81,7 @@ class Settings:
     service_key: str = field(repr=False)
     api_key: str = field(repr=False)
     model: str
-    poll_seconds: float = 3
+    poll_seconds: float = 15
 
     @classmethod
     def from_env(cls):
@@ -87,11 +90,11 @@ class Settings:
         key = os.getenv("OPENAI_API_KEY", "").strip()
         model = os.getenv("OPENAI_MODEL", "").strip()
         try:
-            poll = float(os.getenv("AI_POLL_SECONDS", "3"))
+            poll = float(os.getenv("AI_POLL_SECONDS", "15"))
             if not math.isfinite(poll) or not 0.1 <= poll <= 300:
-                poll = 3
+                poll = 15
         except ValueError:
-            poll = 3
+            poll = 15
         enabled = os.getenv("AI_ENABLED") == "true" and bool(url and service and key and model)
         return cls(enabled, url, service, key, model, poll)
 
@@ -102,22 +105,89 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def post_json(url, payload, headers, timeout):
-    request = urllib.request.Request(url, data=json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8"),
-                                     headers={"Content-Type": "application/json", **headers}, method="POST")
+MAX_RESPONSE_BYTES = 262144
+# A consumer asks the queue for work every few seconds and almost always hears "nothing".
+# Opening a fresh TLS connection for each of those costs kilobytes; keeping one costs nothing.
+# An idle connection may be dropped by the other side without telling us, so a connection
+# that has been sitting around is thrown away rather than trusted.
+CONNECTION_IDLE_SECONDS = 30
+
+
+class ConnectionPool:
+    """Holds one warm connection per thread, host and timeout."""
+
+    def __init__(self, factory=None, clock=time.monotonic):
+        self.factory = factory or self.connect
+        self.clock = clock
+        self.local = threading.local()
+
+    @staticmethod
+    def connect(scheme, host, port, timeout):
+        opener = http.client.HTTPSConnection if scheme == "https" else http.client.HTTPConnection
+        return opener(host, port, timeout=timeout)
+
+    def held(self):
+        return len(getattr(self.local, "connections", {}))
+
+    def take(self, key):
+        connections = getattr(self.local, "connections", None)
+        if connections is None:
+            connections = self.local.connections = {}
+        connection, kept_at = connections.pop(key, (None, 0))
+        if connection is not None:
+            if self.clock() - kept_at <= CONNECTION_IDLE_SECONDS:
+                return connection
+            self.discard(connection)
+        return self.factory(*key)
+
+    def keep(self, key, connection):
+        self.local.connections[key] = (connection, self.clock())
+
+    def discard(self, connection):
+        try:
+            connection.close()
+        except Exception:
+            pass
+
+    def close(self):
+        for connection, _ in getattr(self.local, "connections", {}).values():
+            self.discard(connection)
+        self.local.connections = {}
+
+
+POOL = ConnectionPool()
+
+
+def post_json(url, payload, headers, timeout, pool=POOL):
+    target = urllib.parse.urlsplit(url)
+    if target.scheme not in ("http", "https") or not target.hostname:
+        raise SafeFailure("PROVIDER_ERROR")
+    body = json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
+    path = (target.path or "/") + ("?" + target.query if target.query else "")
+    key = (target.scheme, target.hostname, target.port, timeout)
+    connection = pool.take(key)
     try:
-        with urllib.request.build_opener(NoRedirect()).open(request, timeout=timeout) as result:
-            raw = result.read(262145)
-            if len(raw) > 262144:
-                raise SafeFailure("RESPONSE_TOO_LARGE")
-            return json.loads(raw)
+        connection.request("POST", path, body=body, headers={"Content-Type": "application/json", **headers})
+        answer = connection.getresponse()
+        raw = answer.read(MAX_RESPONSE_BYTES + 1)
+        # A redirect is refused here as it was before: service and API credentials are
+        # never replayed to whichever destination an answer happens to name.
+        reusable = 200 <= answer.status < 300 and len(raw) <= MAX_RESPONSE_BYTES and not answer.will_close and answer.isclosed()
+        if not reusable:
+            pool.discard(connection)
+        if len(raw) > MAX_RESPONSE_BYTES:
+            raise SafeFailure("RESPONSE_TOO_LARGE")
+        if not 200 <= answer.status < 300:
+            raise SafeFailure("PROVIDER_ERROR")
+        result = json.loads(raw)
     except SafeFailure:
         raise
-    except urllib.error.HTTPError as exc:
-        exc.close()
+    except Exception:
+        pool.discard(connection)
         raise SafeFailure("PROVIDER_ERROR") from None
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
-        raise SafeFailure("PROVIDER_ERROR") from None
+    if reusable:
+        pool.keep(key, connection)
+    return result
 
 
 def validate_output(kind, value):
