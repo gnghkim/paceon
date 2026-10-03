@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { addDays, scheduleBook } from '@paceon/scheduler';
-import type { Resource, Plan } from '@paceon/shared';
+import type { Resource, Plan, ProgressEvent } from '@paceon/shared';
 
 const date = z.string().refine((value) => {
   try {
@@ -110,4 +110,27 @@ export function formatDate(date: string | null, detailed = false): string {
         timeZone: 'UTC',
       }).format(new Date(`${date}T12:00:00Z`))
     : '계획을 세워 주세요';
+}
+/**
+ * 이 책을 실제로 읽은 속도(분/쪽). 시간을 적은 유효한 읽기 기록만 모아 쪽과 분을
+ * 합쳐 나눈다. 계획을 다시 나눌 때 고칠 속도로 권한다. 계획이 받는 범위를 벗어나면 권하지 않는다.
+ */
+export function bookReadingSpeed(
+  events: readonly Pick<ProgressEvent, 'id' | 'resource_id' | 'event_type' | 'start_page' | 'end_page' | 'duration_minutes' | 'voids_event_id'>[],
+  bookId: string,
+): number | null {
+  const own = events.filter((event) => event.resource_id === bookId);
+  const voided = new Set(own.map((event) => event.voids_event_id).filter(Boolean));
+  let pages = 0;
+  let minutes = 0;
+  for (const event of own) {
+    if (event.event_type !== 'LEARNING' || voided.has(event.id)) continue;
+    if (!event.duration_minutes || event.duration_minutes <= 0) continue;
+    if (event.start_page === null || event.end_page === null || event.end_page < event.start_page) continue;
+    pages += event.end_page - event.start_page + 1;
+    minutes += event.duration_minutes;
+  }
+  if (!pages) return null;
+  const speed = Math.round((minutes / pages) * 100) / 100;
+  return speed >= 0.1 && speed <= 1440 ? speed : null;
 }

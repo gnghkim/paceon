@@ -4,7 +4,7 @@ import type { Resource, Plan, ProgressEvent, ScheduleSession } from '@paceon/sha
 import { ApiError, json, readBody } from './books-api.ts';
 import type { Config } from './books-api.ts';
 import { createWorkspaceHandlers } from './workspace-api.ts';
-import { calculateProgressCandidate, checkUnplannedProgress, isUnplannedRequest, parseProgressRequest, parseUnplannedRequest, ProgressError } from './progress.ts';
+import { calculateProgressCandidate, checkUnplannedProgress, describeReplan, isUnplannedRequest, parseProgressRequest, parseUnplannedRequest, ProgressError } from './progress.ts';
 import type { ProgressCandidate, UnplannedProgressRequest } from './progress.ts';
 
 function canonical(value: unknown): string {
@@ -66,6 +66,9 @@ export function createProgressHandler(config: Config | undefined, fetcher: typeo
         return await recordUnplanned(auth, resourceId, plain, replayOf(auth, resourceId, plain));
       }
       const input = parseProgressRequest(body);
+      // ?preview=1 computes the replan the reader would confirm, and saves nothing.
+      const preview = new URL(request.url).searchParams.get('preview') === '1';
+      if (preview && input.kind !== 'REPLAN') throw new ApiError(400, '다시 나누기만 미리 볼 수 있습니다.');
       const replay = replayOf(auth, resourceId, input);
       const previous = await replay();
       if (previous) return previous;
@@ -103,6 +106,7 @@ export function createProgressHandler(config: Config | undefined, fetcher: typeo
         }
         throw error;
       }
+      if (preview) return json(describeReplan(candidate, plan.forecast_date, book.total_pages ?? 0));
       const snapshot = [...sessions].sort((a, b) => a.id.localeCompare(b.id)).map(s => ({ id: s.id, study_date: s.study_date, start_page: s.start_page, end_page: s.end_page, estimated_minutes: s.estimated_minutes, status: s.status, is_locked: s.is_locked, plan_version: s.plan_version }));
       const result = await storage.rest(auth, 'rpc/submit_book_progress', {}, { p_resource_id: resourceId, p_request: input, p_candidate: candidate, p_expected_sessions: snapshot, p_expected_total: book.total_pages, p_expected_initial: book.initial_completed_workload, p_as_of_date: asOfDate });
       return json(result, 201);

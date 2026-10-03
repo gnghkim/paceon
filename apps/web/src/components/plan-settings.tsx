@@ -7,7 +7,27 @@ import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { formatDate } from '@/lib/planning';
+import type { ReplanPreview } from '@/lib/progress';
 import type { ProgressSummary } from './progress-form';
+
+/** 미리보기에서 일정을 못 잡은 까닭. 무엇을 바꾸면 되는지까지 말한다. */
+const previewConflicts: Record<string, string> = {
+  DEADLINE_CAPACITY:
+    '목표 날짜까지 남은 분량이 들어가지 않아요. 읽는 속도를 실제에 맞추거나, 학습 가능한 시간을 늘리거나, 목표 날짜를 늦춰 보세요.',
+  TIME_CAPACITY:
+    '하루 분량이 학습 가능한 시간을 넘어요. 하루 분량을 줄이거나 읽는 속도를 실제에 맞춰 보세요.',
+  NO_AVAILABILITY:
+    '학습 가능한 요일이 없어요. 설정에서 학습 가능한 시간을 먼저 정해 주세요.',
+  TARGET_IN_PAST:
+    '목표 날짜가 다시 나눌 수 있는 첫날보다 앞서요. 내일 이후 날짜를 골라 주세요.',
+};
+const studyDay = (date: string) =>
+  new Intl.DateTimeFormat('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(`${date}T12:00:00Z`));
 
 /**
  * 계획을 언제든 고칠 수 있게 모아 둔 카드.
@@ -17,11 +37,14 @@ import type { ProgressSummary } from './progress-form';
 export function PlanSettings({
   book,
   plan,
+  observedSpeed = null,
   onSaved,
   onResult,
 }: {
   book: Resource;
   plan: Plan;
+  /** 이 책의 기록으로 잰 분/쪽. 읽는 속도를 고칠 때 권한다. */
+  observedSpeed?: number | null;
   onSaved: () => void;
   /** 저장 결과는 부모가 보여 준다. 이 카드는 값이 바뀌면 새 값으로 다시 그려진다. */
   onResult: (result: ProgressSummary) => void;
@@ -32,6 +55,17 @@ export function PlanSettings({
     String(plan.preferred_daily_workload ?? 20),
   );
   const [targetDate, setTargetDate] = useState(plan.target_date ?? '');
+  const [minutesPerPage, setMinutesPerPage] = useState(
+    String(plan.minutes_per_page),
+  );
+  // 미리 본 일정. 값을 하나라도 고치면 버리고 다시 보게 한다. 본 것과 다른 일정을 확정하지 않는다.
+  const [preview, setPreview] = useState<ReplanPreview | null>(null);
+  const edit =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      setPreview(null);
+      set(value);
+    };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirming, setConfirming] = useState(false);
@@ -39,22 +73,49 @@ export function PlanSettings({
   const archived = book.status === 'ARCHIVED';
 
   // plans를 건드리면 서버가 버전을 올린다. 상태를 바꾼 직후에는 그때 받은 버전을 쓴다.
+  function replanRequest(planVersion: number) {
+    const speed = Number(minutesPerPage);
+    return {
+      kind: 'REPLAN',
+      idempotencyKey: crypto.randomUUID(),
+      planId: plan.id,
+      expectedPlanVersion: planVersion,
+      expectedProgressVersion: book.progress_version,
+      mode,
+      ...(mode !== 'DEADLINE' ? { dailyPages: Number(dailyPages) } : {}),
+      targetDate: targetDate || null,
+      // 고친 때만 보낸다. 보내지 않으면 계획에 저장된 속도를 그대로 쓴다.
+      ...(speed !== plan.minutes_per_page ? { minutesPerPage: speed } : {}),
+    };
+  }
+
+  async function previewReplan(): Promise<ReplanPreview> {
+    const response = await apiFetch(
+      `/api/resources/books/${book.id}/progress?preview=1`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(replanRequest(plan.version)),
+      },
+    );
+    const body = await response.json();
+    if (!response.ok)
+      throw new Error(
+        response.status === 409
+          ? '진도나 계획이 다른 곳에서 바뀌었어요. 최신 정보를 불러온 뒤 다시 바꿔 주세요.'
+          : (body.error ??
+            '일정을 계산하지 못했어요. 분량, 목표 날짜와 읽는 속도를 확인해 주세요.'),
+      );
+    return body as ReplanPreview;
+  }
+
   async function replan(planVersion = plan.version): Promise<ProgressSummary> {
     const response = await apiFetch(
       `/api/resources/books/${book.id}/progress`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          kind: 'REPLAN',
-          idempotencyKey: crypto.randomUUID(),
-          planId: plan.id,
-          expectedPlanVersion: planVersion,
-          expectedProgressVersion: book.progress_version,
-          mode,
-          ...(mode !== 'DEADLINE' ? { dailyPages: Number(dailyPages) } : {}),
-          targetDate: targetDate || null,
-        }),
+        body: JSON.stringify(replanRequest(planVersion)),
       },
     );
     const body = await response.json();
@@ -105,10 +166,17 @@ export function PlanSettings({
     if (!response.ok) throw new Error(body.error ?? '보관 상태를 바꾸지 못했어요.');
   }
 
+  // 다시 나누기는 두 걸음이다. 먼저 바뀔 일정을 보여 주고, 보고 나서 확정한다.
   function submit(event: FormEvent) {
     event.preventDefault();
     void run(async () => {
+      setPreview(await previewReplan());
+    });
+  }
+  function confirm() {
+    void run(async () => {
       onResult(await replan());
+      setPreview(null);
       onSaved();
     });
   }
@@ -157,7 +225,7 @@ export function PlanSettings({
                     className="h-10 w-full rounded-md border border-input bg-background px-3 disabled:opacity-50"
                     value={mode}
                     onChange={(event) =>
-                      setMode(event.target.value as Plan['mode'])
+                      edit(setMode)(event.target.value as Plan['mode'])
                     }
                   >
                     <option value="PACE">하루 분량 유지</option>
@@ -176,7 +244,7 @@ export function PlanSettings({
                       step={1}
                       required
                       value={dailyPages}
-                      onChange={(event) => setDailyPages(event.target.value)}
+                      onChange={(event) => edit(setDailyPages)(event.target.value)}
                     />
                   </label>
                 )}
@@ -188,19 +256,63 @@ export function PlanSettings({
                     type="date"
                     required={mode === 'DEADLINE'}
                     value={targetDate}
-                    onChange={(event) => setTargetDate(event.target.value)}
+                    onChange={(event) => edit(setTargetDate)(event.target.value)}
+                  />
+                </label>
+                <label className="space-y-2 text-sm">
+                  <span>읽는 속도 (쪽당 분)</span>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min={0.1}
+                    max={1440}
+                    step="0.01"
+                    required
+                    value={minutesPerPage}
+                    onChange={(event) =>
+                      edit(setMinutesPerPage)(event.target.value)
+                    }
                   />
                 </label>
               </div>
+              <p className="text-xs text-muted-foreground">
+                계획은 쪽당 {plan.minutes_per_page}분으로 나뉘어 있어요. 시간을
+                적은 기록이 세 개 넘게 쌓이면 실제 속도로 나눠요.
+                {observedSpeed !== null &&
+                  observedSpeed !== Number(minutesPerPage) && (
+                    <>
+                      {' '}
+                      이 책을 읽은 기록으로는 쪽당 {observedSpeed}분이에요.{' '}
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() =>
+                          edit(setMinutesPerPage)(String(observedSpeed))
+                        }
+                      >
+                        이 속도 쓰기
+                      </button>
+                    </>
+                  )}
+              </p>
               <p className="text-xs text-muted-foreground">
                 학습 가능한 요일과 시간은 다른 책과 함께 쓰므로 여기서는 바꾸지
                 않아요. 오늘까지의 일정과 읽은 기록은 그대로 두고 내일 이후만
                 다시 나눠요.
               </p>
             </fieldset>
-            <Button type="submit" disabled={busy || paused}>
-              {busy ? '다시 나누는 중…' : '분량 바꾸고 다시 나누기'}
-            </Button>
+            {preview ? (
+              <ReplanPreviewCard
+                preview={preview}
+                busy={busy}
+                onConfirm={confirm}
+                onCancel={() => setPreview(null)}
+              />
+            ) : (
+              <Button type="submit" disabled={busy || paused}>
+                {busy ? '일정을 계산하는 중…' : '일정 미리보기'}
+              </Button>
+            )}
           </form>
           <div className="space-y-3 border-t border-border pt-5">
             <h3 className="text-sm font-medium">
@@ -290,5 +402,100 @@ export function PlanSettings({
         </p>
       )}
     </Card>
+  );
+}
+
+/** 확정하기 전에 보는 새 일정. 목표 날짜를 못 맞추면 그렇다고, 왜 그런지 말한다. */
+function ReplanPreviewCard({
+  preview,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  preview: ReplanPreview;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const placed = preview.status !== 'conflict';
+  const missed =
+    placed &&
+    preview.targetDate !== null &&
+    preview.forecastAfter !== null &&
+    preview.forecastAfter > preview.targetDate;
+  return (
+    <div
+      role="status"
+      className="space-y-3 rounded-lg border border-primary/30 bg-accent/40 p-4 text-sm"
+    >
+      {placed ? (
+        <>
+          <p className="font-semibold">
+            예상 완독 {formatDate(preview.forecastBefore, true)} →{' '}
+            {formatDate(preview.forecastAfter, true)}
+          </p>
+          {preview.targetDate &&
+            (missed ? (
+              <p className="rounded-md bg-warning-soft p-2">
+                목표 날짜 {formatDate(preview.targetDate)}에는 다 읽을 수 없어요.
+                {preview.mode !== 'DEADLINE'
+                  ? ' 목표 날짜를 꼭 지키려면 조정 방식을 ‘목표 날짜에 맞추기’로 바꿔 보세요.'
+                  : ''}{' '}
+                읽는 속도를 실제에 맞추거나 학습 가능한 시간을 늘려도 앞당길 수
+                있어요.
+              </p>
+            ) : (
+              <p>목표 날짜 {formatDate(preview.targetDate)}에 맞춰요.</p>
+            ))}
+          <p className="text-muted-foreground">
+            남은 {preview.remainingPages}쪽 · 쪽당 {preview.minutesPerPage}분
+            {preview.speedSource === 'observed' ? '(최근 기록 기준)' : ''}으로
+            나눴어요.
+          </p>
+          <ul className="space-y-1">
+            {preview.sessions.slice(0, 5).map((session) => (
+              <li key={session.studyDate} className="flex justify-between gap-3">
+                <span>{studyDay(session.studyDate)}</span>
+                <span className="text-muted-foreground">
+                  {session.startPage}–{session.endPage}쪽 · 약{' '}
+                  {session.estimatedMinutes}분
+                </span>
+              </li>
+            ))}
+          </ul>
+          {preview.sessions.length > 5 && (
+            <p className="text-xs text-muted-foreground">
+              첫 5일만 보여 줘요. 확정하면 캘린더에서 이어지는 일정을 볼 수
+              있어요.
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="font-semibold">이대로는 일정을 잡을 수 없어요</p>
+          {[
+            ...new Set(
+              preview.conflicts.map(
+                (conflict) =>
+                  previewConflicts[conflict.code] ??
+                  '지금 설정으로는 남은 분량을 나눌 수 없어요. 분량과 목표 날짜를 확인해 주세요.',
+              ),
+            ),
+          ].map((message) => (
+            <p key={message}>{message}</p>
+          ))}
+        </>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {placed && (
+          <Button type="button" disabled={busy} onClick={onConfirm}>
+            {busy ? '다시 나누는 중…' : '이 일정으로 확정'}
+          </Button>
+        )}
+        <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
+          다시 고치기
+        </Button>
+      </div>
+    </div>
   );
 }
