@@ -27,6 +27,34 @@ const schema = z.discriminatedUnion('kind', [
 export type ProgressRequest = z.infer<typeof schema>;
 export function parseProgressRequest(value: unknown): ProgressRequest { return schema.parse(value); }
 
+// A book with no plan yet still takes reading and the correction of the latest reading.
+// There is no schedule to replan, so the request carries no plan fields at all.
+const unplannedBase = { idempotencyKey: base.idempotencyKey, expectedProgressVersion: base.expectedProgressVersion };
+const unplannedSchema = z.discriminatedUnion('kind', [
+  z.object({ ...unplannedBase, ...record, kind: z.literal('LEARNING'), endPage: page }).strict(),
+  z.object({ ...unplannedBase, ...record, kind: z.literal('CORRECTION'), eventId: z.uuid(), endPage: z.number().int().min(0).max(10_000_000) }).strict(),
+]);
+export type UnplannedProgressRequest = z.infer<typeof unplannedSchema>;
+export function parseUnplannedRequest(value: unknown): UnplannedProgressRequest { return unplannedSchema.parse(value); }
+/** A record for a book without a plan is one that names no plan. */
+export function isUnplannedRequest(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && !('planId' in value);
+}
+/** The same checks the database makes, so a mistake is explained instead of refused. */
+export function checkUnplannedProgress(book: ProgressBook, events: readonly ProgressEvent[], request: UnplannedProgressRequest, asOfDate: string) {
+  if (request.studyDate > asOfDate) throw new ProgressError('미래 날짜에는 학습을 기록할 수 없습니다.');
+  const current = projectProgress(book, events);
+  let startPage = current.completedThroughPage + 1;
+  if (request.kind === 'CORRECTION') {
+    if (request.eventId !== current.latestLearningId) throw new ProgressError('가장 최근의 유효한 읽기 기록만 수정할 수 있습니다.');
+    startPage = current.activeEvents.find(event => event.id === request.eventId)!.start_page!;
+  }
+  const minimumEnd = request.kind === 'CORRECTION' ? startPage - 1 : startPage;
+  if (request.endPage < minimumEnd || request.endPage > book.total_pages!)
+    throw new ProgressError('기록할 페이지 범위를 확인해 주세요.');
+  return { completedThroughPage: request.endPage };
+}
+
 export class ProgressError extends Error {
   readonly code: string;
   constructor(message: string, code = 'INVALID_PROGRESS') {

@@ -169,7 +169,11 @@ export function PlanForm({
     <Card className="p-4 md:p-6">
       <h2 className="text-lg font-semibold">나에게 맞는 독서 계획</h2>
       <p className="mb-6 mt-1 text-sm text-muted-foreground">
-        남은 {(book.total_pages ?? 0) - book.initial_completed_workload}쪽을
+        남은{' '}
+        {(book.total_pages ?? 0) -
+          (data.progress[book.id]?.completedThroughPage ??
+            book.initial_completed_workload)}
+        쪽을
         읽을 시간을 나눠 보세요.
       </p>
       <form onSubmit={submit} className="space-y-6">

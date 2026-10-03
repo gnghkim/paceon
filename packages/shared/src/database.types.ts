@@ -1640,6 +1640,16 @@ export type Database = {
         Args: { p_request: Json; p_resource_id: string }
         Returns: Json
       }
+      submit_unplanned_book_progress: {
+        Args: {
+          p_as_of_date: string
+          p_expected_initial: number
+          p_expected_total: number
+          p_request: Json
+          p_resource_id: string
+        }
+        Returns: Json
+      }
       youtube_connection_command: { Args: { p_command: Json }; Returns: Json }
     }
     Enums: {

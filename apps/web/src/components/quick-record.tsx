@@ -67,9 +67,11 @@ export function QuickRecordProvider({ children }: { children: ReactNode }) {
               기록을 저장했어요 · 현재 {notice.completedThroughPage}쪽
             </p>
             <p className="mt-1 text-muted-foreground">
-              {notice.replanStatus === 'pending'
-                ? '기록은 반영했어요. 도서 상세에서 일정 조정을 확인해 주세요.'
-                : '진도와 학습 일정을 반영했어요.'}
+              {notice.unplanned
+                ? '진도를 반영했어요. 계획을 세우면 이어서 일정을 잡아 드려요.'
+                : notice.replanStatus === 'pending'
+                  ? '기록은 반영했어요. 도서 상세에서 일정 조정을 확인해 주세요.'
+                  : '진도와 학습 일정을 반영했어요.'}
             </p>
           </div>
           <button
@@ -196,8 +198,19 @@ function RecordContent({
   const selectedId =
     selected || (choices.length === 1 ? choices[0]!.book.id : '');
   const choice = choices.find((item) => item.book.id === selectedId);
+  // 타이머를 켠 책이 그사이 일시 정지되거나 보관되면 목록에 없다. 잰 시간은 알려 두어
+  // 다른 책을 고르든 나중에 적든 잃지 않게 한다.
+  const unavailable =
+    bookId !== undefined && !choices.some((item) => item.book.id === bookId);
   return (
     <div className="space-y-4">
+      {unavailable && (
+        <p role="status" className="rounded-lg bg-muted p-3 text-sm">
+          타이머를 켠 책은 지금 기록할 수 없어요. 계획이 일시 정지됐거나 보관한
+          책이에요.
+          {minutes !== undefined && ` 잰 시간은 ${minutes}분이에요.`}
+        </p>
+      )}
       {choices.length > 0 ? (
         <label className="block space-y-2 text-sm">
           <span className="font-medium">기록할 도서</span>
@@ -214,6 +227,9 @@ function RecordContent({
               <option key={book.id} value={book.id}>
                 {book.title}
                 {book.status === 'COMPLETED' ? ' · 복습' : ''}
+                {choices.find((item) => item.book.id === book.id)?.plan
+                  ? ''
+                  : ' · 계획 없음'}
               </option>
             ))}
           </select>
@@ -226,8 +242,8 @@ function RecordContent({
       ) : (
         <div className="space-y-4 py-5">
           <p>
-            지금 기록할 수 있는 책이 없어요. 도서를 추가하고 학습 계획을 만들어
-            주세요. 일시 정지한 계획은 먼저 재개해 주세요.
+            지금 기록할 수 있는 책이 없어요. 내 서재에 읽을 책을 추가해 주세요.
+            일시 정지한 계획은 먼저 재개해 주세요.
           </p>
           <p className="text-sm text-muted-foreground">
             영어 학습 시간은{' '}
@@ -248,7 +264,7 @@ function RecordContent({
       )}
       {choice && (
         <ProgressForm
-          key={`${choice.book.id}:${choice.book.progress_version}:${choice.plan.version}`}
+          key={`${choice.book.id}:${choice.book.progress_version}:${choice.plan?.version ?? 0}`}
           compact
           {...(minutes === undefined ? {} : { initialDuration: minutes })}
           book={choice.book}

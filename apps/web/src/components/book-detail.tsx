@@ -75,6 +75,11 @@ function BookDetailPanel({ id }: { id: string }) {
       .filter((p) => p.status === 'COMPLETED')
       .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
   const baseline = summarizeBook(book, plan);
+  // 계획이 없어도 읽은 것은 기록한다. 다 읽은 책은 마지막 기록을 고칠 때만 연다.
+  const recordable = plan
+    ? true
+    : book.status === 'ACTIVE' ||
+      (book.status === 'COMPLETED' && !!data.progress[id]?.latestLearningId);
   const progress = data.progress[id];
   const summary = {
     ...baseline,
@@ -163,7 +168,11 @@ function BookDetailPanel({ id }: { id: string }) {
           </p>
           {book.status === 'ACTIVE' && (
             <div className="mt-4">
-              <ReadingControl resourceId={book.id} title={book.title} />
+              <ReadingControl
+                resourceId={book.id}
+                title={book.title}
+                paused={plan?.status === 'PAUSED'}
+              />
             </div>
           )}
         </div>
@@ -189,11 +198,11 @@ function BookDetailPanel({ id }: { id: string }) {
         </div>
       </Card>
       {saved && <ProgressResult result={saved} />}
-      {plan && (
+      {recordable && (
         <ProgressForm
-          key={`${book.id}:${book.progress_version}:${plan.version}`}
+          key={`${book.id}:${book.progress_version}:${plan?.version ?? 0}`}
           book={book}
-          plan={plan}
+          plan={plan ?? null}
           data={data}
           onSaved={reload}
           onResult={setSaved}
@@ -263,7 +272,13 @@ function BookDetailPanel({ id }: { id: string }) {
       )}
       {!plan && book.status !== 'COMPLETED' && (
         <div id="reading-plan" className="scroll-mt-6">
-          <PlanForm key={book.id} book={book} data={data} onSaved={reload} />
+          {/* 계획 없이 읽은 기록이 늘면 미리 본 일정도 처음부터 다시 받는다. */}
+          <PlanForm
+            key={`${book.id}:${book.progress_version}`}
+            book={book}
+            data={data}
+            onSaved={reload}
+          />
         </div>
       )}
       <AiInsight resourceId={book.id} initialOutline={pdfOutline} planHref={plan ? '#record' : book.status === 'COMPLETED' ? '#book-progress' : '#reading-plan'} />
@@ -317,7 +332,15 @@ function BookDetailPanel({ id }: { id: string }) {
 }
 
 /** 이 책을 재는 중이면 상태를, 아니면 시작 버튼을 보여 준다. */
-function ReadingControl({ resourceId, title }: { resourceId: string; title: string }) {
+function ReadingControl({
+  resourceId,
+  title,
+  paused,
+}: {
+  resourceId: string;
+  title: string;
+  paused: boolean;
+}) {
   const { running } = useReadingTimer();
   if (running?.resourceId === resourceId)
     return (
@@ -325,6 +348,14 @@ function ReadingControl({ resourceId, title }: { resourceId: string; title: stri
         {running.pausedAt !== null
           ? '잠시 멈춰 두었어요. 위쪽 띠에서 이어 읽거나 끝낼 수 있어요.'
           : '읽는 시간을 재고 있어요. 위쪽 띠에서 멈추거나 끝낼 수 있어요.'}
+      </p>
+    );
+  // 멈춘 계획에는 기록을 받지 않는다. 재고 나서 남길 곳이 없는 타이머는 켜지 않는다.
+  if (paused)
+    return (
+      <p className="text-sm text-muted-foreground">
+        계획을 잠시 멈춰 두었어요. 아래에서 ‘계획 다시 시작’을 누르면 다시 읽기를
+        잴 수 있어요.
       </p>
     );
   // 이 화면에서는 이 단추가 주인공이다.
