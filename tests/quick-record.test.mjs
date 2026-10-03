@@ -17,7 +17,7 @@ const plan = (id, resource_id, extra = {}) => ({
   created_at: '2026-09-01',
   ...extra,
 });
-test('recordable books exclude archived, paused, unplanned and non-book resources', () => {
+test('recordable books exclude archived, paused and non-book resources', () => {
   const data = {
     today: '2026-09-13',
     resources: [
@@ -36,9 +36,26 @@ test('recordable books exclude archived, paused, unplanned and non-book resource
     ],
     sessions: [],
   };
+  // d has no plan yet. It can still be read and recorded, so the timer never loses its minutes.
   assert.deepEqual(
-    recordableBooks(data).map((x) => x.book.id),
-    ['a'],
+    recordableBooks(data).map((x) => [x.book.id, x.plan?.id ?? null]),
+    [
+      ['a', '1'],
+      ['d', null],
+    ],
+  );
+});
+test('a book finished without a plan is not offered for more reading', () => {
+  const data = {
+    today: '2026-09-13',
+    resources: [book('done', { status: 'COMPLETED' }), book('open')],
+    plans: [plan('archived', 'open', { status: 'ARCHIVED' })],
+    sessions: [],
+  };
+  // Without a plan there is no review to record, and its last reading is corrected on the book page.
+  assert.deepEqual(
+    recordableBooks(data).map((x) => [x.book.id, x.plan]),
+    [['open', null]],
   );
 });
 test('today is prioritized, completed books remain reviewable, active plan wins over history', () => {

@@ -374,20 +374,22 @@ export function createWorkspaceHandlers(
           toStudyDate(new Date().toISOString(), options.timezone)
         )
           throw new ApiError(400, '시작일은 오늘 이후로 선택해 주세요.');
-        const [resources, plans, preferences] = await Promise.all([
+        const [resources, plans, preferences, events] = await Promise.all([
           rows<Resource>(auth, 'resources', {
             id: `eq.${resourceId}`,
             type: 'eq.BOOK',
           }),
           rows<Plan>(auth, 'plans', { status: 'in.(ACTIVE,PAUSED)' }),
           settings(auth),
+          rows<ProgressEvent>(auth, 'progress_events', {
+            resource_id: `eq.${resourceId}`,
+          }),
         ]);
         const book = resources[0];
         if (!book) throw new ApiError(404, '자료를 찾을 수 없습니다.');
-        if (
-          book.status !== 'ACTIVE' ||
-          book.initial_completed_workload >= (book.total_pages ?? 0)
-        )
+        // Pages read before there was a plan count; the schedule starts after them.
+        const completed = projectProgress(book, events).completedThroughPage;
+        if (book.status !== 'ACTIVE' || completed >= (book.total_pages ?? 0))
           throw new ApiError(409, '학습할 분량이 남아 있지 않습니다.');
         if (plans.some((p) => p.resource_id === resourceId))
           throw new ApiError(409, '이미 계획이 있는 자료입니다.');
@@ -423,7 +425,7 @@ export function createWorkspaceHandlers(
         );
         const activeIds = new Set(plans.map((p) => p.id));
         const schedule = createInitialSchedule(
-          book,
+          { ...book, initial_completed_workload: completed },
           options,
           reserved.filter((s) => activeIds.has(s.plan_id)),
         );
@@ -444,7 +446,7 @@ export function createWorkspaceHandlers(
           {
             p_resource_id: resourceId,
             p_expected_total: book.total_pages,
-            p_expected_completed: book.initial_completed_workload,
+            p_expected_completed: completed,
             p_options: options,
             p_sessions: schedule.sessions,
             p_forecast: schedule.forecastDate,

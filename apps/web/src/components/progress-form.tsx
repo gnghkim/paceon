@@ -19,6 +19,8 @@ export interface ProgressSummary {
   forecastBefore: string | null;
   forecastAfter: string | null;
   conflicts: { code: string }[];
+  /** 계획이 없는 책의 기록. 진도만 쌓이고 움직일 일정은 없다. */
+  unplanned?: boolean;
 }
 
 const conflictMessages: Record<string, string> = {
@@ -45,6 +47,12 @@ export function ProgressResult({
         {result.title ?? '기록을 저장했어요'} · 현재{' '}
         {result.completedThroughPage}쪽
       </p>
+      {result.unplanned ? (
+        <p className="text-sm">
+          아직 계획이 없어 일정은 그대로예요. 계획을 세우면{' '}
+          {result.completedThroughPage + 1}쪽부터 일정을 잡아 드려요.
+        </p>
+      ) : (
       <p className="text-sm">
         예상 완독:{" "}
         {result.forecastBefore
@@ -57,6 +65,7 @@ export function ProgressResult({
             ? formatDate(result.forecastAfter, true)
             : "미정"}
       </p>
+      )}
       {result.replanStatus === "pending" && (
         <>
           <p className="text-sm">
@@ -94,7 +103,8 @@ export function ProgressForm({
   initialDuration,
 }: {
   book: Resource;
-  plan: Plan;
+  /** 없으면 계획 없이 읽은 기록이다. 읽은 진도와 마지막 기록 정정만 받는다. */
+  plan: Plan | null;
   data: WorkspaceData;
   onSaved: () => void;
   onResult?: (result: ProgressSummary) => void;
@@ -110,14 +120,17 @@ export function ProgressForm({
   const latest = data.events.find(
     (event) => event.id === data.progress[book.id]?.latestLearningId,
   );
+  const timezone = plan?.timezone ?? data.timezone;
   const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: plan.timezone,
+    timeZone: timezone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+  const finished = completed >= (book.total_pages ?? 0);
+  // 계획 없이 다 읽은 책에는 복습을 남길 곳이 없다. 마지막 기록을 고치는 일만 남는다.
   const [kind, setKind] = useState<Kind>(
-    completed >= (book.total_pages ?? 0) ? "REVIEW" : "LEARNING",
+    !finished ? "LEARNING" : plan ? "REVIEW" : "CORRECTION",
   );
   const [endPage, setEndPage] = useState("");
   const [startPage, setStartPage] = useState("1");
@@ -179,8 +192,10 @@ export function ProgressForm({
       const request = {
         kind,
         idempotencyKey: crypto.randomUUID(),
-        planId: plan.id,
-        expectedPlanVersion: plan.version,
+        // 계획이 없으면 계획 칸을 아예 보내지 않는다. 서버는 그것으로 길을 나눈다.
+        ...(plan
+          ? { planId: plan.id, expectedPlanVersion: plan.version }
+          : {}),
         expectedProgressVersion: book.progress_version,
         studyDate,
         endPage: Number(endPage),
@@ -308,7 +323,7 @@ export function ProgressForm({
             {(
               [
                 ["LEARNING", "읽은 진도"],
-                ["REVIEW", "복습"],
+                ...(plan ? [["REVIEW", "복습"]] : []),
                 ...(!compact ? [["CORRECTION", "마지막 기록 정정"]] : []),
               ] as [Kind, string][]
             ).map(([value, label]) => (
@@ -420,7 +435,9 @@ export function ProgressForm({
               >
                 {expanded
                   ? "추가 입력 접기"
-                  : "추가 입력 · 날짜, 시간, 메모, 복습"}
+                  : plan
+                    ? "추가 입력 · 날짜, 시간, 메모, 복습"
+                    : "추가 입력 · 날짜, 시간, 메모"}
               </Button>
             )}
             <label
@@ -467,7 +484,7 @@ export function ProgressForm({
               compact && !expanded ? "hidden" : "text-xs text-muted-foreground"
             }
           >
-            학습 날짜는 {plan.timezone} 기준이며 미래 날짜는 기록할 수 없어요.
+            학습 날짜는 {timezone} 기준이며 미래 날짜는 기록할 수 없어요.
           </p>
           <div
             className={

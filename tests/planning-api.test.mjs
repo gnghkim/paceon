@@ -155,3 +155,39 @@ test('a finished book keeps its status and unknown values are rejected', async (
     assert.equal((await api.BOOK_STATUS(status(bad), id)).status, 400);
   assert.equal(writes, 0);
 });
+
+test('a plan made after reading without one starts after the pages already read', async () => {
+  let saved = null;
+  const events = [
+    { id: '22345678-1234-4234-9234-123456789abc', resource_id: id, event_type: 'LEARNING', start_page: 21, end_page: 35, completed_workload: 15 },
+    { id: '32345678-1234-4234-9234-123456789abc', resource_id: id, event_type: 'LEARNING', start_page: 36, end_page: 40, completed_workload: 5 },
+  ];
+  const api = createWorkspaceHandlers(config, async (url, init = {}) => {
+    const path = new URL(url).pathname;
+    if (path.endsWith('/user')) return Response.json({ id });
+    if (path.endsWith('/rpc/create_initial_book_plan')) {
+      saved = JSON.parse(init.body);
+      return Response.json(id);
+    }
+    if (path.endsWith('/resources')) return Response.json([resource]);
+    if (path.endsWith('/progress_events')) return Response.json(events);
+    return Response.json([]);
+  });
+  const preview = await (await api.PLAN(request({ options, preview: true }), id)).json();
+  assert.equal(preview.schedule.sessions[0].startPage, 41, 'pages 21-40 were read before the plan');
+  assert.equal((await api.PLAN(request({ options }), id)).status, 201);
+  assert.equal(saved.p_expected_completed, 40);
+  assert.equal(saved.p_sessions[0].startPage, 41);
+});
+
+test('a book read to the end without a plan has nothing left to plan', async () => {
+  const events = [{ id: '22345678-1234-4234-9234-123456789abc', resource_id: id, event_type: 'LEARNING', start_page: 21, end_page: 100, completed_workload: 80 }];
+  const api = createWorkspaceHandlers(config, async url => {
+    const path = new URL(url).pathname;
+    if (path.endsWith('/user')) return Response.json({ id });
+    if (path.endsWith('/resources')) return Response.json([resource]);
+    if (path.endsWith('/progress_events')) return Response.json(events);
+    return Response.json([]);
+  });
+  assert.equal((await api.PLAN(request({ options, preview: true }), id)).status, 409);
+});

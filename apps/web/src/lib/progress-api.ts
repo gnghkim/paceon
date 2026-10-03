@@ -4,8 +4,8 @@ import type { Resource, Plan, ProgressEvent, ScheduleSession } from '@paceon/sha
 import { ApiError, json, readBody } from './books-api.ts';
 import type { Config } from './books-api.ts';
 import { createWorkspaceHandlers } from './workspace-api.ts';
-import { calculateProgressCandidate, parseProgressRequest, ProgressError } from './progress.ts';
-import type { ProgressCandidate } from './progress.ts';
+import { calculateProgressCandidate, checkUnplannedProgress, isUnplannedRequest, parseProgressRequest, parseUnplannedRequest, ProgressError } from './progress.ts';
+import type { ProgressCandidate, UnplannedProgressRequest } from './progress.ts';
 
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
@@ -14,17 +14,59 @@ function canonical(value: unknown): string {
 }
 export function createProgressHandler(config: Config | undefined, fetcher: typeof fetch = globalThis.fetch) {
   const storage = createWorkspaceHandlers(config, fetcher);
+  type Auth = Awaited<ReturnType<typeof storage.authenticate>>;
+  /** The stored answer for this exact request, if it was already saved. */
+  const replayOf = (auth: Auth, resourceId: string, input: { idempotencyKey: string }) => async () => {
+    const ledger = await storage.rows<{ resource_id: string; request: unknown; result: unknown }>(auth, 'progress_submissions', { idempotency_key: `eq.${input.idempotencyKey}` });
+    if (!ledger[0]) return null;
+    if (ledger[0].resource_id !== resourceId || canonical(ledger[0].request) !== canonical(input)) throw new ApiError(409, '같은 요청 번호에 다른 기록이 있습니다. 자료를 새로고침해 주세요.');
+    return json(ledger[0].result);
+  };
+  /** A book read before it has a plan. Progress and time are kept; there is no schedule to move. */
+  async function recordUnplanned(auth: Auth, resourceId: string, input: UnplannedProgressRequest, replay: () => Promise<Response | null>) {
+    const previous = await replay();
+    if (previous) return previous;
+    const [books, plans, events, preferences] = await Promise.all([
+      storage.rows<Resource>(auth, 'resources', { id: `eq.${resourceId}`, type: 'eq.BOOK' }),
+      storage.rows<Plan>(auth, 'plans', { resource_id: `eq.${resourceId}`, status: 'in.(ACTIVE,PAUSED,COMPLETED)' }),
+      storage.rows<ProgressEvent>(auth, 'progress_events', { resource_id: `eq.${resourceId}` }),
+      storage.settings(auth),
+    ]);
+    const book = books[0];
+    if (!book) throw new ApiError(404, '기록할 책을 찾을 수 없습니다.');
+    if (plans.length) throw new ApiError(409, '이 책에는 계획이 생겼어요. 새로고침한 뒤 다시 기록해 주세요.');
+    // A finished book only takes a correction, so a mistyped last page can be taken back.
+    if (book.status === 'ARCHIVED' || (book.status === 'COMPLETED' && input.kind !== 'CORRECTION'))
+      throw new ApiError(409, '지금 읽고 있는 책에만 기록할 수 있어요.');
+    if (book.progress_version !== input.expectedProgressVersion) {
+      const committed = await replay();
+      if (committed) return committed;
+      throw new ApiError(409, '다른 기록이 반영되었습니다. 새로고침 후 다시 입력해 주세요.');
+    }
+    const asOfDate = toStudyDate(new Date().toISOString(), preferences.timezone);
+    try {
+      checkUnplannedProgress(book, events, input, asOfDate);
+    } catch (error) {
+      if (error instanceof ProgressError) {
+        const committed = await replay();
+        if (committed) return committed;
+      }
+      throw error;
+    }
+    const result = await storage.rest(auth, 'rpc/submit_unplanned_book_progress', {}, { p_resource_id: resourceId, p_request: input, p_expected_total: book.total_pages, p_expected_initial: book.initial_completed_workload, p_as_of_date: asOfDate });
+    return json(result, 201);
+  }
   return async (request: Request, resourceId: string): Promise<Response> => {
     try {
       const auth = await storage.authenticate(request);
       z.uuid().parse(resourceId);
-      const input = parseProgressRequest(await readBody(request));
-      const replay = async () => {
-        const ledger = await storage.rows<{ resource_id: string; request: unknown; result: unknown }>(auth, 'progress_submissions', { idempotency_key: `eq.${input.idempotencyKey}` });
-        if (!ledger[0]) return null;
-        if (ledger[0].resource_id !== resourceId || canonical(ledger[0].request) !== canonical(input)) throw new ApiError(409, '같은 요청 번호에 다른 기록이 있습니다. 자료를 새로고침해 주세요.');
-        return json(ledger[0].result);
-      };
+      const body = await readBody(request);
+      if (isUnplannedRequest(body)) {
+        const plain = parseUnplannedRequest(body);
+        return await recordUnplanned(auth, resourceId, plain, replayOf(auth, resourceId, plain));
+      }
+      const input = parseProgressRequest(body);
+      const replay = replayOf(auth, resourceId, input);
       const previous = await replay();
       if (previous) return previous;
       const [books, plans, events, preferences] = await Promise.all([
