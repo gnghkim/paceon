@@ -134,3 +134,42 @@ export function bookReadingSpeed(
   const speed = Math.round((minutes / pages) * 100) / 100;
   return speed >= 0.1 && speed <= 1440 ? speed : null;
 }
+/**
+ * 쪽당 분을 1시간에 읽는 쪽수로 바꿔 말한다. "읽는 속도"라는 이름에 큰 수를 넣으면
+ * 빨라질 것 같지만 쪽당 분은 클수록 느리다. 같은 값을 두 방향으로 보여 헷갈리지 않게 한다.
+ */
+export function pagesPerHour(minutesPerPage: number): number | null {
+  return Number.isFinite(minutesPerPage) && minutesPerPage > 0
+    ? Math.floor(60 / minutesPerPage)
+    : null;
+}
+
+type PreviewOutcome = {
+  status: string;
+  forecastAfter: string | null;
+  targetDate: string | null;
+  mode: string;
+  minutesPerPage: number;
+  conflicts: readonly { code: string }[];
+};
+/**
+ * 목표 날짜를 못 맞춘 미리보기에 내미는 한 번에 고치는 길. 목표를 지키는 방식은
+ * '목표 날짜에 맞추기'뿐이고(균형 조정은 하루 분량을 20%까지만 늘린다), 이 책을 실제로
+ * 더 빨리 읽었다면 그 속도로 바꾼다. 더 느린 기록은 권하지 않는다.
+ * 이미 그 설정인데도 못 맞추면 화면이 바꿀 것이 없으니 아무것도 내밀지 않는다.
+ */
+export function targetFix(
+  preview: PreviewOutcome,
+  observedSpeed: number | null,
+): { mode: 'DEADLINE'; minutesPerPage: number } | null {
+  if (!preview.targetDate) return null;
+  const missed =
+    preview.status === 'conflict'
+      ? preview.conflicts.some((conflict) => conflict.code === 'DEADLINE_CAPACITY' || conflict.code === 'TIME_CAPACITY')
+      : preview.forecastAfter !== null && preview.forecastAfter > preview.targetDate;
+  if (!missed) return null;
+  const minutesPerPage =
+    observedSpeed !== null && observedSpeed < preview.minutesPerPage ? observedSpeed : preview.minutesPerPage;
+  if (preview.mode === 'DEADLINE' && minutesPerPage === preview.minutesPerPage) return null;
+  return { mode: 'DEADLINE', minutesPerPage };
+}
