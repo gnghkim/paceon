@@ -28,3 +28,34 @@ test('no timed reading means no speed, and an absurd one is not offered', () => 
   assert.equal(bookReadingSpeed([learning('a', 1, 10, null)], 'book'), null);
   assert.equal(bookReadingSpeed([learning('a', 1, 1000, 1)], 'book'), null, 'faster than a plan can store');
 });
+
+import { pagesPerHour, targetFix } from '../apps/web/src/lib/planning.ts';
+
+test('a minutes-per-page value is also told as pages an hour, so bigger is not read as faster', () => {
+  assert.equal(pagesPerHour(3), 20);
+  assert.equal(pagesPerHour(2), 30);
+  assert.equal(pagesPerHour(0.43), 139);
+  assert.equal(pagesPerHour(0), null);
+  assert.equal(pagesPerHour(Number.NaN), null);
+});
+
+const preview = (extra = {}) => ({ preview: true, status: 'ok', forecastBefore: '2026-10-10', forecastAfter: '2026-10-15', targetDate: '2026-10-07', mode: 'BALANCED', minutesPerPage: 3, speedSource: 'fallback', remainingPages: 124, sessions: [], conflicts: [], ...extra });
+
+test('a missed target offers the setting that keeps it, with the faster measured speed', () => {
+  // The reported case: balanced, three minutes a page typed in, 0.43 measured.
+  assert.deepEqual(targetFix(preview(), 0.43), { mode: 'DEADLINE', minutesPerPage: 0.43 });
+  // A deadline that cannot be placed at all is the same situation.
+  assert.deepEqual(targetFix(preview({ status: 'conflict', mode: 'DEADLINE', forecastAfter: null, conflicts: [{ code: 'DEADLINE_CAPACITY' }] }), 0.43), { mode: 'DEADLINE', minutesPerPage: 0.43 });
+});
+
+test('a slower measured speed is never offered as a fix', () => {
+  assert.deepEqual(targetFix(preview({ minutesPerPage: 0.3 }), 0.43), { mode: 'DEADLINE', minutesPerPage: 0.3 });
+  assert.deepEqual(targetFix(preview(), null), { mode: 'DEADLINE', minutesPerPage: 3 });
+});
+
+test('nothing is offered when the target is met, absent, or already pursued with the best speed known', () => {
+  assert.equal(targetFix(preview({ forecastAfter: '2026-10-07' }), 0.43), null);
+  assert.equal(targetFix(preview({ targetDate: null }), 0.43), null);
+  assert.equal(targetFix(preview({ status: 'conflict', mode: 'DEADLINE', forecastAfter: null, minutesPerPage: 0.43, conflicts: [{ code: 'DEADLINE_CAPACITY' }] }), 0.43), null);
+  assert.equal(targetFix(preview({ status: 'conflict', forecastAfter: null, conflicts: [{ code: 'NO_AVAILABILITY' }] }), 0.43), null, 'no learning time is not fixed by a mode');
+});

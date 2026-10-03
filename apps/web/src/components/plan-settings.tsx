@@ -6,7 +6,7 @@ import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
-import { formatDate } from '@/lib/planning';
+import { formatDate, pagesPerHour, targetFix } from '@/lib/planning';
 import type { ReplanPreview } from '@/lib/progress';
 import type { ProgressSummary } from './progress-form';
 
@@ -73,29 +73,32 @@ export function PlanSettings({
   const archived = book.status === 'ARCHIVED';
 
   // plans를 건드리면 서버가 버전을 올린다. 상태를 바꾼 직후에는 그때 받은 버전을 쓴다.
-  function replanRequest(planVersion: number) {
-    const speed = Number(minutesPerPage);
+  type Override = { mode: Plan['mode']; minutesPerPage: number };
+  // 한 번에 고치기는 화면 값이 다시 그려지기 전에 계산해야 하므로 바꿀 값을 직접 받는다.
+  function replanRequest(planVersion: number, override?: Override) {
+    const speed = override?.minutesPerPage ?? Number(minutesPerPage);
+    const chosenMode = override?.mode ?? mode;
     return {
       kind: 'REPLAN',
       idempotencyKey: crypto.randomUUID(),
       planId: plan.id,
       expectedPlanVersion: planVersion,
       expectedProgressVersion: book.progress_version,
-      mode,
-      ...(mode !== 'DEADLINE' ? { dailyPages: Number(dailyPages) } : {}),
+      mode: chosenMode,
+      ...(chosenMode !== 'DEADLINE' ? { dailyPages: Number(dailyPages) } : {}),
       targetDate: targetDate || null,
       // 고친 때만 보낸다. 보내지 않으면 계획에 저장된 속도를 그대로 쓴다.
       ...(speed !== plan.minutes_per_page ? { minutesPerPage: speed } : {}),
     };
   }
 
-  async function previewReplan(): Promise<ReplanPreview> {
+  async function previewReplan(override?: Override): Promise<ReplanPreview> {
     const response = await apiFetch(
       `/api/resources/books/${book.id}/progress?preview=1`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(replanRequest(plan.version)),
+        body: JSON.stringify(replanRequest(plan.version, override)),
       },
     );
     const body = await response.json();
@@ -171,6 +174,14 @@ export function PlanSettings({
     event.preventDefault();
     void run(async () => {
       setPreview(await previewReplan());
+    });
+  }
+  // 목표 날짜를 지키는 설정으로 바꾸고 곧바로 다시 보여 준다. 확정은 여전히 사람이 한다.
+  function retarget(fix: Override) {
+    void run(async () => {
+      setMode(fix.mode);
+      setMinutesPerPage(String(fix.minutesPerPage));
+      setPreview(await previewReplan(fix));
     });
   }
   function confirm() {
@@ -260,7 +271,7 @@ export function PlanSettings({
                   />
                 </label>
                 <label className="space-y-2 text-sm">
-                  <span>읽는 속도 (쪽당 분)</span>
+                  <span>한 쪽 읽는 시간 (분)</span>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -275,6 +286,13 @@ export function PlanSettings({
                   />
                 </label>
               </div>
+              {pagesPerHour(Number(minutesPerPage)) !== null && (
+                <p className="text-xs text-muted-foreground">
+                  쪽당 {Number(minutesPerPage)}분이면 1시간에 약{' '}
+                  {pagesPerHour(Number(minutesPerPage))}쪽이에요. 숫자가 작을수록
+                  빨리 읽는 거예요.
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 계획은 쪽당 {plan.minutes_per_page}분으로 나뉘어 있어요. 시간을
                 적은 기록이 세 개 넘게 쌓이면 실제 속도로 나눠요.
@@ -305,6 +323,8 @@ export function PlanSettings({
               <ReplanPreviewCard
                 preview={preview}
                 busy={busy}
+                fix={targetFix(preview, observedSpeed)}
+                onFix={retarget}
                 onConfirm={confirm}
                 onCancel={() => setPreview(null)}
               />
@@ -409,11 +429,16 @@ export function PlanSettings({
 function ReplanPreviewCard({
   preview,
   busy,
+  fix,
+  onFix,
   onConfirm,
   onCancel,
 }: {
   preview: ReplanPreview;
   busy: boolean;
+  /** 목표 날짜를 지킬 수 있을지도 모르는 설정. 없으면 내밀 것이 없다. */
+  fix: { mode: Plan['mode']; minutesPerPage: number } | null;
+  onFix: (fix: { mode: Plan['mode']; minutesPerPage: number }) => void;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -438,11 +463,11 @@ function ReplanPreviewCard({
             (missed ? (
               <p className="rounded-md bg-warning-soft p-2">
                 목표 날짜 {formatDate(preview.targetDate)}에는 다 읽을 수 없어요.
-                {preview.mode !== 'DEADLINE'
-                  ? ' 목표 날짜를 꼭 지키려면 조정 방식을 ‘목표 날짜에 맞추기’로 바꿔 보세요.'
-                  : ''}{' '}
-                읽는 속도를 실제에 맞추거나 학습 가능한 시간을 늘려도 앞당길 수
-                있어요.
+                {preview.mode === 'BALANCED'
+                  ? ' 균형 조정은 하루 분량을 20%까지만 늘려서 목표 날짜를 넘길 수 있어요.'
+                  : preview.mode === 'PACE'
+                    ? ' 하루 분량 유지는 정한 분량만 읽어서 목표 날짜를 넘길 수 있어요.'
+                    : ''}
               </p>
             ) : (
               <p>목표 날짜 {formatDate(preview.targetDate)}에 맞춰요.</p>
@@ -485,6 +510,25 @@ function ReplanPreviewCard({
             <p key={message}>{message}</p>
           ))}
         </>
+      )}
+      {fix && (
+        <div className="space-y-2 border-t border-border pt-3">
+          <p>
+            ‘목표 날짜에 맞추기’
+            {fix.minutesPerPage !== preview.minutesPerPage
+              ? `, 이 책을 읽은 기록대로 쪽당 ${fix.minutesPerPage}분`
+              : ''}
+            으로 다시 계산해 볼까요?
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => onFix(fix)}
+          >
+            목표 날짜에 맞춰 다시 보기
+          </Button>
+        </div>
       )}
       <div className="flex flex-wrap gap-2">
         {placed && (
