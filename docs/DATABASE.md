@@ -47,6 +47,20 @@ Phase 5의 `submit_book_progress`가 위 계약을 구현한다. 사용자별 ad
 
 자식 행의 자료 범위·계층·VOID 검증은 AFTER trigger에서 문장 전체의 결과를 검사한다. 자료 행에 `FOR NO KEY UPDATE`를 잡아 메타데이터 수정과 직렬화하며, 외래키가 사용하는 KEY SHARE와 충돌하는 잠금 승격을 피한다. 여러 행을 한 번에 넣어도 순환 계층과 VOID→VOID는 허용하지 않는다.
 
+## 텔레그램 튜터 (`20261014000000_telegram_tutor.sql`)
+
+계약 전체는 [텔레그램 튜터](TELEGRAM_TUTOR.md)를 따른다.
+
+| 테이블 | 역할 및 주요 계약 |
+| --- | --- |
+| telegram_links | 사용자당 하나. 텔레그램 사용자 ID(유일)·chat ID, 레벨·시나리오·음성 답장·아침 복습 시각, 고쳐 쓰기·퀴즈 상태. 브라우저는 SELECT와 자기 행 DELETE(연결 해제)만 |
+| telegram_link_codes | 일회용 연결 코드의 SHA-256 해시. 10분 만료, 한 번 사용, 한 시간 5개. 브라우저 권한 없음 |
+| telegram_turns | 튜터 한 턴. `(chat_id, message_id)` 유일로 멱등. 받아쓰기만 저장하고 음성 원본은 저장하지 않는다. 180일 뒤 삭제. 브라우저는 SELECT만 |
+
+`learning_expressions`에 `kind='CORRECTION'`(교정 카드)을 더했다. `wrong_text`·`correct_text`·`rule_text`·`mistake_category`·`source_sentence`는 CORRECTION일 때만 모두 있고 다른 kind에서는 모두 NULL이다. `occurrences`는 같은 실수를 한 횟수, `source_turn_id`는 `(source_turn_id, user_id)`로 자기 대화만 가리키며 대화가 지워지면 NULL이 된다. `(user_id, lower(wrong_text), lower(correct_text))`가 CORRECTION 안에서 유일하다. 브라우저는 CORRECTION 행을 만들 수 없고(insert 정책), 어떤 카드도 kind를 바꿀 수 없다(트리거).
+
+쓰기는 Worker의 service_role 함수(`link_telegram`, `get_telegram_context`, `update_telegram_settings`, `record_telegram_turn`, `get_telegram_quiz_cards`, `save_telegram_quiz_state`, `record_correction_review`, `claim_due_telegram_reviews`, `get_telegram_stats`)가 한다. 모두 `security invoker`이고 anon·authenticated에는 EXECUTE가 없다. 브라우저 함수는 `create_telegram_link_code`(security definer)와 `unlink_telegram`뿐이다. 계정을 지우면 연결·코드·대화·교정 카드가 cascade로 지워진다.
+
 ## 개발 seed와 검증
 
 Phase 4에서 최초 도서 계획 저장용 `create_initial_book_plan` RPC를 추가했다. 사용자 단위 잠금, RLS, 페이지 연속성·공유 시간 예산 검증 뒤 목표·계획·세션을 한 트랜잭션으로 저장한다. 기존 진도 기록이나 활성 계획이 있으면 새 초기 계획을 만들지 않는다. 이 함수는 위의 진도 기록/재계획 RPC와 별개이며 상세 계약은 [WORKSPACE_UI.md](WORKSPACE_UI.md)를 따른다.
