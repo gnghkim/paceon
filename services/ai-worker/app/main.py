@@ -15,6 +15,7 @@ from app.notify_worker import NotifySettings, NotifyWorker
 from app.pdf_worker import PdfSettings, PdfWorker
 from app.vocab_worker import VocabWorker
 from app.outline_worker import OutlineWorker
+from app.telegram_worker import TelegramSettings, TelegramWorker
 
 
 @asynccontextmanager
@@ -38,6 +39,10 @@ async def lifespan(app: FastAPI):
     notify_settings = NotifySettings.from_env()
     if notify_settings.enabled:
         consumers.append(NotifyWorker(notify_settings))
+    # The tutor needs its own switch: only one process may read a bot's updates.
+    telegram_settings = TelegramSettings.from_env()
+    if telegram_settings.enabled:
+        consumers.append(TelegramWorker(telegram_settings))
     tasks = [asyncio.create_task(asyncio.to_thread(consumer.run, stop)) for consumer in consumers]
     try:
         yield

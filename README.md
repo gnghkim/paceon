@@ -27,6 +27,7 @@
 | 표현 복습 | AI 피드백의 표현을 복습함에 저장하고 1·3·7·14·30일 간격으로 다시 확인 |
 | 단어장 | 단어만 적어 넣으면 AI가 한국어 뜻과 짧은 예문을 채우고 다음 날부터 복습에 등장 |
 | 학습 중 단어 담기 | 듣거나 쓰다가 만난 단어를 화면을 떠나지 않고 담기. 듣기·말하기·쓰기 공통 |
+| 텔레그램 튜터 | 텔레그램에서 영어로 대화하면 실수를 고쳐 주고 다시 써 보게 함. 고친 실수는 복습 카드가 되어 텔레그램 퀴즈와 웹 복습에 함께 나옴. 설정에서 코드로 연결 |
 
 영어 학습에서는 버튼을 눌렀을 때만 AI로 내용을 전송합니다. 녹음은 분석 전에 기기에서 확인할 수 있고, 서버 음성은 기본 30일 보관하며 계속 보관하거나 삭제할 수 있습니다. 원래 인식 문장과 수정본을 구분하며 발음 점수는 제공하지 않습니다.
 
@@ -217,7 +218,7 @@ LR4의 표현 저장·복습과 단어장, PWA 설치와 알림은 구현했습�
 - 모바일 크기의 브라우저와 테스트 마이크를 검증했으며, 실제 iOS/Android 마이크·권한 동작은 추가 검증이 필요합니다.
 - AI 응답은 저장된 작업을 처리한 뒤 조회하는 방식이며 토큰 스트리밍은 지원하지 않습니다.
 
-개발 문서: [영어 학습](docs/LEARNING_ROOM.md) · [표현 복습](docs/EXPRESSION_REVIEW.md) · [단어장](docs/WORD_BOOK.md) · [매일 알림](docs/NOTIFICATIONS.md) · [통계](docs/STATISTICS.md) · [PDF](docs/PDF.md) · [AI](docs/AI.md) · [도서](docs/BOOKS.md) · [스케줄러](docs/SCHEDULER.md) · [데이터베이스](docs/DATABASE.md) · [아키텍처](docs/ARCHITECTURE.md) · [제품 요구사항](docs/PRD.md) · [디자인](docs/DESIGN.md).
+개발 문서: [영어 학습](docs/LEARNING_ROOM.md) · [텔레그램 튜터](docs/TELEGRAM_TUTOR.md) · [표현 복습](docs/EXPRESSION_REVIEW.md) · [단어장](docs/WORD_BOOK.md) · [매일 알림](docs/NOTIFICATIONS.md) · [통계](docs/STATISTICS.md) · [PDF](docs/PDF.md) · [AI](docs/AI.md) · [도서](docs/BOOKS.md) · [스케줄러](docs/SCHEDULER.md) · [데이터베이스](docs/DATABASE.md) · [아키텍처](docs/ARCHITECTURE.md) · [제품 요구사항](docs/PRD.md) · [디자인](docs/DESIGN.md).
 
 ## 라이선스
 

@@ -9,6 +9,7 @@ import {
   dueToday,
   firstReview,
   nextReview,
+  type CardKind,
   type ExpressionCard,
 } from './expression-review.ts';
 
@@ -32,10 +33,24 @@ const review = z
   .strict();
 
 /** 화면에 필요한 것만 추린다. 저장 시각, 출처 공간 ID, 임대 정보는 보내지 않는다. */
+// 모르는 종류를 표현으로 바꿔 보내지 않는다. 표현으로 보이면 단어장과 뜻 묻기에 섞인다.
+const kindOf = (kind: string): CardKind =>
+  kind === 'RECALL' || kind === 'CORRECTION' ? kind : 'EXPRESSION';
+
 const toCard = (row: ExpressionRow): ExpressionCard => ({
   id: row.id,
-  kind: row.kind === 'RECALL' ? 'RECALL' : 'EXPRESSION',
+  kind: kindOf(row.kind),
   resource_id: row.resource_id,
+  correction:
+    row.kind === 'CORRECTION' && row.wrong_text && row.correct_text && row.source_sentence
+      ? {
+          wrongText: row.wrong_text,
+          correctText: row.correct_text,
+          ruleText: row.rule_text ?? '',
+          sourceSentence: row.source_sentence,
+          occurrences: row.occurrences,
+        }
+      : null,
   phrase: row.phrase,
   meaning: row.meaning ?? '',
   examples: row.examples ?? [],
@@ -70,7 +85,8 @@ export function createExpressionHandlers(
         ]);
         const url = new URL(request.url);
         const all = url.searchParams.get('all') === 'true';
-        // 전체 목록은 단어장이 쓴다. 독서 회상은 책 화면에 있고 단어장에는 나오지 않는다.
+        // 전체 목록은 단어장이 쓴다. 독서 회상은 책 화면에, 텔레그램 교정은 텔레그램 대화에 있고
+        // 단어장에는 나오지 않는다.
         // 오늘의 복습은 종류를 가리지 않고 함께 묻는다.
         const cards = rows.map(toCard).filter(card => !all || card.kind === 'EXPRESSION');
         // 뜻이 아직 없는 카드는 복습에 내보내지 않는다. 물어볼 답이 없다.

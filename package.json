@@ -31,6 +31,7 @@
     "test:pdf:integration": "node --test tests/pdf-integration.test.mjs",
     "test:statistics:integration": "node --test tests/statistics-integration.test.mjs",
     "test:providers:live": "node scripts/verify-live-providers.mjs",
+    "test:tutor:live": "docker compose --env-file services/ai-worker/.env -f docker/docker-compose.yml run --rm -e PACEON_LIVE_TUTOR=1 -v ./services/ai-worker/tests:/app/tests ai-worker python -m unittest tests.live_tutor_check -v",
     "test:speech:integration": "node --test tests/speech-integration.test.mjs",
     "test:learning:integration": "node --test tests/learning-integration.test.mjs"
   },

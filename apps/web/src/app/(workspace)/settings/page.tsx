@@ -1,4 +1,5 @@
 import { YouTubeConnection } from '@/components/youtube-connection';
+import { TelegramLink } from '@/components/telegram-link';
 import { LearningGoalForm } from '@/components/learning-goal-form';
 import { AvailabilityForm } from '@/components/availability-form';
 import { NotificationForm } from '@/components/notification-form';
@@ -28,6 +29,7 @@ export default async function Page({ searchParams }: {
       </section>
       <section aria-labelledby="accounts-title" className="space-y-3">
         <h2 id="accounts-title" className="font-semibold">연결된 계정</h2>
+        <TelegramLink />
         <YouTubeConnection />
       </section>
       <section aria-labelledby="account-title" className="space-y-3">

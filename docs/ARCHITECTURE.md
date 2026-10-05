@@ -25,6 +25,7 @@ Worker는 한 프로세스에서 소비자를 스레드로 실행한다.
 | `LearningWorker` | 영어학습 글쓰기 답변·요약 (LR1·LR2) | 위와 같음 |
 | `SpeechWorker` | 연습 문장·TTS·전사·피드백 (LR3), 음성 보관 기간·계정 삭제 정리 | Supabase URL·service role 키. 음성 AI 작업은 `AI_ENABLED`가 켜진 경우에만 가져간다 |
 | `PdfWorker` | PDF 페이지·목차 추출 (Phase 7) | `PDF_ENABLED=true`, Supabase URL·service role 키 |
+| `TelegramWorker` | 텔레그램 영어 튜터: Bot API long polling, Gemini 튜터, 교정 카드, 아침 복습 ([TELEGRAM_TUTOR](TELEGRAM_TUTOR.md)) | `TELEGRAM_ENABLED=true`, Supabase URL·service role 키, 봇 토큰, Gemini 키·모델. 한 봇 토큰은 한 곳에서만 켠다 |
 
 웹의 `AI_ENABLED`, `PDF_ENABLED`는 요청 접수 여부만 정한다. 처리는 Worker 설정을 따르므로 두 쪽을 함께 맞춘다. 영어학습 계약은 [LEARNING_ROOM](LEARNING_ROOM.md), YouTube 연결은 [YOUTUBE_SETUP](YOUTUBE_SETUP.md)을 따른다.
 
