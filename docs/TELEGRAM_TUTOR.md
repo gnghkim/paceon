@@ -4,7 +4,7 @@
 
 미니 PC에서 따로 돌던 TAIET(`gnghkim/TAIET`, `main.py` @`2c7def5`)를 PaceOn Worker의 소비자로 옮긴 것이다. 병합 설계안은 TAIET 저장소 `docs/PACEON_MERGE.md`(@`53cce55`)이고, 이 문서는 그 설계를 PaceOn 관례에 맞춰 확정한 계약이다. 둘이 다르면 이 문서를 따른다.
 
-> 상태: 설계 확정(2026-10-04, 14절 질문은 모두 제안대로). DB·Worker·웹 완료, 개발용 봇 E2E 전.
+> 상태: 구현과 개발용 봇 E2E 완료(2026-10-05). 14절 질문은 모두 제안대로 정했다.
 
 ## 1. 결정 사항
 
@@ -266,6 +266,18 @@ service_role 함수는 `security invoker`, `set search_path = ''`, `revoke ... f
 - **웹**: CORRECTION 매핑과 단어장 제외, 리뷰 카드 문구, 연결 API.
 - **실제 호출**(opt-in, 과금): `pnpm test:tutor:live`(`services/ai-worker/tests/live_tutor_check.py`). 설계안 9장의 회귀 사례(튜터 1턴 6건, 고쳐 쓰기 채점 10건, 음성 1건)를 실제 Gemini·OpenAI로 확인한다. `services/ai-worker/.env`의 키를 쓰고 `PACEON_LIVE_TUTOR=1`일 때만 돈다. 파일 이름이 `test_`로 시작하지 않아 `test:ai:worker`에는 끼지 않는다.
 - **개발용 봇 E2E**: 로컬 Supabase + 로컬 Worker + 개발용 봇으로 연결 → 대화 → 고쳐 쓰기 → (예정일을 당겨) 퀴즈 → 웹 `/review`.
+
+## 8.1 확인 기록 (2026-10-05)
+
+- `pnpm test:tutor:live`: 설계안 9장의 회귀 사례가 실제 `gemini-3.5-flash-lite`(음성은 OpenAI TTS로 만든 OGG)로 모두 통과했다(튜터 1턴 6, 고쳐 쓰기 10, 음성 1).
+- 로컬 Supabase + 로컬 Worker + `@paceon_tutor_bot`으로 사람이 직접 확인했다.
+  - 설정에서 코드로 연결
+  - 대화: 실수 3개 기록, 설명한 2개만 교정 카드
+  - 고쳐 쓰기 정답 처리(카드 없음), 대소문자만 다른 교정(`i → I`)은 카드 없음
+  - 텔레그램 `/review` 퀴즈: 맞힌 카드는 다음 간격, 틀린 카드는 내일. 웹 `/review`와 같은 행
+  - 아침 복습: 어제 대화 요약과 퀴즈가 오고, 답한 결과가 카드에 반영
+  - 웹 `/learn/telegram`과 `/review` 표시
+- 실제 텔레그램으로는 음성 메시지, 음성 답장, `/stats`를 해 보지 않았다. 단위 테스트와 위 실제 모델 확인으로만 덮었다.
 
 ## 9. 단계
 
