@@ -4,7 +4,7 @@
 
 미니 PC에서 따로 돌던 TAIET(`gnghkim/TAIET`, `main.py` @`2c7def5`)를 PaceOn Worker의 소비자로 옮긴 것이다. 병합 설계안은 TAIET 저장소 `docs/PACEON_MERGE.md`(@`53cce55`)이고, 이 문서는 그 설계를 PaceOn 관례에 맞춰 확정한 계약이다. 둘이 다르면 이 문서를 따른다.
 
-> 상태: 설계 확정(2026-10-04, 14절 질문은 모두 제안대로). DB·Worker 완료, 웹 진행 중.
+> 상태: 설계 확정(2026-10-04, 14절 질문은 모두 제안대로). DB·Worker·웹 완료, 개발용 봇 E2E 전.
 
 ## 1. 결정 사항
 
@@ -25,7 +25,7 @@
 
 | 명령 | 하는 일 |
 | --- | --- |
-| `/start`, `/help` | 사용법. 미연결이면 연결 방법을 안내한다 |
+| `/start`, `/help` | 사용법. 미연결이면 연결 방법을 안내한다. `/start 코드`는 `/link 코드`와 같다(설정의 **텔레그램에서 바로 연결**이 보내는 형태) |
 | `/link 코드` | 웹 설정에서 받은 코드로 계정을 잇는다 |
 | `/unlink` | 연결을 끊는다. 쌓인 대화와 카드는 PaceOn에 남는다 |
 | `/review` | 오늘 차례가 된 교정 카드로 퀴즈(최대 3문제) |
@@ -230,7 +230,24 @@ service_role 함수는 `security invoker`, `set search_path = ''`, `revoke ... f
 - `CardKind`에 `CORRECTION`을 더하고, `expressions-api.ts`의 `toCard`가 `RECALL`이 아닌 모든 kind를 `EXPRESSION`으로 바꾸던 것을 고친다. `'RECALL'`로 갈라지는 모든 분기(`expression-review.tsx` 라벨·버튼·뒷면, `reviewPrompt`, 단어장 필터 `all=true`)를 함께 고친다.
 - 단어장은 `kind='EXPRESSION'`만 보여 준다(지금 `all=true`가 그렇다).
 - `dueToday`는 종류별 줄을 번갈아 뽑으므로 교정 카드가 세 번째 줄이 된다. 오늘의 3장에 단어·회상·교정이 섞인다.
-- API: `GET /api/telegram/link`(상태), `POST /api/telegram/link`(코드 발급), `DELETE /api/telegram/link`(해제), `GET /api/telegram/turns?before=`(페이지 단위 20턴).
+### API
+
+모두 로그인한 사람의 권한(RLS)으로 부른다. 텔레그램 사용자 ID와 chat ID는 응답에 넣지 않는다.
+
+| 요청 | 응답 |
+| --- | --- |
+| `GET /api/telegram/link` | `{ linked: false, botUsername }` 또는 `{ linked: true, botUsername, linkedAt, level, voiceReplies, reviewAt }` |
+| `POST /api/telegram/link` | 201 `{ code, expiresAt, botUsername, deepLink }`. 코드 평문은 이 응답에만 있다. 한 시간 다섯 번을 넘기면 429 |
+| `DELETE /api/telegram/link` | `{ unlinked }` (`unlink_telegram`) |
+| `GET /api/telegram/turns?before=ISO` | `{ linked, timezone, turns[], nextBefore }`. 최근 것부터 20턴, 21번째가 있으면 `nextBefore`가 이 쪽 마지막 시각이다. 각 턴은 사용자 시간대의 날짜, 학습자 문장, 대답(피드백 제외), 실수 전부와 그 실수의 교정 카드 상태(다음 복습일, 복습 횟수, 같은 실수 횟수), 자연스러운 문장, 팁, 고쳐 쓰기 결과 |
+
+`botUsername`은 웹 서버 env `TELEGRAM_BOT_USERNAME`(`@` 없이)에서 온다. 텔레그램 아이디 모양이 아니면 null이고, 그때는 링크 없이 `/link 코드`만 안내한다. `deepLink`는 `https://t.me/<봇>?start=<코드>`이며 누르면 텔레그램이 `/start 코드`를 보내 바로 연결된다.
+
+### 화면
+
+- **설정 → 연결된 계정 → 텔레그램 튜터**(`#telegram`): 연결 전에는 **연결 코드 받기** → 코드, 만료 시각, **텔레그램에서 바로 연결**, `/link 코드` 안내. 코드를 띄워 둔 동안 4초마다 상태를 다시 보고, 연결되면 저절로 연결됨으로 바뀐다. 연결 뒤에는 연결일·수준·아침 복습 시각·음성 답장, **대화 보기**, **텔레그램 열기**, **연결 해제**(한 번 더 확인).
+- **`/learn/telegram`**: 날짜별로 묶은 대화. 영어 학습 화면 위쪽 링크(단어장·공통 복습 옆)와 설정에서 들어온다. 연결하지 않았으면 설정으로 안내한다.
+- **`/review`**: 교정 카드는 "텔레그램에서 고친 표현" 표시와 함께 그때 쓴 문장을 보여 주고 틀린 부분만 표시한다. **고친 표현 보기**를 누르면 `틀린 것 → 고친 것`, 규칙, 같은 실수 횟수가 나온다.
 
 ## 7. 보안·개인정보
 

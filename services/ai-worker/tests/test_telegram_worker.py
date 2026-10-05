@@ -132,6 +132,14 @@ class Linking(unittest.TestCase):
             self.assertEqual(hub.calls("link_telegram"), [{"p_code": "ab12cd34", "p_telegram_user_id": 555, "p_chat_id": 1001}])
             self.assertIn(expected, api.sent[-1][1])
 
+    def test_the_settings_deep_link_links_in_one_tap(self):
+        # t.me/<bot>?start=CODE makes Telegram send "/start CODE".
+        hub = Hub(ctx=None, rpc={"link_telegram": "LINKED"})
+        w, api = worker(hub)
+        w.handle_update(text_update("/start AB12CD34"))
+        self.assertEqual(hub.calls("link_telegram"), [{"p_code": "AB12CD34", "p_telegram_user_id": 555, "p_chat_id": 1001}])
+        self.assertIn("✅ PaceOn 계정과 연결했어요", api.sent[-1][1])
+
     def test_link_without_a_code_explains_how(self):
         hub = Hub(ctx=None)
         w, api = worker(hub)

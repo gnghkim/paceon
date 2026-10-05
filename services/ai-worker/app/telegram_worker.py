@@ -415,6 +415,9 @@ class TelegramWorker:
     def handle_command(self, text, chat_id, telegram_user_id, context):
         head, *args = text.split()
         command = head[1:].split("@", 1)[0].lower()
+        # PaceOn settings open t.me/<bot>?start=CODE, which arrives as "/start CODE".
+        if command == "start" and args:
+            command = "link"
         if command in ("start", "help"):
             self.say(chat_id, WELCOME if context else LINK_REQUIRED)
             return

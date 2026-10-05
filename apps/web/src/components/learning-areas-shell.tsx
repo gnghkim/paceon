@@ -35,6 +35,7 @@ export function LearningAreasShell({ children }: { children: ReactNode }) {
       <div className="flex flex-wrap gap-4 text-sm">
         <Link href="/learn/words" className="inline-flex min-h-11 items-center gap-2 text-primary">단어장 <ArrowRight size={15} aria-hidden="true" /></Link>
         <Link href="/review" className="inline-flex min-h-11 items-center gap-2 text-primary">공통 복습 <ArrowRight size={15} aria-hidden="true" /></Link>
+        <Link href="/learn/telegram" className="inline-flex min-h-11 items-center gap-2 text-primary">텔레그램 대화 <ArrowRight size={15} aria-hidden="true" /></Link>
       </div>
       {children}
     </div>
