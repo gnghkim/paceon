@@ -1839,6 +1839,10 @@ export type Database = {
         Returns: Json
       }
       unlink_telegram: { Args: never; Returns: boolean }
+      unlink_telegram_user: {
+        Args: { p_telegram_user_id: number }
+        Returns: boolean
+      }
       update_telegram_settings: {
         Args: { p_settings: Json; p_user_id: string }
         Returns: Json

@@ -1,0 +1,17 @@
+{
+  "about": "nextReview(step, grade, today) must give the same answer in apps/web/src/lib/expression-review.ts and services/ai-worker/app/telegram_tutor.py. Both test suites read this file.",
+  "vectors": [
+    { "step": 0, "grade": "EASY", "today": "2026-10-04", "expected": { "step": 1, "dueOn": "2026-10-07" } },
+    { "step": 1, "grade": "EASY", "today": "2026-10-04", "expected": { "step": 2, "dueOn": "2026-10-11" } },
+    { "step": 2, "grade": "EASY", "today": "2026-10-04", "expected": { "step": 3, "dueOn": "2026-10-18" } },
+    { "step": 3, "grade": "EASY", "today": "2026-10-04", "expected": { "step": 4, "dueOn": "2026-11-03" } },
+    { "step": 4, "grade": "EASY", "today": "2026-10-04", "expected": { "step": 4, "dueOn": "2026-11-03" } },
+    { "step": 3, "grade": "HARD", "today": "2026-10-04", "expected": { "step": 0, "dueOn": "2026-10-05" } },
+    { "step": 0, "grade": "HARD", "today": "2026-12-31", "expected": { "step": 0, "dueOn": "2027-01-01" } },
+    { "step": 2, "grade": "OK", "today": "2026-10-04", "expected": { "step": 2, "dueOn": "2026-10-11" } },
+    { "step": 4, "grade": "OK", "today": "2028-02-14", "expected": { "step": 4, "dueOn": "2028-03-15" } },
+    { "step": -1, "grade": "EASY", "today": "2026-10-04", "expected": { "step": 1, "dueOn": "2026-10-07" } },
+    { "step": 9, "grade": "OK", "today": "2026-10-04", "expected": { "step": 4, "dueOn": "2026-11-03" } },
+    { "step": 1.5, "grade": "OK", "today": "2026-10-04", "expected": { "step": 0, "dueOn": "2026-10-05" } }
+  ]
+}

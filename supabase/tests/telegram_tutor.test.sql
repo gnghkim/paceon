@@ -16,6 +16,7 @@ select ok(not has_function_privilege(r, f, 'execute'), format('%s cannot run %s'
        unnest(array[
          'public.link_telegram(text,bigint,bigint)',
          'public.get_telegram_context(bigint)',
+         'public.unlink_telegram_user(bigint)',
          'public.update_telegram_settings(uuid,jsonb)',
          'public.record_telegram_turn(uuid,jsonb)',
          'public.get_telegram_quiz_cards(uuid,integer)',
@@ -125,6 +126,8 @@ select is((select (occurrences, review_step, due_on, source_sentence)::text from
 select is((select count(*) from learning_expressions where kind='CORRECTION' and lower(wrong_text)='its'),0::bigint,'A change of case alone is not a mistake to keep');
 select is((select pending_rewrite from telegram_links where user_id='1c000000-0000-4000-8000-00000000000a'),null,'A turn without a rewrite clears the old one');
 select is((get_telegram_context(1001)->>'turnsToday')::integer,2,'Turns today are counted for the daily limit');
+select is(jsonb_array_length(get_telegram_context(1001)->'history'),2,'The last turns come back as the tutor''s context');
+select is((get_telegram_context(1001)->'history'->0->>'replyText'),'Nice! [Feedback]','oldest first, with what the tutor said');
 
 select throws_ok($$select pg_temp.turn(3, '[]', '{"chatId":2002}')$$,'42501',null,'A turn from another chat is refused');
 select throws_ok($$select record_telegram_turn('1c000000-0000-4000-8000-00000000000c','{}')$$,'P0002',null,'A reader without a link cannot record');
@@ -189,6 +192,11 @@ select is((select count(*) from telegram_turns where id='1d000000-0000-4000-8000
 select is((get_telegram_stats('1c000000-0000-4000-8000-00000000000a')->>'turns')::integer,3,'Stats count this week''s turns');
 select is((get_telegram_stats('1c000000-0000-4000-8000-00000000000a')->>'streak')::integer,2,'the streak of days');
 select is((get_telegram_stats('1c000000-0000-4000-8000-00000000000a')->'recurring'->0->>'wrongText'),'go','and mistakes made more than once');
+
+-- The bot can unlink too.
+select is(unlink_telegram_user(2002),true,'/unlink from Telegram removes the link');
+select is(get_telegram_context(2002),null,'and the sender is unknown again');
+select is(unlink_telegram_user(2002),false,'Unlinking twice changes nothing');
 
 -- Unlinking, and account deletion.
 set local role authenticated;

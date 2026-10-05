@@ -26,8 +26,9 @@ create table public.telegram_links (
   -- 다음 메시지를 고쳐 쓰기로 채점할 때 쓰는 목표 문장과 필수 수정 목록.
   pending_rewrite jsonb check (pending_rewrite is null
     or (jsonb_typeof(pending_rewrite) = 'object' and length(pending_rewrite::text) <= 4000)),
+  -- 진행 중인 퀴즈의 카드(최대 3장)와 맞힌 수. 카드 글을 담으므로 넉넉히 둔다.
   quiz_state jsonb check (quiz_state is null
-    or (jsonb_typeof(quiz_state) = 'object' and length(quiz_state::text) <= 2000)),
+    or (jsonb_typeof(quiz_state) = 'object' and length(quiz_state::text) <= 8000)),
   -- 마지막으로 이은 때. 다른 텔레그램으로 다시 이으면 바뀐다.
   linked_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
@@ -234,7 +235,10 @@ $$;
 revoke all on function public.link_telegram(text, bigint, bigint) from public, anon, authenticated;
 grant execute on function public.link_telegram(text, bigint, bigint) to service_role;
 
-/** 보낸 사람이 누구이고 지금 어떤 상태인지. 연결되지 않았으면 null이다. */
+/**
+ * 보낸 사람이 누구이고 지금 어떤 상태인지. 연결되지 않았으면 null이다.
+ * 튜터의 맥락으로 쓸 최근 3턴(오래된 것부터)을 함께 돌려준다. 퀴즈 문답은 대화에 없다.
+ */
 create function public.get_telegram_context(p_telegram_user_id bigint)
 returns jsonb language sql stable security invoker set search_path = '' as $$
   select jsonb_build_object(
@@ -244,13 +248,28 @@ returns jsonb language sql stable security invoker set search_path = '' as $$
     'timezone', z.tz, 'today', (now() at time zone z.tz)::date,
     'turnsToday', (select count(*) from public.telegram_turns t
       where t.user_id = l.user_id
-        and t.created_at >= (((now() at time zone z.tz)::date)::timestamp at time zone z.tz)))
+        and t.created_at >= (((now() at time zone z.tz)::date)::timestamp at time zone z.tz)),
+    'history', (select coalesce(jsonb_agg(jsonb_build_object('learnerText', h.learner_text, 'replyText', h.reply_text)
+                  order by h.created_at, h.id), '[]'::jsonb)
+                from (select t.learner_text, t.reply_text, t.created_at, t.id from public.telegram_turns t
+                      where t.user_id = l.user_id order by t.created_at desc, t.id desc limit 3) h))
   from public.telegram_links l
   cross join lateral (select private.reader_timezone(l.user_id) as tz) z
   where l.telegram_user_id = p_telegram_user_id;
 $$;
 revoke all on function public.get_telegram_context(bigint) from public, anon, authenticated;
 grant execute on function public.get_telegram_context(bigint) to service_role;
+
+/** 봇의 /unlink. 웹의 unlink_telegram과 같고, 텔레그램 쪽에서 끊는다. */
+create function public.unlink_telegram_user(p_telegram_user_id bigint)
+returns boolean language plpgsql security invoker set search_path = '' as $$
+begin
+  delete from public.telegram_links where telegram_user_id = p_telegram_user_id;
+  return found;
+end;
+$$;
+revoke all on function public.unlink_telegram_user(bigint) from public, anon, authenticated;
+grant execute on function public.unlink_telegram_user(bigint) to service_role;
 
 /** /level, /scenario, /voice_on|off, /set_review. 받은 칸만 바꾼다. */
 create function public.update_telegram_settings(p_user_id uuid, p_settings jsonb)
@@ -366,7 +385,8 @@ create function public.get_telegram_quiz_cards(p_user_id uuid, p_limit integer d
 returns jsonb language sql stable security invoker set search_path = '' as $$
   select coalesce(jsonb_agg(jsonb_build_object(
       'id', e.id, 'wrongText', e.wrong_text, 'correctText', e.correct_text, 'ruleText', e.rule_text,
-      'sourceSentence', e.source_sentence, 'reviewStep', e.review_step, 'occurrences', e.occurrences)
+      'sourceSentence', e.source_sentence, 'category', e.mistake_category,
+      'reviewStep', e.review_step, 'occurrences', e.occurrences)
       order by e.due_on, e.created_at, e.id), '[]'::jsonb)
   from (
     select * from public.learning_expressions

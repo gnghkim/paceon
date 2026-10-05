@@ -4,7 +4,7 @@
 
 미니 PC에서 따로 돌던 TAIET(`gnghkim/TAIET`, `main.py` @`2c7def5`)를 PaceOn Worker의 소비자로 옮긴 것이다. 병합 설계안은 TAIET 저장소 `docs/PACEON_MERGE.md`(@`53cce55`)이고, 이 문서는 그 설계를 PaceOn 관례에 맞춰 확정한 계약이다. 둘이 다르면 이 문서를 따른다.
 
-> 상태: 설계 확정(2026-10-04, 14절 질문은 모두 제안대로). DB 완료, Worker·웹은 진행 중.
+> 상태: 설계 확정(2026-10-04, 14절 질문은 모두 제안대로). DB·Worker 완료, 웹 진행 중.
 
 ## 1. 결정 사항
 
@@ -89,7 +89,7 @@ Browser → Next.js(Vercel) → Supabase (RLS)
 | `review_at` | time | 기본 07:00. 시간대는 `learner_profiles.timezone` |
 | `review_last_sent_on` | date null | 하루 한 번 보장 |
 | `pending_rewrite` | jsonb null | `{original, target, fixes[]}`, 길이 제한 |
-| `quiz_state` | jsonb null | `{cardIds[], index}` |
+| `quiz_state` | jsonb null | `{cards[], total, correct}`. 남은 카드(최대 3장)의 글을 담는다 |
 | `linked_at`, `updated_at` | timestamptz | |
 
 ### 4.2 `telegram_link_codes` — 일회용 연결 코드
@@ -149,11 +149,12 @@ Browser → Next.js(Vercel) → Supabase (RLS)
 | `create_telegram_link_code()` | authenticated (security definer) | 평문 코드와 만료 시각을 한 번만 돌려준다 |
 | `unlink_telegram()` | authenticated | 자기 연결을 지운다 |
 | `link_telegram(p_code, p_telegram_user_id, p_chat_id)` | service_role | 결과 코드: `LINKED` / `INVALID_CODE`(없음·만료·사용됨) / `TELEGRAM_IN_USE`(다른 계정). 같은 계정이 새 텔레그램으로 다시 이으면 바꾼다 |
-| `get_telegram_context(p_telegram_user_id)` | service_role | 연결 여부, 설정, 상태, 시간대, 오늘 날짜를 한 번에 |
+| `get_telegram_context(p_telegram_user_id)` | service_role | 연결 여부, 설정, 상태, 시간대, 오늘 날짜, 오늘 턴 수, 튜터 맥락으로 쓸 최근 3턴을 한 번에 |
+| `unlink_telegram_user(p_telegram_user_id)` | service_role | 봇의 `/unlink` |
 | `update_telegram_settings(p_user_id, p_settings)` | service_role | `/level` `/scenario` `/voice_*` `/set_review` |
 | `record_telegram_turn(p_user_id, p_turn)` | service_role | 한 트랜잭션에서 대화 저장, 설명한 실수(최대 2개) 카드 upsert, `pending_rewrite` 갱신. 같은 메시지면 이전 결과를 돌려준다 |
 | `get_telegram_quiz_cards(p_user_id, p_limit)` | service_role | 오늘 차례가 된 `CORRECTION` 카드(오래된 순) |
-| `save_telegram_quiz_state(p_user_id, p_state)` | service_role | 퀴즈 진행 상태 |
+| `save_telegram_quiz_state(p_user_id, p_state)` | service_role | 퀴즈 진행 상태 `{cards[], total, correct}`. null이면 끝 |
 | `record_correction_review(p_user_id, p_id, p_step, p_due_on, p_today)` | service_role | 소유자와 kind를 확인하고 `record_expression_review`와 같은 규칙(단계 0–4, 오늘 < 예정일 ≤ 오늘+400)으로 기록 |
 | `claim_due_telegram_reviews(p_limit)` | service_role | 아침 복습 대상. 판정은 `private.notification_due`와 같다(지정 시각 후 2시간 안, 하루 한 번, 고르는 즉시 `review_last_sent_on` 갱신). 어제 대화 문장과 어제 교정도 함께 돌려준다 |
 | `get_telegram_stats(p_user_id)` | service_role | `/stats` |
@@ -189,7 +190,8 @@ service_role 함수는 `security invoker`, `set search_path = ''`, `revoke ... f
 - `POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
 - `systemInstruction`, `contents`(최근 3턴 + 이번 메시지), `generationConfig`: `maxOutputTokens 2048`, `thinkingConfig.thinkingLevel = "MINIMAL"`, `responseMimeType = "application/json"`, 응답 스키마. temperature는 넣지 않는다.
 - 음성은 `inlineData { mimeType: "audio/ogg", data: base64 }`. 히스토리 없이 보낸다.
-- 필드 이름(`responseJsonSchema`/`responseSchema`), `thinkingLevel` 표기, 지원하는 JSON Schema 부분집합은 **구현 시 현재 Gemini REST 문서로 확인**한다. pydantic 스키마를 그대로 넣지 않고 지원 키워드만 담은 스키마를 손으로 둔다.
+- 2026-10-05에 확인했다. `generateContent`는 `responseJsonSchema`와 `thinkingConfig.thinkingLevel`(`"MINIMAL"`, 소문자도 받는다)을 받는다. Google 문서는 새 Interactions API를 앞세우지만 이 두 필드는 `generateContent` 참조에 있고, 실제 호출로 확인했다.
+- 지원하는 JSON Schema 키워드(type, properties, required, additionalProperties, enum, items, min/maxItems, description)만 담은 스키마를 손으로 둔다(`TUTOR_TURN_SCHEMA`, `QUIZ_GRADE_SCHEMA`). 문자열 길이는 스키마에 둘 수 없으므로 응답을 pydantic으로 검증할 때 확인한다. 설명 문구는 TAIET의 pydantic 모델과 같다.
 - 응답은 `StrictModel`로 검증한다. 파싱 실패는 1회 다시 묻고, 그래도 실패하면 `SafeFailure`다.
 - Gemini에 보내는 것: 학습자 메시지, 최근 3턴, 고쳐 쓰기 목표 문장. 계정 ID·행 ID·chat ID는 보내지 않는다. 학습자 문장과 모델 응답 본문은 로그에 남기지 않는다.
 
@@ -221,7 +223,7 @@ service_role 함수는 `security invoker`, `set search_path = ''`, `revoke ... f
 | `TTSEngine.OPENAI_TTS_INSTRUCTIONS` | TTS 요청의 `instructions`로 |
 | `get_weekly_stats`의 연속일 | `/stats`에서 그대로 |
 
-퀴즈 결과는 정답 → `EASY`, 오답 → `HARD`로 바꿔 기록한다. 다음 단계와 예정일은 `nextReview`를 Python으로 옮긴 `next_review`로 계산한다(마지막 간격에서 머문다, TAIET의 `mastered`는 없다). 두 구현은 같은 테스트 벡터 파일(`tests/fixtures/review-vectors.json`)을 통과한다. 텔레그램 퀴즈는 `CORRECTION` 카드만 낸다. 써서 채점할 수 있는 형식이 그것뿐이다. 한 번에 3문제(`DAILY_REVIEW_SIZE`)다.
+퀴즈 결과는 정답 → `EASY`, 오답 → `HARD`로 바꿔 기록한다. 다음 단계와 예정일은 `nextReview`를 Python으로 옮긴 `next_review`로 계산한다(마지막 간격에서 머문다, TAIET의 `mastered`는 없다). 두 구현은 같은 테스트 벡터 파일(`services/ai-worker/tests/fixtures/review-vectors.json`)을 통과한다. Worker 테스트가 컨테이너 안에서 이 폴더만 보므로 벡터를 여기에 둔다. 텔레그램 퀴즈는 `CORRECTION` 카드만 낸다. 써서 채점할 수 있는 형식이 그것뿐이다. 한 번에 3문제(`DAILY_REVIEW_SIZE`)다.
 
 ## 6. 웹
 
@@ -245,7 +247,7 @@ service_role 함수는 `security invoker`, `set search_path = ''`, `revoke ... f
 - **pgTAP** `telegram_tutor.test.sql`: 표·RLS(본인만), RPC 권한(authenticated가 service_role 함수를 못 부름), 코드 만료·재사용·빈도 제한, 다른 계정의 텔레그램 ID 거절, `(chat_id, message_id)` 멱등, CORRECTION 제약·유일성·반복 시 횟수와 단계 초기화, 브라우저의 CORRECTION 직접 생성 거절, 복습 RPC의 소유자·kind 확인, 아침 복습 하루 한 번, cascade.
 - **Worker 단위**(fake transport, 네트워크 없음): Gemini 요청 본문(`thinkingLevel`, temperature 없음, 스키마, inline 오디오), 파싱 실패 재시도 → `SafeFailure`, 미연결 사용자 AI 0회, 하루 한도, 서식(스포일러, 3500자 분할, HTML 거절 시 일반 텍스트), 고쳐 쓰기 정확 일치, 퀴즈 빠른 판정·이탈, `next_review` 공유 벡터, 로그에 문장·토큰이 없음.
 - **웹**: CORRECTION 매핑과 단어장 제외, 리뷰 카드 문구, 연결 API.
-- **실제 호출**(opt-in, 과금): `pnpm test:tutor:live`. 설계안 9장의 회귀 사례(튜터 1턴 6건, 고쳐 쓰기 채점 10건, 음성 1건)를 실제 Gemini·OpenAI로 확인한다. `GEMINI_API_KEY`가 있고 `PACEON_LIVE_TUTOR=1`일 때만 돈다.
+- **실제 호출**(opt-in, 과금): `pnpm test:tutor:live`(`services/ai-worker/tests/live_tutor_check.py`). 설계안 9장의 회귀 사례(튜터 1턴 6건, 고쳐 쓰기 채점 10건, 음성 1건)를 실제 Gemini·OpenAI로 확인한다. `services/ai-worker/.env`의 키를 쓰고 `PACEON_LIVE_TUTOR=1`일 때만 돈다. 파일 이름이 `test_`로 시작하지 않아 `test:ai:worker`에는 끼지 않는다.
 - **개발용 봇 E2E**: 로컬 Supabase + 로컬 Worker + 개발용 봇으로 연결 → 대화 → 고쳐 쓰기 → (예정일을 당겨) 퀴즈 → 웹 `/review`.
 
 ## 9. 단계
@@ -259,9 +261,18 @@ service_role 함수는 `security invoker`, `set search_path = ''`, `revoke ... f
 
 각 단계가 끝나면 보고하고 멈춘다. 운영 전환과 롤백은 설계안 11장을 따르며 승인 없이 하지 않는다.
 
-## 10–13. 운영 전환, 기존 데이터, 참고
+## 10. 봇과 운영 전환
 
-설계안 11–13장과 같다. 요약하면 미니 PC의 TAIET를 먼저 멈춘 뒤 VPS에 운영 토큰을 넣고, 롤백은 `TELEGRAM_ENABLED=false` 후 TAIET 재시작이다.
+TAIET의 봇을 옮기지 않고 **새 봇 `@paceon_tutor_bot`을 PaceOn 서비스 봇으로 쓴다**(2026-10-05 결정). 한 봇 토큰은 한 곳에서만 업데이트를 읽을 수 있는데, 개발하는 동안 미니 PC의 TAIET를 끄지 않기 때문이다.
+
+- 개발: 새 봇 토큰을 로컬 `services/ai-worker/.env`에 두고 로컬 Worker에서만 읽는다. TAIET는 기존 봇에서 그대로 돈다.
+- 전환(승인 후): 새 봇 토큰을 VPS Worker `.env`에 넣고 `TELEGRAM_ENABLED=true`로 다시 시작한다. 운영 PaceOn 설정에서 코드를 받아 새 봇에 `/link 코드`. 그동안 로컬 Worker는 끈다.
+- 두 봇은 동시에 돌 수 있다. 며칠 함께 쓰다가 TAIET와 기존 봇을 정리한다. 롤백은 VPS에서 `TELEGRAM_ENABLED=false`로 두고 기존 봇을 다시 쓰면 된다.
+- 새 봇이 운영 봇이 된 뒤에 개발할 때는 테스트용 봇을 따로 만들거나, 테스트하는 동안만 VPS 쪽을 끈다.
+
+## 11–13. 기존 데이터, 참고
+
+설계안 12–13장과 같다. 기존 TAIET 기록은 옮기지 않는다(Q5).
 
 ## 14. 확인한 질문
 

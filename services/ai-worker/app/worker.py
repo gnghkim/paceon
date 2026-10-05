@@ -158,28 +158,29 @@ class ConnectionPool:
 POOL = ConnectionPool()
 
 
-def post_json(url, payload, headers, timeout, pool=POOL):
+def exchange(method, url, body, headers, timeout, pool=POOL, limit=MAX_RESPONSE_BYTES):
+    """One request over a kept connection. Returns the status and at most `limit` bytes.
+
+    A redirect is never followed: service and API credentials are never replayed to
+    whichever destination an answer happens to name. Failures carry a fixed code only;
+    the URL can hold a bot token and is never put into an exception.
+    """
     target = urllib.parse.urlsplit(url)
     if target.scheme not in ("http", "https") or not target.hostname:
         raise SafeFailure("PROVIDER_ERROR")
-    body = json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
     path = (target.path or "/") + ("?" + target.query if target.query else "")
     key = (target.scheme, target.hostname, target.port, timeout)
     connection = pool.take(key)
     try:
-        connection.request("POST", path, body=body, headers={"Content-Type": "application/json", **headers})
+        connection.request(method, path, body=body, headers=headers)
         answer = connection.getresponse()
-        raw = answer.read(MAX_RESPONSE_BYTES + 1)
-        # A redirect is refused here as it was before: service and API credentials are
-        # never replayed to whichever destination an answer happens to name.
-        reusable = 200 <= answer.status < 300 and len(raw) <= MAX_RESPONSE_BYTES and not answer.will_close and answer.isclosed()
+        raw = answer.read(limit + 1)
+        reusable = 200 <= answer.status < 300 and len(raw) <= limit and not answer.will_close and answer.isclosed()
         if not reusable:
             pool.discard(connection)
-        if len(raw) > MAX_RESPONSE_BYTES:
+        if len(raw) > limit:
             raise SafeFailure("RESPONSE_TOO_LARGE")
-        if not 200 <= answer.status < 300:
-            raise SafeFailure("PROVIDER_ERROR")
-        result = json.loads(raw)
+        status = answer.status
     except SafeFailure:
         raise
     except Exception:
@@ -187,7 +188,18 @@ def post_json(url, payload, headers, timeout, pool=POOL):
         raise SafeFailure("PROVIDER_ERROR") from None
     if reusable:
         pool.keep(key, connection)
-    return result
+    return status, raw
+
+
+def post_json(url, payload, headers, timeout, pool=POOL):
+    body = json.dumps(payload, ensure_ascii=False, allow_nan=False).encode("utf-8")
+    status, raw = exchange("POST", url, body, {"Content-Type": "application/json", **headers}, timeout, pool)
+    if not 200 <= status < 300:
+        raise SafeFailure("PROVIDER_ERROR")
+    try:
+        return json.loads(raw)
+    except ValueError:
+        raise SafeFailure("PROVIDER_ERROR") from None
 
 
 def validate_output(kind, value):

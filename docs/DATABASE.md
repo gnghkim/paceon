@@ -59,7 +59,7 @@ Phase 5의 `submit_book_progress`가 위 계약을 구현한다. 사용자별 ad
 
 `learning_expressions`에 `kind='CORRECTION'`(교정 카드)을 더했다. `wrong_text`·`correct_text`·`rule_text`·`mistake_category`·`source_sentence`는 CORRECTION일 때만 모두 있고 다른 kind에서는 모두 NULL이다. `occurrences`는 같은 실수를 한 횟수, `source_turn_id`는 `(source_turn_id, user_id)`로 자기 대화만 가리키며 대화가 지워지면 NULL이 된다. `(user_id, lower(wrong_text), lower(correct_text))`가 CORRECTION 안에서 유일하다. 브라우저는 CORRECTION 행을 만들 수 없고(insert 정책), 어떤 카드도 kind를 바꿀 수 없다(트리거).
 
-쓰기는 Worker의 service_role 함수(`link_telegram`, `get_telegram_context`, `update_telegram_settings`, `record_telegram_turn`, `get_telegram_quiz_cards`, `save_telegram_quiz_state`, `record_correction_review`, `claim_due_telegram_reviews`, `get_telegram_stats`)가 한다. 모두 `security invoker`이고 anon·authenticated에는 EXECUTE가 없다. 브라우저 함수는 `create_telegram_link_code`(security definer)와 `unlink_telegram`뿐이다. 계정을 지우면 연결·코드·대화·교정 카드가 cascade로 지워진다.
+쓰기는 Worker의 service_role 함수(`link_telegram`, `unlink_telegram_user`, `get_telegram_context`, `update_telegram_settings`, `record_telegram_turn`, `get_telegram_quiz_cards`, `save_telegram_quiz_state`, `record_correction_review`, `claim_due_telegram_reviews`, `get_telegram_stats`)가 한다. 모두 `security invoker`이고 anon·authenticated에는 EXECUTE가 없다. 브라우저 함수는 `create_telegram_link_code`(security definer)와 `unlink_telegram`뿐이다. 계정을 지우면 연결·코드·대화·교정 카드가 cascade로 지워진다.
 
 ## 개발 seed와 검증
 
