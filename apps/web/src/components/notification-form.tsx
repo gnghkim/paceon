@@ -161,13 +161,44 @@ function Fields({
     );
   }
 
+  // 등록한 기기를 찾아가지 않아도 끌 수 있다. 시각을 비우면 어느 기기에도 보내지 않는다.
+  async function disableEverywhere() {
+    await apiFetch('/api/push', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true }),
+    });
+    try {
+      // ready는 서비스 워커가 없는 기기에서 끝나지 않는다. 있으면 쓰고 없으면 넘어간다.
+      const registration = await navigator.serviceWorker?.getRegistration();
+      await (await registration?.pushManager.getSubscription())?.unsubscribe();
+    } catch {
+      /* 이 기기의 브라우저 구독은 정리하지 못해도 된다. 서버가 더는 보내지 않는다. */
+    }
+    await saveTime(null);
+    await refresh();
+    setMessage('모든 기기에서 알림을 껐어요. 다시 받으려면 받을 기기에서 알림을 켜 주세요.');
+  }
+
   const on = notificationsOn(savedTime, subscribed);
+  const everywhere = savedTime !== null && devices !== null && devices > 0 && (!on || devices > 1);
   return (
     <div className="space-y-4 rounded-xl border border-border bg-card p-5">
       {!support.supported ? (
-        <p className="text-sm leading-6 text-muted-foreground">
-          {unsupported[support.reason]}
-        </p>
+        <>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {unsupported[support.reason]}
+          </p>
+          {/* 이 기기에서 받을 수 없어도 다른 기기의 알림은 여기서 끌 수 있어야 한다. */}
+          {savedTime !== null && devices !== null && devices > 0 && (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" variant="outline" disabled={busy} onClick={() => run(disableEverywhere)}>
+                모든 기기에서 끄기
+              </Button>
+              <span className="text-sm text-muted-foreground">등록된 기기 {devices}대</span>
+            </div>
+          )}
+        </>
       ) : (
         <>
           <label className="block space-y-2 text-sm" htmlFor="notify-at">
@@ -196,7 +227,7 @@ function Fields({
                   {busy ? '저장 중…' : '시각 저장'}
                 </Button>
                 <Button type="button" variant="outline" disabled={busy} onClick={() => run(disable)}>
-                  알림 끄기
+                  {devices !== null && devices > 1 ? '이 기기만 끄기' : '알림 끄기'}
                 </Button>
               </>
             ) : (
@@ -206,6 +237,11 @@ function Fields({
                   : savedTime !== null
                     ? '이 기기에서도 알림 받기'
                     : '이 기기에서 알림 켜기'}
+              </Button>
+            )}
+            {everywhere && (
+              <Button type="button" variant="ghost" disabled={busy} onClick={() => run(disableEverywhere)}>
+                모든 기기에서 끄기
               </Button>
             )}
             {devices !== null && devices > 0 && (
