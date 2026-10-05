@@ -53,18 +53,26 @@ export function createPushHandlers(
         return fail(error, '알림 등록 정보를 확인해 주세요.');
       }
     },
-    /** 이 기기의 등록을 지운다. 끄기는 언제나 성공해야 하므로 없는 주소도 정상으로 본다. */
+    /**
+     * 이 기기, 또는 { all: true }면 이 계정의 모든 기기 등록을 지운다.
+     * 모든 기기 끄기는 등록하지 않은 기기에서도 할 수 있어야 한다. 끄려고 그 기기를 찾아갈 필요가 없게.
+     * 끄기는 언제나 성공해야 하므로 없는 주소도 정상으로 본다.
+     */
     async DELETE(request: Request) {
       try {
         const auth = await storage.authenticate(request);
         const input = z
-          .object({ endpoint: z.string().min(20).max(2000) })
-          .strict()
+          .union([
+            z.object({ endpoint: z.string().min(20).max(2000) }).strict(),
+            z.object({ all: z.literal(true) }).strict(),
+          ])
           .parse(await readBody(request));
         await storage.rest(
           auth,
           'push_subscriptions',
-          { endpoint: `eq.${input.endpoint}`, user_id: `eq.${auth.userId}` },
+          'endpoint' in input
+            ? { endpoint: `eq.${input.endpoint}`, user_id: `eq.${auth.userId}` }
+            : { user_id: `eq.${auth.userId}` },
           undefined,
           { method: 'DELETE', headers: { Prefer: 'return=minimal' } },
         );
