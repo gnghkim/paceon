@@ -146,7 +146,7 @@ export function TelegramLink() {
         issued ? (
           <div className="space-y-3 rounded-lg bg-accent/50 p-4">
             <p className="text-sm">아래 코드를 {time(issued.expiresAt)}까지 봇에 보내 주세요. 한 번만 쓸 수 있어요.</p>
-            <p className="font-mono text-2xl font-semibold tracking-[0.2em]" aria-label={`연결 코드 ${issued.code.split('').join(' ')}`}>
+            <p className="text-2xl font-semibold tracking-[0.2em]" aria-label={`연결 코드 ${issued.code.split('').join(' ')}`}>
               {issued.code}
             </p>
             <div className="flex flex-wrap gap-2">

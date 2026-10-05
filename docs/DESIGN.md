@@ -314,6 +314,8 @@ Caption
 font-variant-numeric: tabular-nums;
 ```
 
+타이머, 시각, 연결 코드도 별도 고정폭 글꼴(`font-mono`)을 쓰지 않고 Pretendard에 `tabular-nums`를 준다. 고정폭 글꼴은 기기마다 달라지고(Consolas, SF Mono, Droid Sans Mono) 한글이 섞이면 간격이 어긋난다. Pretendard의 고정폭 숫자로도 시계가 넘어갈 때 폭이 흔들리지 않는다(2026-10-05).
+
 ---
 
 # 8. Spacing

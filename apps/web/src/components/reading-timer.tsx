@@ -187,7 +187,7 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
                     role="timer"
                     aria-label={`읽은 시간 ${elapsed}${paused ? ', 잠시 멈춤' : ''}`}
                     className={cn(
-                      'font-mono text-3xl font-semibold leading-tight tabular-nums',
+                      'text-3xl font-semibold leading-tight tabular-nums',
                       paused ? 'text-muted-foreground' : 'text-primary',
                     )}
                   >
