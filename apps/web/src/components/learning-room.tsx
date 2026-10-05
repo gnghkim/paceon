@@ -693,7 +693,7 @@ export function LearningRoom({ id }: { id: string }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs text-muted-foreground">이번 학습</p>
-            <p className="mt-1 font-mono text-2xl tabular-nums">
+            <p className="mt-1 text-2xl tabular-nums">
               {learningDuration((current?.elapsed_seconds ?? 0) + provisional)}
             </p>
             <p className="text-xs text-muted-foreground">

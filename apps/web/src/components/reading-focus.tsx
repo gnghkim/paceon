@@ -127,7 +127,7 @@ export function ReadingFocus({
             role="timer"
             aria-label={`읽은 시간 ${elapsed}${paused ? ', 잠시 멈춤' : ''}`}
             className={cn(
-              'mt-4 font-mono font-semibold leading-none tabular-nums [@media(max-height:500px)]:mt-1',
+              'mt-4 font-semibold leading-none tabular-nums [@media(max-height:500px)]:mt-1',
               long
                 ? 'text-[length:clamp(3rem,min(17vw,38vh),9rem)]'
                 : 'text-[length:clamp(3.5rem,min(25vw,38vh),11rem)]',
