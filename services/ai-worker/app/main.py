@@ -43,13 +43,22 @@ async def lifespan(app: FastAPI):
     telegram_settings = TelegramSettings.from_env()
     if telegram_settings.enabled:
         consumers.append(TelegramWorker(telegram_settings))
-    tasks = [asyncio.create_task(asyncio.to_thread(consumer.run, stop)) for consumer in consumers]
+    # One thread per consumer. Each runs until shutdown, so asyncio's shared pool
+    # (process CPUs + 4 threads) let the newest consumers wait forever on a small host.
+    # On the 2-CPU VPS that silently kept daily reminders from starting after the
+    # seventh consumer was added.
+    threads = [
+        threading.Thread(target=consumer.run, args=(stop,), name=f"consumer-{type(consumer).__name__}", daemon=True)
+        for consumer in consumers
+    ]
+    for thread in threads:
+        thread.start()
     try:
         yield
     finally:
         stop.set()
-        if tasks:
-            await asyncio.gather(*tasks)
+        for thread in threads:
+            await asyncio.to_thread(thread.join)
 
 
 app = FastAPI(title="PaceOn AI Worker", version="0.0.0", lifespan=lifespan)

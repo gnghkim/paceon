@@ -154,6 +154,50 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(health_response.headers["Cache-Control"], "no-store")
 
 
+class ConsumerStartTests(unittest.TestCase):
+    """Every enabled consumer runs, however few CPUs the host has.
+
+    Consumers never return, so running them in asyncio's shared pool (CPUs + 4 threads)
+    left the newest ones queued forever on the 2-CPU VPS. Daily reminders stopped that
+    way on 2026-09-19, the day the seventh consumer was added.
+    """
+
+    def test_all_eight_consumers_start_on_a_two_cpu_host(self):
+        started = []
+
+        def fake(name):
+            def run(self, stop):
+                started.append(name)
+                stop.wait(5)
+            return type(name, (), {"__init__": lambda self, *a, **k: None, "run": run})
+
+        names = ["Worker", "LearningWorker", "VocabWorker", "OutlineWorker",
+                 "SpeechWorker", "PdfWorker", "NotifyWorker", "TelegramWorker"]
+        env = {"AI_ENABLED": "true", "SUPABASE_URL": "https://db", "SUPABASE_SERVICE_ROLE_KEY": "s",
+               "OPENAI_API_KEY": "k", "OPENAI_MODEL": "m", "PDF_ENABLED": "true",
+               "VAPID_PUBLIC_KEY": "pub", "VAPID_PRIVATE_KEY": "priv", "VAPID_SUBJECT": "mailto:a@b.c",
+               "TELEGRAM_ENABLED": "true", "TELEGRAM_BOT_TOKEN": "t", "GEMINI_API_KEY": "g", "GEMINI_MODEL": "gemini-3.5-flash-lite"}
+
+        async def check():
+            patches = [patch(f"app.main.{name}", fake(name)) for name in names]
+            for item in patches:
+                item.start()
+            try:
+                # Python 3.13 sizes the shared pool from process_cpu_count(): 2 + 4 = 6 threads.
+                with patch.dict("os.environ", env, clear=True), patch("os.process_cpu_count", return_value=2),                         patch("os.cpu_count", return_value=2):
+                    async with main.lifespan(main.app):
+                        for _ in range(100):
+                            if len(started) == len(names):
+                                break
+                            await asyncio.sleep(0.02)
+                        self.assertEqual(sorted(started), sorted(names))
+            finally:
+                for item in patches:
+                    item.stop()
+
+        asyncio.run(check())
+
+
 class HttpFixtureTests(unittest.TestCase):
     def setUp(self):
         self.requests = []
