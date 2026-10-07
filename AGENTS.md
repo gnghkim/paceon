@@ -92,3 +92,6 @@ After meaningful work (change level L1+):
 - New feature doc in `docs/`: also add it to the "개발 문서" link line at the end of README "구조와 다음 단계".
 - Scheduler logic lives in `packages/scheduler` (pure, Vitest) — keep it free of app/DB imports.
 - Do not modify `docs/superpowers/` or `docs/prompt.md` (historical planning artifacts) unless asked.
+- Live model checks (`pnpm test:providers:live`, `pnpm test:tutor:live`) call paid APIs. Run them only when asked.
+- Only one process may poll a Telegram bot token. Production polls `@paceon_tutor_bot` from the VPS worker, so never run a local worker with `TELEGRAM_ENABLED=true` against that token (see `docs/TELEGRAM_TUTOR.md` §10).
+- Each worker consumer must run on its own thread. Never start long-running consumers with `asyncio.to_thread`: on the 2-CPU VPS the shared pool silently left consumers unstarted.

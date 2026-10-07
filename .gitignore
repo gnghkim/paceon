@@ -21,3 +21,6 @@ services/ai-worker/build/
 
 # project-doc-manager local state
 .doc-manager/
+
+# gstack browser tool logs
+.gstack/
