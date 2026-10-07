@@ -149,7 +149,7 @@ test('a card never carries its source or timestamps to the browser', async () =>
   const { api } = stub({ rows: [row(cardId, '2026-01-01', { source_workspace_id: user })] });
   const body = await (await api.GET(get())).json();
   assert.deepEqual(Object.keys(body.cards[0]).sort(), // kind와 resource_id는 복습 화면이 카드 종류를 구별하고 책으로 돌아가는 데 쓴다.
-  ['due_on', 'examples', 'id', 'kind', 'lookup', 'meaning', 'phrase', 'resource_id', 'review_step']);
+  ['correction', 'due_on', 'examples', 'id', 'kind', 'lookup', 'meaning', 'phrase', 'resource_id', 'review_step']);
 });
 
 test('saving an expression schedules it for tomorrow rather than today', async () => {
@@ -255,4 +255,51 @@ test('the wordbook does not list reading recall', async () => {
   const body = await (await api.GET(get('?all=true'))).json();
   assert.deepEqual(body.cards.map((c) => c.kind), ['EXPRESSION']);
   assert.equal(body.saved, 1, 'the wordbook counts words, not everything in review');
+});
+
+// 텔레그램에서 교정받은 실수. 종류를 지켜서 보내고, 단어장에는 섞지 않는다.
+const correction = (id, due_on) =>
+  row(id, due_on, {
+    kind: 'CORRECTION',
+    phrase: 'go',
+    meaning: 'went',
+    wrong_text: 'go',
+    correct_text: 'went',
+    rule_text: '어제 일은 과거형으로 써요.',
+    mistake_category: 'GRAMMAR',
+    source_sentence: 'Yesterday I go to the park.',
+    occurrences: 2,
+    source_turn_id: '52345678-1234-4234-9234-123456789abc',
+  });
+
+test('a correction card keeps its kind and carries what to fix', async () => {
+  const { api } = stub({ rows: [correction(cardId, '2026-01-01')] });
+  const body = await (await api.GET(get())).json();
+  assert.equal(body.cards.length, 1);
+  const card = body.cards[0];
+  assert.equal(card.kind, 'CORRECTION', 'a correction is not passed off as a word');
+  assert.deepEqual(card.correction, {
+    wrongText: 'go',
+    correctText: 'went',
+    ruleText: '어제 일은 과거형으로 써요.',
+    sourceSentence: 'Yesterday I go to the park.',
+    occurrences: 2,
+  });
+  assert.equal(card.lookup, 'DONE', 'there is nothing to look up');
+  assert.equal(JSON.stringify(card).includes('52345678'), false, 'the turn it came from stays on the server');
+});
+
+test('words and recall cards carry no correction', async () => {
+  const { api } = stub({ rows: [row(cardId, '2026-01-01')] });
+  const body = await (await api.GET(get())).json();
+  assert.equal(body.cards[0].correction, null);
+});
+
+test('the wordbook does not list corrections either', async () => {
+  const { api } = stub({
+    rows: [correction(cardId, '2026-01-01'), row('32345678-1234-4234-9234-123456789abc', '2026-01-01')],
+  });
+  const body = await (await api.GET(get('?all=true'))).json();
+  assert.deepEqual(body.cards.map((card) => card.kind), ['EXPRESSION']);
+  assert.equal(body.saved, 1);
 });

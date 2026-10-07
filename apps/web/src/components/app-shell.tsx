@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   BookOpen,
   CalendarDays,
@@ -11,6 +11,8 @@ import {
   Settings,
   Sun,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,7 @@ import { ReadingTimerProvider } from './reading-timer';
 import { UnitRecordProvider } from './unit-record';
 import { AccountControls } from './account-controls';
 import { activeNavigation, pageTitle, primaryNavigation } from '@/lib/navigation';
+import { browserStorage, readSidebarCollapsed, writeSidebarCollapsed } from '@/lib/sidebar';
 
 const icons = { '/today': Sun, '/learn': MessageSquare, '/calendar': CalendarDays, '/resources': BookOpen, '/statistics': ChartColumn };
 const navigation = primaryNavigation.map(item => ({ ...item, icon: icons[item.href] }));
@@ -46,6 +49,20 @@ function AppShellContent({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loading && configured && !session && !error) router.replace('/login');
   }, [loading, configured, session, error, router]);
+  // 태블릿처럼 폭이 좁은 화면에서는 사이드바를 아이콘 줄로 접어 본문을 넓힌다.
+  // 고른 상태는 이 브라우저에 기억한다. 처음 그릴 때는 서버와 같게 펼친 상태로 시작한다.
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCollapsed(readSidebarCollapsed(browserStorage()));
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+  const toggleSidebar = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    writeSidebarCollapsed(browserStorage(), next);
+  };
 
   if (!configured || error)
     return (
@@ -90,50 +107,73 @@ function AppShellContent({ children }: { children: ReactNode }) {
       >
         본문으로 건너뛰기
       </a>
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border bg-surface md:flex">
-        <Link
-          href="/today"
-          className="flex h-16 items-center gap-2.5 px-6 text-xl font-bold tracking-tight"
-        >
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-white">
-            <BookOpen size={18} aria-hidden="true" />
-          </span>
-          PaceOn
-        </Link>
-        <nav aria-label="주 메뉴" className="space-y-1 px-3 py-7">
+      <aside
+        id="sidebar"
+        className={cn(
+          'fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-border bg-surface transition-[width] duration-200 md:flex',
+          collapsed ? 'w-16' : 'w-56',
+        )}
+      >
+        <div className={cn('flex h-16 items-center', collapsed ? 'justify-center' : 'justify-between pr-2')}>
+          {!collapsed && (
+            <Link href="/today" className="flex items-center gap-2.5 px-6 text-xl font-bold tracking-tight">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-white">
+                <BookOpen size={18} aria-hidden="true" />
+              </span>
+              PaceOn
+            </Link>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-11 text-muted-foreground"
+            aria-controls="sidebar"
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? '사이드바 펴기' : '사이드바 접기'}
+            title={collapsed ? '사이드바 펴기' : '사이드바 접기'}
+            onClick={toggleSidebar}
+          >
+            {collapsed ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
+          </Button>
+        </div>
+        <nav aria-label="주 메뉴" className={cn('space-y-1 py-7', collapsed ? 'px-2' : 'px-3')}>
           {navigation.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
               aria-label={label}
+              title={collapsed ? label : undefined}
               aria-current={active(href) ? 'page' : undefined}
               className={cn(
-                'flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-muted-foreground hover:bg-surface-subtle',
+                'flex min-h-11 items-center gap-3 rounded-lg text-sm font-medium text-muted-foreground hover:bg-surface-subtle',
+                collapsed ? 'justify-center' : 'px-3',
                 active(href) && 'bg-primary-soft text-primary',
               )}
             >
               <Icon size={18} aria-hidden="true" />
-              {label}
+              {!collapsed && label}
             </Link>
           ))}
         </nav>
-        <div className="px-4">
-          <Button asChild className="min-h-11 w-full">
-            <Link href="/resources/add">
+        <div className={collapsed ? 'px-2' : 'px-4'}>
+          <Button asChild className={cn('min-h-11 w-full', collapsed && 'px-0')}>
+            <Link href="/resources/add" aria-label="자료 추가" title={collapsed ? '자료 추가' : undefined}>
               <Plus aria-hidden="true" />
-              자료 추가
+              {!collapsed && '자료 추가'}
             </Link>
           </Button>
         </div>
-        <div className="mt-auto space-y-3 border-t border-border p-4">
-          <Link href="/settings" aria-current={pathname === '/settings' ? 'page' : undefined}
-            className={cn('flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm', pathname === '/settings' ? 'bg-primary-soft font-medium text-primary' : 'text-muted-foreground hover:bg-surface-subtle')}>
-            <Settings size={18} aria-hidden="true" />설정
+        <div className={cn('mt-auto space-y-3 border-t border-border', collapsed ? 'p-2' : 'p-4')}>
+          <Link href="/settings" aria-label="설정" title={collapsed ? '설정' : undefined} aria-current={pathname === '/settings' ? 'page' : undefined}
+            className={cn('flex min-h-11 items-center gap-3 rounded-lg text-sm', collapsed ? 'justify-center' : 'px-3', pathname === '/settings' ? 'bg-primary-soft font-medium text-primary' : 'text-muted-foreground hover:bg-surface-subtle')}>
+            <Settings size={18} aria-hidden="true" />{!collapsed && '설정'}
           </Link>
-          <AccountControls />
+          {/* 접으면 계정 정보와 로그아웃은 설정 화면의 계정 칸에서 한다. */}
+          {!collapsed && <AccountControls />}
         </div>
       </aside>
-      <div className="md:pl-56">
+      <div className={cn('transition-[padding] duration-200', collapsed ? 'md:pl-16' : 'md:pl-56')}>
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-surface px-4 sm:px-8">
           <Link href="/today" className="font-bold text-primary md:hidden">
             PaceOn

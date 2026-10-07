@@ -140,3 +140,73 @@ test('the latest plan-less reading can be corrected, even on a book it finished'
   assert.equal((await handler(request(correction), id)).status, 201);
   assert.equal(writes[0].p_request.eventId, latest.id);
 });
+
+// 다시 나누기 미리보기. 저장하지 않고 바뀔 일정만 돌려준다.
+const replanBody = { kind: 'REPLAN', planId: id, idempotencyKey: key, expectedPlanVersion: 1, expectedProgressVersion: 0, mode: 'DEADLINE', targetDate: '2999-01-10' };
+function replanStub({ minutesPerPage = 2 } = {}) {
+  const writes = [];
+  const handler = createProgressHandler(config, async (url, init = {}) => {
+    const path = new URL(url).pathname;
+    if (path.endsWith('/user')) return Response.json({ id });
+    if (path.startsWith('/rest/v1/rpc/')) {
+      writes.push({ path, body: JSON.parse(init.body) });
+      return Response.json({ completedThroughPage: 0, replanStatus: 'applied', forecastBefore: null, forecastAfter: '2999-01-10', conflicts: [] });
+    }
+    if (path.endsWith('/resources')) return Response.json([{ id, type: 'BOOK', status: 'ACTIVE', progress_version: 0, total_pages: 120, initial_completed_workload: 0 }]);
+    if (path.endsWith('/plans')) return Response.json([{ id, resource_id: id, status: 'ACTIVE', version: 1, mode: 'BALANCED', preferred_daily_workload: 30, target_date: '2999-01-20', start_date: '2026-09-13', timezone: 'UTC', minutes_per_page: minutesPerPage, forecast_date: '2999-01-20' }]);
+    if (path.endsWith('/availability_rules')) return Response.json([1, 2, 3, 4, 5, 6, 7].map(iso_weekday => ({ iso_weekday, available_minutes: 60 })));
+    if (path.endsWith('/learner_profiles')) return Response.json([{ timezone: 'UTC' }]);
+    return Response.json([]);
+  });
+  return { handler, writes };
+}
+const previewRequest = payload => new Request('http://localhost/api/resources/books/x/progress?preview=1', { method: 'POST', headers: { authorization: 'Bearer token', 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+
+test('a replan preview shows the schedule it would make and writes nothing', async () => {
+  const { handler, writes } = replanStub();
+  const response = await handler(previewRequest({ ...replanBody, targetDate: null, mode: 'PACE', dailyPages: 30 }), id);
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.preview, true);
+  assert.equal(body.status, 'ok');
+  assert.equal(body.forecastBefore, '2999-01-20');
+  assert.equal(body.minutesPerPage, 2);
+  assert.equal(body.sessions[0].startPage, 1);
+  assert.equal(body.sessions[0].endPage, 30, 'sixty minutes at two minutes a page holds thirty pages');
+  assert.equal(body.forecastAfter, body.sessions.at(-1).studyDate);
+  assert.deepEqual(writes, []);
+});
+
+test('the preview uses a corrected reading speed', async () => {
+  const { handler } = replanStub();
+  const slow = await (await handler(previewRequest({ ...replanBody, mode: 'PACE', dailyPages: 100, targetDate: null }), id)).json();
+  assert.equal(slow.status, 'conflict', 'a hundred pages do not fit in an hour at two minutes a page');
+  const fast = await (await handler(previewRequest({ ...replanBody, mode: 'PACE', dailyPages: 100, targetDate: null, minutesPerPage: 0.5 }), id)).json();
+  assert.equal(fast.status, 'ok');
+  assert.equal(fast.minutesPerPage, 0.5);
+  assert.equal(fast.sessions[0].endPage, 100);
+});
+
+test('only a replan can be previewed', async () => {
+  const { handler, writes } = replanStub();
+  assert.equal((await handler(previewRequest(body), id)).status, 400);
+  assert.deepEqual(writes, []);
+});
+
+test('confirming sends the corrected speed in both the request and the candidate', async () => {
+  const { handler, writes } = replanStub();
+  const response = await handler(request({ ...replanBody, mode: 'PACE', dailyPages: 100, targetDate: null, minutesPerPage: 0.5 }), id);
+  assert.equal(response.status, 201);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].path, '/rest/v1/rpc/submit_book_progress');
+  assert.equal(writes[0].body.p_request.minutesPerPage, 0.5);
+  assert.equal(writes[0].body.p_candidate.minutesPerPage, 0.5);
+});
+
+test('a reading speed the plan could not store is refused', async () => {
+  const { handler, writes } = replanStub();
+  for (const minutesPerPage of [0.05, 1441, 0.1234, '1'])
+    assert.equal((await handler(request({ ...replanBody, minutesPerPage }), id)).status, 400, String(minutesPerPage));
+  assert.equal((await handler(request({ ...body, minutesPerPage: 1 }), id)).status, 400, 'a reading record cannot carry a speed');
+  assert.deepEqual(writes, []);
+});

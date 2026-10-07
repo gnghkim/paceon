@@ -132,3 +132,14 @@ test('a recall card asks what is remembered instead of asking for a meaning', ()
   assert.match(prompt, /기억나는 것/);
   assert.doesNotMatch(prompt, /뜻/);
 });
+
+test('a correction asks how the marked part should have been written', () => {
+  assert.match(reviewPrompt({ kind: 'CORRECTION', phrase: 'go' }), /고쳐/);
+  assert.doesNotMatch(reviewPrompt({ kind: 'CORRECTION', phrase: 'go' }), /went/);
+});
+
+test('corrections take turns with words and recall in today\'s three', () => {
+  const card = (id, kind, due_on) => ({ id, kind, due_on, phrase: id, meaning: '', examples: [], review_step: 0, resource_id: null, lookup: 'DONE', correction: null });
+  const picked = dueToday([card('w1', 'EXPRESSION', '2026-09-01'), card('w2', 'EXPRESSION', '2026-09-02'), card('c1', 'CORRECTION', '2026-09-03'), card('r1', 'RECALL', '2026-09-04')], '2026-09-10');
+  assert.deepEqual(picked.map((c) => c.kind).sort(), ['CORRECTION', 'EXPRESSION', 'RECALL']);
+});

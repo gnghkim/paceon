@@ -7,6 +7,7 @@ import { useAuth } from './auth-provider';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import { formatDate } from '@/lib/planning';
+import { markMistake } from '@/lib/telegram-tutor';
 import {
   DAILY_REVIEW_SIZE,
   reviewPrompt,
@@ -167,7 +168,7 @@ export function ExpressionReview() {
                 : '다음 예정일에 다시 꺼내 볼게요.'
               : status === 'loading' || status === 'error' ? '' : saved > 0
                 ? '저장한 것은 예정일이 되면 여기 나와요.'
-                : '단어장에 단어를 넣거나, 책을 읽은 뒤 기억나는 것을 적어 두면 여기서 다시 물어봐요.'}
+                : '단어장에 단어를 넣거나, 책을 읽은 뒤 기억나는 것을 적어 두거나, 텔레그램 튜터에게 고침을 받으면 여기서 다시 물어봐요.'}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             {more > 0 && (
@@ -196,21 +197,53 @@ export function ExpressionReview() {
             {(
               <p className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
                 <BookOpen size={13} aria-hidden="true" />
-                {card.kind === 'RECALL' ? '독서 회상' : '영어 단어·표현'}
+                {card.kind === 'RECALL' ? '독서 회상' : card.kind === 'CORRECTION' ? '텔레그램에서 고친 표현' : '영어 단어·표현'}
               </p>
             )}
-            <p className="text-xl font-semibold break-words">{card.phrase}</p>
+            {card.correction ? (
+              // 전에 쓴 문장을 그대로 보여 주고 틀린 부분만 굵게 한다. 답은 아직 보이지 않는다.
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">전에 이렇게 썼어요</p>
+                <p className="text-xl font-semibold break-words">
+                  {markMistake(card.correction.sourceSentence, card.correction.wrongText).map((part, i) =>
+                    part.marked ? (
+                      <mark key={i} className="rounded bg-warning-soft px-0.5 text-foreground">{part.text}</mark>
+                    ) : (
+                      <span key={i} className="font-normal">{part.text}</span>
+                    ),
+                  )}
+                </p>
+              </div>
+            ) : (
+              <p className="text-xl font-semibold break-words">{card.phrase}</p>
+            )}
             {!revealed ? (
               <>
                 <p className="text-sm text-muted-foreground">{reviewPrompt(card)}</p>
                 <Button type="button" onClick={() => setRevealed(true)}>
-                  {card.kind === 'RECALL' ? '내가 적은 것 보기' : '뜻 확인하기'}
+                  {card.kind === 'RECALL' ? '내가 적은 것 보기' : card.kind === 'CORRECTION' ? '고친 표현 보기' : '뜻 확인하기'}
                 </Button>
               </>
             ) : (
               <>
                 <div className="space-y-2 rounded-lg bg-accent/50 p-4">
-                  <p className="whitespace-pre-wrap break-words text-sm leading-6">{card.meaning}</p>
+                  {card.correction ? (
+                    <>
+                      <p className="break-words text-sm leading-6">
+                        <span className="line-through decoration-danger/60">{card.correction.wrongText}</span>
+                        {' → '}
+                        <span className="font-semibold">{card.correction.correctText}</span>
+                      </p>
+                      {card.correction.ruleText && (
+                        <p className="text-sm leading-6 text-muted-foreground">{card.correction.ruleText}</p>
+                      )}
+                      {card.correction.occurrences > 1 && (
+                        <p className="text-xs text-muted-foreground">같은 실수를 {card.correction.occurrences}번 했어요.</p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words text-sm leading-6">{card.meaning}</p>
+                  )}
                   {card.kind === 'RECALL' && (
                     // 꺼낸 뒤에는 맞는지 확인해야 한다. 틀린 기억을 되풀이하면 굳는다.
                     // 여기서 답은 그때 적은 것뿐이라, 진짜 답인 책으로 가는 길을 함께 둔다.

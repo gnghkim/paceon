@@ -218,7 +218,7 @@ function Step({
   return (
     <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-16">
       <div className={cn(flip && 'lg:order-last')}>
-        <p className="font-mono text-sm font-semibold text-primary">{number}</p>
+        <p className="text-sm font-semibold text-primary tabular-nums">{number}</p>
         <h3 className="mt-2 text-xl font-bold tracking-tight sm:text-2xl">{title}</h3>
         <p className="mt-4 text-sm leading-7 text-muted-foreground sm:text-base">{body}</p>
         <ul className="mt-6 space-y-3 text-sm">
@@ -294,7 +294,7 @@ function ReadingMock() {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-xs text-muted-foreground">읽는 중 · 아주 작은 습관의 힘</p>
-            <p className="font-mono text-3xl leading-tight font-semibold text-primary tabular-nums">
+            <p className="text-3xl leading-tight font-semibold text-primary tabular-nums">
               24:18
             </p>
           </div>

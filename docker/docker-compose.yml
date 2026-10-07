@@ -24,6 +24,12 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
       NOTIFY_POLL_SECONDS: ${NOTIFY_POLL_SECONDS:-60}
+      # 텔레그램 튜터. 한 봇 토큰은 한 곳에서만 읽을 수 있으니 켜는 곳은 하나여야 한다.
+      TELEGRAM_ENABLED: ${TELEGRAM_ENABLED:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_DAILY_TURN_LIMIT: ${TELEGRAM_DAILY_TURN_LIMIT:-300}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]

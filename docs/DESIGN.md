@@ -314,6 +314,8 @@ Caption
 font-variant-numeric: tabular-nums;
 ```
 
+타이머, 시각, 연결 코드도 별도 고정폭 글꼴(`font-mono`)을 쓰지 않고 Pretendard에 `tabular-nums`를 준다. 고정폭 글꼴은 기기마다 달라지고(Consolas, SF Mono, Droid Sans Mono) 한글이 섞이면 간격이 어긋난다. Pretendard의 고정폭 숫자로도 시계가 넘어갈 때 폭이 흔들리지 않는다(2026-10-05).
+
 ---
 
 # 8. Spacing
@@ -1267,6 +1269,8 @@ Wide
 Tablet에서는 Sidebar를 collapsed 가능하게 한다.
 
 Context Panel은 Main 아래로 이동 가능.
+
+구현(2026-10-07): 폭 768px부터 보이는 사이드바 위쪽의 접기 단추로 224px 사이드바를 64px 아이콘 줄로 접고, 본문 왼쪽 여백도 함께 줄어든다. 접힌 상태에서는 메뉴 이름을 화면 낭독용 이름과 툴팁으로 남기고, 계정 정보와 로그아웃은 설정 화면의 계정 칸으로 넘긴다. 고른 상태는 이 브라우저의 저장소(`paceon:sidebar-collapsed`)에 기억하고, 저장소를 쓸 수 없으면 펼친 상태로 시작한다. 기본은 펼친 상태다. 모바일(768px 미만)은 그대로 아래 탭 바를 쓴다.
 
 ---
 

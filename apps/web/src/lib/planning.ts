@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { addDays, scheduleBook } from '@paceon/scheduler';
-import type { Resource, Plan } from '@paceon/shared';
+import type { Resource, Plan, ProgressEvent } from '@paceon/shared';
 
 const date = z.string().refine((value) => {
   try {
@@ -110,4 +110,66 @@ export function formatDate(date: string | null, detailed = false): string {
         timeZone: 'UTC',
       }).format(new Date(`${date}T12:00:00Z`))
     : '계획을 세워 주세요';
+}
+/**
+ * 이 책을 실제로 읽은 속도(분/쪽). 시간을 적은 유효한 읽기 기록만 모아 쪽과 분을
+ * 합쳐 나눈다. 계획을 다시 나눌 때 고칠 속도로 권한다. 계획이 받는 범위를 벗어나면 권하지 않는다.
+ */
+export function bookReadingSpeed(
+  events: readonly Pick<ProgressEvent, 'id' | 'resource_id' | 'event_type' | 'start_page' | 'end_page' | 'duration_minutes' | 'voids_event_id'>[],
+  bookId: string,
+): number | null {
+  const own = events.filter((event) => event.resource_id === bookId);
+  const voided = new Set(own.map((event) => event.voids_event_id).filter(Boolean));
+  let pages = 0;
+  let minutes = 0;
+  for (const event of own) {
+    if (event.event_type !== 'LEARNING' || voided.has(event.id)) continue;
+    if (!event.duration_minutes || event.duration_minutes <= 0) continue;
+    if (event.start_page === null || event.end_page === null || event.end_page < event.start_page) continue;
+    pages += event.end_page - event.start_page + 1;
+    minutes += event.duration_minutes;
+  }
+  if (!pages) return null;
+  const speed = Math.round((minutes / pages) * 100) / 100;
+  return speed >= 0.1 && speed <= 1440 ? speed : null;
+}
+/**
+ * 쪽당 분을 1시간에 읽는 쪽수로 바꿔 말한다. "읽는 속도"라는 이름에 큰 수를 넣으면
+ * 빨라질 것 같지만 쪽당 분은 클수록 느리다. 같은 값을 두 방향으로 보여 헷갈리지 않게 한다.
+ */
+export function pagesPerHour(minutesPerPage: number): number | null {
+  return Number.isFinite(minutesPerPage) && minutesPerPage > 0
+    ? Math.floor(60 / minutesPerPage)
+    : null;
+}
+
+type PreviewOutcome = {
+  status: string;
+  forecastAfter: string | null;
+  targetDate: string | null;
+  mode: string;
+  minutesPerPage: number;
+  conflicts: readonly { code: string }[];
+};
+/**
+ * 목표 날짜를 못 맞춘 미리보기에 내미는 한 번에 고치는 길. 목표를 지키는 방식은
+ * '목표 날짜에 맞추기'뿐이고(균형 조정은 하루 분량을 20%까지만 늘린다), 이 책을 실제로
+ * 더 빨리 읽었다면 그 속도로 바꾼다. 더 느린 기록은 권하지 않는다.
+ * 이미 그 설정인데도 못 맞추면 화면이 바꿀 것이 없으니 아무것도 내밀지 않는다.
+ */
+export function targetFix(
+  preview: PreviewOutcome,
+  observedSpeed: number | null,
+): { mode: 'DEADLINE'; minutesPerPage: number } | null {
+  if (!preview.targetDate) return null;
+  const missed =
+    preview.status === 'conflict'
+      ? preview.conflicts.some((conflict) => conflict.code === 'DEADLINE_CAPACITY' || conflict.code === 'TIME_CAPACITY')
+      : preview.forecastAfter !== null && preview.forecastAfter > preview.targetDate;
+  if (!missed) return null;
+  const minutesPerPage =
+    observedSpeed !== null && observedSpeed < preview.minutesPerPage ? observedSpeed : preview.minutesPerPage;
+  if (preview.mode === 'DEADLINE' && minutesPerPage === preview.minutesPerPage) return null;
+  return { mode: 'DEADLINE', minutesPerPage };
 }

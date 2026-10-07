@@ -7,6 +7,8 @@ const date = z.string().refine(value => {
   try { return addDays(value, 0) === value; } catch { return false; }
 }, '올바른 날짜를 입력해 주세요.');
 const page = z.number().int().min(1).max(10_000_000);
+// The bounds a new plan accepts, stored to three decimals.
+const minutesPerPage = z.number().min(0.1).max(1440).refine(value => Math.round(value * 1000) / 1000 === value);
 const base = {
   idempotencyKey: z.uuid(), planId: z.uuid(),
   expectedPlanVersion: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
@@ -22,7 +24,7 @@ const schema = z.discriminatedUnion('kind', [
   z.object({ ...base, ...record, kind: z.literal('REVIEW'), startPage: page, endPage: page }).strict()
     .refine(value => value.endPage >= value.startPage, '종료 페이지를 확인해 주세요.'),
   z.object({ ...base, ...record, kind: z.literal('CORRECTION'), eventId: z.uuid(), endPage: z.number().int().min(0).max(10_000_000) }).strict(),
-  z.object({ ...base, kind: z.literal('REPLAN'), mode: z.enum(['PACE', 'DEADLINE', 'BALANCED']).optional(), dailyPages: page.optional(), targetDate: date.nullable().optional() }).strict(),
+  z.object({ ...base, kind: z.literal('REPLAN'), mode: z.enum(['PACE', 'DEADLINE', 'BALANCED']).optional(), dailyPages: page.optional(), targetDate: date.nullable().optional(), minutesPerPage: minutesPerPage.optional() }).strict(),
 ]);
 export type ProgressRequest = z.infer<typeof schema>;
 export function parseProgressRequest(value: unknown): ProgressRequest { return schema.parse(value); }
@@ -96,6 +98,25 @@ export interface ProgressCandidate {
   dailyPages: number | null;
   targetDate: string | null;
 }
+/** What a replan would do, shown before it is confirmed. Nothing is saved. */
+export function describeReplan(candidate: ProgressCandidate, forecastBefore: string | null, totalPages: number) {
+  const schedule = candidate.schedule;
+  const placed = schedule.status !== 'conflict';
+  return {
+    preview: true as const,
+    status: schedule.status,
+    forecastBefore,
+    forecastAfter: placed ? schedule.forecastDate : null,
+    targetDate: candidate.targetDate,
+    mode: candidate.mode,
+    minutesPerPage: candidate.minutesPerPage,
+    speedSource: candidate.speedSource,
+    remainingPages: totalPages - candidate.completedThroughPage,
+    sessions: placed ? schedule.sessions.map(({ studyDate, startPage, endPage, estimatedMinutes }) => ({ studyDate, startPage, endPage, estimatedMinutes })) : [],
+    conflicts: placed ? [] : schedule.conflicts.map(({ code }) => ({ code })),
+  };
+}
+export type ReplanPreview = ReturnType<typeof describeReplan>;
 export interface ProgressCandidateInput {
   book: ProgressBook;
   plan: Pick<Plan, 'mode' | 'preferred_daily_workload' | 'target_date' | 'start_date' | 'timezone'> & { minutes_per_page: number };
@@ -147,7 +168,9 @@ export function calculateProgressCandidate(input: ProgressCandidateInput): Progr
       pages: event.end_page! - event.start_page! + 1, minutes: event.duration_minutes }));
   if (!Number.isFinite(plan.minutes_per_page) || plan.minutes_per_page <= 0)
     throw new ProgressError('계획의 기본 읽기 속도를 확인해 주세요.');
-  const speed = estimateReadingSpeed({ asOfDate, fallbackMinutesPerPage: plan.minutes_per_page, samples, windowDays: 30, minimumSamples: 3 });
+  // A replan may correct the speed the plan was made with. Enough timed records still win.
+  const fallbackMinutesPerPage = request.kind === 'REPLAN' && request.minutesPerPage !== undefined ? request.minutesPerPage : plan.minutes_per_page;
+  const speed = estimateReadingSpeed({ asOfDate, fallbackMinutesPerPage, samples, windowDays: 30, minimumSamples: 3 });
   const mode = request.kind === 'REPLAN' ? request.mode ?? plan.mode : plan.mode;
   const dailyPages = request.kind === 'REPLAN' ? request.dailyPages ?? plan.preferred_daily_workload : plan.preferred_daily_workload;
   const targetDate = request.kind === 'REPLAN' && request.targetDate !== undefined ? request.targetDate : plan.target_date;

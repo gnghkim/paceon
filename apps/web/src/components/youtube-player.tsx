@@ -134,7 +134,7 @@ export function YouTubePlayer({ videoId, initialPosition, stopped, stopToken, se
     {!ready && !error && <p role="status" className="text-sm">YouTube 플레이어를 불러오는 중…</p>}
     {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     <div className="flex flex-wrap items-center gap-2 text-sm">
-      <span className="font-mono">{learningDuration(position)}</span>
+      <span className="tabular-nums">{learningDuration(position)}</span>
       <label>배속 <select aria-label="재생 배속" className="rounded border border-border bg-background p-2" value={rate} disabled={!ready} onChange={(e) => player.current?.setPlaybackRate(Number(e.target.value))}>{rates.map((r) => <option key={r} value={r}>{r}×</option>)}</select></label>
       <Button variant="outline" disabled={!ready} onClick={() => { setA(position); setB(null); }}>A 지정 {a !== null && learningDuration(a)}</Button>
       <Button variant="outline" disabled={!ready || a === null || position <= a} onClick={() => setB(position)}>B 지정 {b !== null && learningDuration(b)}</Button>

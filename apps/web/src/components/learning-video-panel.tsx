@@ -66,7 +66,7 @@ export function LearningVideoPanel({ video, title, tab, notes, visits, stopped, 
       <label className="block text-sm font-medium" htmlFor="video-note">이 구간 메모 · {learningDuration(position)}</label>
       <textarea id="video-note" disabled={busy} value={note} maxLength={4000} className="min-h-28 w-full rounded border border-border bg-background p-3" onChange={(e) => { setNote(e.target.value); activity(); }} placeholder="기억할 표현이나 내 생각을 적어 보세요." />
       <Button disabled={busy || !note.trim()} onClick={() => void run(async () => { if (pendingNote.current?.content !== note) pendingNote.current = { noteId: crypto.randomUUID(), positionSeconds: position, content: note }; await command({ action: 'VIDEO_NOTE', ...pendingNote.current }); pendingNote.current = null; setNote(''); await reload(); })}>현재 시각에 메모 저장</Button>
-      {notes.map((n) => <article key={n.id} className="border-t border-border py-3"><button className="min-h-11 font-mono text-sm text-primary underline" onClick={() => setSeek({ seconds: n.position_seconds, token: Date.now() })}>{learningDuration(n.position_seconds)}로 이동</button><p className="whitespace-pre-wrap break-words text-sm">{n.content}</p></article>)}
+      {notes.map((n) => <article key={n.id} className="border-t border-border py-3"><button className="min-h-11 text-sm text-primary underline tabular-nums" onClick={() => setSeek({ seconds: n.position_seconds, token: Date.now() })}>{learningDuration(n.position_seconds)}로 이동</button><p className="whitespace-pre-wrap break-words text-sm">{n.content}</p></article>)}
     </section>}
     {tab === 'source' && <section className="space-y-3 rounded-xl border border-border p-4">
       <h2 className="font-medium">내가 제공하는 자막</h2>

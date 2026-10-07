@@ -289,6 +289,7 @@ export type Database = {
       }
       learning_expressions: {
         Row: {
+          correct_text: string | null
           created_at: string
           due_on: string
           end_page: number | null
@@ -302,17 +303,24 @@ export type Database = {
           lookup_attempts: number
           lookup_status: string
           meaning: string | null
+          mistake_category: string | null
+          occurrences: number
           phrase: string
           resource_id: string | null
           review_count: number
           review_step: number
+          rule_text: string | null
+          source_sentence: string | null
+          source_turn_id: string | null
           source_workspace_id: string | null
           start_page: number | null
           unit_id: string | null
           updated_at: string
           user_id: string
+          wrong_text: string | null
         }
         Insert: {
+          correct_text?: string | null
           created_at?: string
           due_on: string
           end_page?: number | null
@@ -326,17 +334,24 @@ export type Database = {
           lookup_attempts?: number
           lookup_status?: string
           meaning?: string | null
+          mistake_category?: string | null
+          occurrences?: number
           phrase: string
           resource_id?: string | null
           review_count?: number
           review_step?: number
+          rule_text?: string | null
+          source_sentence?: string | null
+          source_turn_id?: string | null
           source_workspace_id?: string | null
           start_page?: number | null
           unit_id?: string | null
           updated_at?: string
           user_id: string
+          wrong_text?: string | null
         }
         Update: {
+          correct_text?: string | null
           created_at?: string
           due_on?: string
           end_page?: number | null
@@ -350,15 +365,21 @@ export type Database = {
           lookup_attempts?: number
           lookup_status?: string
           meaning?: string | null
+          mistake_category?: string | null
+          occurrences?: number
           phrase?: string
           resource_id?: string | null
           review_count?: number
           review_step?: number
+          rule_text?: string | null
+          source_sentence?: string | null
+          source_turn_id?: string | null
           source_workspace_id?: string | null
           start_page?: number | null
           unit_id?: string | null
           updated_at?: string
           user_id?: string
+          wrong_text?: string | null
         }
         Relationships: [
           {
@@ -366,6 +387,13 @@ export type Database = {
             columns: ["resource_id", "user_id"]
             isOneToOne: false
             referencedRelation: "resources"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "learning_expressions_source_turn_fk"
+            columns: ["source_turn_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "telegram_turns"
             referencedColumns: ["id", "user_id"]
           },
           {
@@ -1408,6 +1436,126 @@ export type Database = {
           },
         ]
       }
+      telegram_link_codes: {
+        Row: {
+          code_hash: string
+          created_at: string
+          expires_at: string
+          id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      telegram_links: {
+        Row: {
+          chat_id: number
+          created_at: string
+          level: string
+          linked_at: string
+          pending_rewrite: Json | null
+          quiz_state: Json | null
+          review_at: string
+          review_last_sent_on: string | null
+          scenario: string | null
+          telegram_user_id: number
+          updated_at: string
+          user_id: string
+          voice_replies: boolean
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          level?: string
+          linked_at?: string
+          pending_rewrite?: Json | null
+          quiz_state?: Json | null
+          review_at?: string
+          review_last_sent_on?: string | null
+          scenario?: string | null
+          telegram_user_id: number
+          updated_at?: string
+          user_id: string
+          voice_replies?: boolean
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          level?: string
+          linked_at?: string
+          pending_rewrite?: Json | null
+          quiz_state?: Json | null
+          review_at?: string
+          review_last_sent_on?: string | null
+          scenario?: string | null
+          telegram_user_id?: number
+          updated_at?: string
+          user_id?: string
+          voice_replies?: boolean
+        }
+        Relationships: []
+      }
+      telegram_turns: {
+        Row: {
+          chat_id: number
+          created_at: string
+          id: string
+          input_kind: string
+          learner_text: string
+          message_id: number
+          mistake_count: number
+          reply_text: string
+          rewrite_attempt: boolean
+          rewrite_correct: boolean | null
+          tutor_turn: Json
+          user_id: string
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          id?: string
+          input_kind: string
+          learner_text: string
+          message_id: number
+          mistake_count?: number
+          reply_text: string
+          rewrite_attempt?: boolean
+          rewrite_correct?: boolean | null
+          tutor_turn: Json
+          user_id: string
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          id?: string
+          input_kind?: string
+          learner_text?: string
+          message_id?: number
+          mistake_count?: number
+          reply_text?: string
+          rewrite_attempt?: boolean
+          rewrite_correct?: boolean | null
+          tutor_turn?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1456,6 +1604,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      claim_due_telegram_reviews: { Args: { p_limit?: number }; Returns: Json }
       claim_expression_lookup: { Args: never; Returns: Json }
       claim_learning_job: { Args: never; Returns: Json }
       claim_material_import: { Args: never; Returns: Json }
@@ -1476,6 +1625,7 @@ export type Database = {
         }
         Returns: string
       }
+      create_telegram_link_code: { Args: never; Returns: Json }
       create_unit_material: { Args: { p_input: Json }; Returns: string }
       discard_pdf_import: { Args: { p_id: string }; Returns: boolean }
       enqueue_ai_job: {
@@ -1555,6 +1705,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      get_telegram_context: {
+        Args: { p_telegram_user_id: number }
+        Returns: Json
+      }
+      get_telegram_quiz_cards: {
+        Args: { p_limit?: number; p_user_id: string }
+        Returns: Json
+      }
+      get_telegram_stats: { Args: { p_user_id: string }; Returns: Json }
       learning_command: { Args: { p_command: Json }; Returns: Json }
       learning_daily_minutes: {
         Args: { p_from: string; p_to: string }
@@ -1565,12 +1724,26 @@ export type Database = {
       }
       learning_speech_command: { Args: { p_command: Json }; Returns: Json }
       learning_video_command: { Args: { p_command: Json }; Returns: Json }
+      link_telegram: {
+        Args: { p_chat_id: number; p_code: string; p_telegram_user_id: number }
+        Returns: string
+      }
       plan_unit_material: {
         Args: { p_options: Json; p_resource_id: string }
         Returns: Json
       }
       queue_pdf_import: { Args: { p_id: string }; Returns: Json }
       queue_speech_recording: { Args: { p_id: string }; Returns: Json }
+      record_correction_review: {
+        Args: {
+          p_due_on: string
+          p_id: string
+          p_step: number
+          p_today: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       record_expression_review: {
         Args: {
           p_due_on: string
@@ -1579,6 +1752,7 @@ export type Database = {
           p_today: string
         }
         Returns: {
+          correct_text: string | null
           created_at: string
           due_on: string
           end_page: number | null
@@ -1592,15 +1766,21 @@ export type Database = {
           lookup_attempts: number
           lookup_status: string
           meaning: string | null
+          mistake_category: string | null
+          occurrences: number
           phrase: string
           resource_id: string | null
           review_count: number
           review_step: number
+          rule_text: string | null
+          source_sentence: string | null
+          source_turn_id: string | null
           source_workspace_id: string | null
           start_page: number | null
           unit_id: string | null
           updated_at: string
           user_id: string
+          wrong_text: string | null
         }
         SetofOptions: {
           from: "*"
@@ -1608,6 +1788,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      record_telegram_turn: {
+        Args: { p_turn: Json; p_user_id: string }
+        Returns: Json
       }
       replace_availability_rules: {
         Args: { p_rules: Json }
@@ -1618,6 +1802,10 @@ export type Database = {
         Returns: Json
       }
       retry_pdf_import: { Args: { p_id: string }; Returns: Json }
+      save_telegram_quiz_state: {
+        Args: { p_state: Json; p_user_id: string }
+        Returns: boolean
+      }
       speech_audio_path: { Args: { p_id: string }; Returns: Json }
       speech_cleanup_candidates: { Args: never; Returns: Json }
       speech_storage_allowed: {
@@ -1648,6 +1836,15 @@ export type Database = {
           p_request: Json
           p_resource_id: string
         }
+        Returns: Json
+      }
+      unlink_telegram: { Args: never; Returns: boolean }
+      unlink_telegram_user: {
+        Args: { p_telegram_user_id: number }
+        Returns: boolean
+      }
+      update_telegram_settings: {
+        Args: { p_settings: Json; p_user_id: string }
         Returns: Json
       }
       youtube_connection_command: { Args: { p_command: Json }; Returns: Json }

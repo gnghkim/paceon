@@ -136,7 +136,7 @@ export function LearningAreaHome({ kind }: { kind: LearningKind }) {
                   {new Date(s.started_at).toLocaleDateString('ko-KR')} · {sessionStatusLabel(s.status)} · 기록 보기
                 </p>
               </div>
-              <span className="font-mono text-sm">{learningDuration(s.elapsed_seconds)}</span>
+              <span className="text-sm tabular-nums">{learningDuration(s.elapsed_seconds)}</span>
             </Link>
           ))
         )}

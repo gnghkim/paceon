@@ -18,7 +18,7 @@ import { StartReadingButton, useReadingTimer } from '@/components/reading-timer'
 import { RecallNotes } from '@/components/recall-notes';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { formatDate, summarizeBook } from '@/lib/planning';
+import { bookReadingSpeed, formatDate, summarizeBook } from '@/lib/planning';
 
 export function BookDetail({ id }: { id: string }) {
   return <BookDetailPanel key={id} id={id} />;
@@ -266,6 +266,7 @@ function BookDetailPanel({ id }: { id: string }) {
           key={`settings:${book.id}:${book.progress_version}:${plan.version}:${plan.status}:${book.status}`}
           book={book}
           plan={plan}
+          observedSpeed={bookReadingSpeed(data.events, book.id)}
           onSaved={reload}
           onResult={setSaved}
         />

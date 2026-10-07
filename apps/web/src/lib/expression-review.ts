@@ -57,7 +57,19 @@ export function nextReview(step: number, grade: ReviewGrade, today: string): Rev
   return { step: next, dueOn: addDays(today, REVIEW_INTERVALS[next]!) };
 }
 
-export type CardKind = 'EXPRESSION' | 'RECALL';
+export type CardKind = 'EXPRESSION' | 'RECALL' | 'CORRECTION';
+
+/** 텔레그램 튜터에서 교정받은 실수. 그때 쓴 문장에서 틀린 부분을 고쳐 떠올리게 한다. */
+export interface CorrectionDetail {
+  wrongText: string;
+  correctText: string;
+  /** 한국어 한 문장 규칙. */
+  ruleText: string;
+  /** 그 실수가 있던 가장 최근 문장. */
+  sourceSentence: string;
+  /** 같은 실수를 한 횟수. */
+  occurrences: number;
+}
 
 export interface ExpressionCard {
   id: string;
@@ -65,6 +77,8 @@ export interface ExpressionCard {
   kind: CardKind;
   /** 회상 카드가 가리키는 책. 표현 카드는 null이다. */
   resource_id: string | null;
+  /** 교정 카드에만 있다. 다른 종류는 null이다. */
+  correction: CorrectionDetail | null;
   phrase: string;
   /** AI가 아직 채우지 않았으면 빈 문자열이다. */
   meaning: string;
@@ -112,10 +126,12 @@ export function dueToday(
 }
 
 /**
- * 답을 먼저 보여 주지 않는다. 표현은 뜻을, 회상은 그 범위에서 기억나는 것을
- * 떠올리게 한다.
+ * 답을 먼저 보여 주지 않는다. 표현은 뜻을, 회상은 그 범위에서 기억나는 것을,
+ * 교정은 그때 틀린 부분을 어떻게 썼어야 했는지 떠올리게 한다.
  */
 export const reviewPrompt = (card: Pick<ExpressionCard, 'phrase'> & { kind?: CardKind }) =>
   card.kind === 'RECALL'
     ? '책을 펼치지 말고, 이 범위에서 기억나는 것을 떠올려 보세요.'
-    : `${card.phrase}는 무슨 뜻이었나요?`;
+    : card.kind === 'CORRECTION'
+      ? '굵게 표시한 부분을 어떻게 고쳐 써야 했는지 떠올려 보세요.'
+      : `${card.phrase}는 무슨 뜻이었나요?`;
