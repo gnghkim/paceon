@@ -18,3 +18,9 @@ services/ai-worker/build/
 
 .vercel
 .env*
+
+# project-doc-manager local state
+.doc-manager/
+
+# gstack browser tool logs
+.gstack/
