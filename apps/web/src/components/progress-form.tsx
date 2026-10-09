@@ -10,6 +10,8 @@ import { Input } from "./ui/input";
 import { formatDate } from "@/lib/planning";
 import { rangeForRecord, type PageRange } from "@/lib/recall";
 import { RecallPrompt } from "./recall-prompt";
+import { useCompletionMoment } from "./completion-record";
+import { justCompleted } from "@/lib/completion-record";
 
 export interface ProgressSummary {
   /** 결과 카드의 첫 줄. 기록 저장과 계획 변경을 구분한다. */
@@ -117,6 +119,7 @@ export function ProgressForm({
   initialDuration?: number;
 }) {
   const { apiFetch } = useAuth();
+  const showCompletion = useCompletionMoment();
   const completed =
     data.progress[book.id]?.completedThroughPage ??
     book.initial_completed_workload;
@@ -243,9 +246,16 @@ export function ProgressForm({
       setAmbiguous(false);
       setResult(payload as ProgressSummary);
       onRecorded?.();
+      // 이번 저장으로 다 읽었으면 떠올리기를 마친 뒤 완료 기록을 띄운다.
+      const completesBook = justCompleted(
+        completed,
+        (payload as ProgressSummary).completedThroughPage,
+        book.total_pages,
+      );
       const finish = () => {
         onResult?.(payload as ProgressSummary);
         onSaved();
+        if (completesBook) showCompletion(book.id);
       };
       // 방금 읽은 범위가 있으면 덮고 떠올릴 기회를 준다. 정정은 읽은 것이 아니다.
       const range = rangeForRecord(kind, completed, {
