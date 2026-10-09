@@ -19,7 +19,7 @@ import {
   WorkspaceError,
   WorkspaceLoading,
 } from './workspace-data';
-import { ProgressForm, type ProgressSummary } from './progress-form';
+import { ProgressForm, rereadMessage, type ProgressSummary } from './progress-form';
 import { StartReadingButton, useReadingTimer } from './reading-timer';
 import { Button } from './ui/button';
 import { SHEET_DIALOG_CLASS, useSheetDialog } from './sheet-dialog';
@@ -69,14 +69,18 @@ export function QuickRecordProvider({ children }: { children: ReactNode }) {
         >
           <div className="flex-1 text-sm">
             <p className="font-semibold">
-              기록을 저장했어요 · 현재 {notice.completedThroughPage}쪽
+              {notice.reread
+                ? notice.title
+                : `기록을 저장했어요 · 현재 ${notice.completedThroughPage}쪽`}
             </p>
             <p className="mt-1 text-muted-foreground">
-              {notice.unplanned
-                ? '진도를 반영했어요. 계획을 세우면 이어서 일정을 잡아 드려요.'
-                : notice.replanStatus === 'pending'
-                  ? '기록은 반영했어요. 도서 상세에서 일정 조정을 확인해 주세요.'
-                  : '진도와 학습 일정을 반영했어요.'}
+              {notice.reread
+                ? rereadMessage(notice.reread)
+                : notice.unplanned
+                  ? '진도를 반영했어요. 계획을 세우면 이어서 일정을 잡아 드려요.'
+                  : notice.replanStatus === 'pending'
+                    ? '기록은 반영했어요. 도서 상세에서 일정 조정을 확인해 주세요.'
+                    : '진도와 학습 일정을 반영했어요.'}
             </p>
           </div>
           <button
@@ -213,7 +217,7 @@ function RecordContent({
             {choices.map(({ book }) => (
               <option key={book.id} value={book.id}>
                 {book.title}
-                {book.status === 'COMPLETED' ? ' · 복습' : ''}
+                {book.status === 'COMPLETED' ? ' · 재독 중' : ''}
                 {choices.find((item) => item.book.id === book.id)?.plan
                   ? ''
                   : ' · 계획 없음'}
@@ -229,8 +233,8 @@ function RecordContent({
       ) : (
         <div className="space-y-4 py-5">
           <p>
-            지금 기록할 수 있는 책이 없어요. 내 서재에 읽을 책을 추가해 주세요.
-            일시 정지한 계획은 먼저 재개해 주세요.
+            지금 기록할 수 있는 책이 없어요. 서재에서 읽을 책의 독서 시작을, 다시 읽을
+            책의 재독 시작을 눌러 주세요. 일시 정지한 계획은 먼저 재개해 주세요.
           </p>
           <p className="text-sm text-muted-foreground">
             영어 학습 시간은{' '}

@@ -16,6 +16,8 @@ import { PlanForm } from '@/components/plan-form';
 import { PlanSettings } from '@/components/plan-settings';
 import { StartReadingButton, useReadingTimer } from '@/components/reading-timer';
 import { RecallNotes } from '@/components/recall-notes';
+import { ReadingStateButton } from '@/components/reading-state';
+import { readingState, rereadStartPage } from '@/lib/reading-state';
 import { BookQuotes } from '@/components/book-quotes';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -76,10 +78,13 @@ function BookDetailPanel({ id }: { id: string }) {
       .filter((p) => p.status === 'COMPLETED')
       .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
   const baseline = summarizeBook(book, plan);
-  // 계획이 없어도 읽은 것은 기록한다. 다 읽은 책은 마지막 기록을 고칠 때만 연다.
+  const state = readingState(book);
+  // 계획이 없어도 읽은 것은 기록한다. 다 읽은 책은 마지막 기록을 고치거나 재독할 때만 연다.
+  // 담기만 한 책은 독서 시작을 눌러야 기록한다.
   const recordable = plan
     ? true
-    : book.status === 'ACTIVE' ||
+    : state === 'READING' ||
+      state === 'REREADING' ||
       (book.status === 'COMPLETED' && !!data.progress[id]?.latestLearningId);
   const progress = data.progress[id];
   const summary = {
@@ -119,13 +124,15 @@ function BookDetailPanel({ id }: { id: string }) {
         <div className="min-w-0 flex-1">
           <p className="mb-2 text-xs text-muted-foreground">
             {book.source === 'PDF_IMPORT' && <span>PDF · </span>}
-            {book.status === 'ARCHIVED'
-              ? '보관한 책'
-              : book.status === 'COMPLETED'
-                ? '완독한 책'
-                : plan?.status === 'PAUSED'
-                  ? '잠시 멈춘 책'
-                  : '읽고 있는 책'}
+            {
+              {
+                ARCHIVED: '보관한 책',
+                REREADING: '다시 읽는 책',
+                FINISHED: '완독한 책',
+                NOT_STARTED: '읽기 전인 책',
+                READING: plan?.status === 'PAUSED' ? '잠시 멈춘 책' : '읽고 있는 책',
+              }[state]
+            }
           </p>
           <h1 className="break-words text-2xl font-bold tracking-tight md:text-[28px]">
             {book.title}
@@ -167,7 +174,14 @@ function BookDetailPanel({ id }: { id: string }) {
             등록 시 진도와 유효한 읽기 기록을 합산했어요. 복습과 무효 기록은
             제외합니다.
           </p>
-          {book.status === 'ACTIVE' && (
+          {state === 'NOT_STARTED' ? (
+            <div className="mt-4 space-y-2">
+              <ReadingStateButton book={book} size="lg" />
+              <p className="text-sm text-muted-foreground">
+                독서 시작을 누르면 독서 기록 창에 이 책이 나와요. 계획을 세워도 시작돼요.
+              </p>
+            </div>
+          ) : state === 'READING' ? (
             <div className="mt-4">
               <ReadingControl
                 resourceId={book.id}
@@ -175,7 +189,25 @@ function BookDetailPanel({ id }: { id: string }) {
                 paused={plan?.status === 'PAUSED'}
               />
             </div>
-          )}
+          ) : state === 'REREADING' ? (
+            <div className="mt-4 space-y-3">
+              <p className="text-sm">
+                다시 읽는 중이에요 · {rereadStartPage(book, history)}쪽부터. 마지막 쪽까지
+                다시 읽으면 재독이 끝나요.
+              </p>
+              <div className="flex flex-wrap items-start gap-2">
+                <ReadingControl resourceId={book.id} title={book.title} paused={false} />
+                <ReadingStateButton book={book} stop />
+              </div>
+            </div>
+          ) : state === 'FINISHED' ? (
+            <div className="mt-4 space-y-2">
+              <ReadingStateButton book={book} />
+              <p className="text-sm text-muted-foreground">
+                다시 읽으면 독서 기록 창에 이 책이 나와요. 다시 읽은 범위는 복습으로 남아요.
+              </p>
+            </div>
+          ) : null}
         </div>
         <div className="border-t border-border pt-5 md:border-l md:border-t-0 md:pl-6 md:pt-0">
           <h2 className="text-sm text-muted-foreground">예상 완독</h2>
