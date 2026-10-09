@@ -10,13 +10,18 @@ import {
   type ReactNode,
 } from 'react';
 import { PencilLine, X } from 'lucide-react';
-import { recordableBooks, WORKSPACE_CHANGED } from '@/lib/quick-record';
+import {
+  initialRecordBook,
+  recordableBooks,
+  WORKSPACE_CHANGED,
+} from '@/lib/quick-record';
 import {
   useWorkspace,
   WorkspaceError,
   WorkspaceLoading,
 } from './workspace-data';
 import { ProgressForm, type ProgressSummary } from './progress-form';
+import { StartReadingButton, useReadingTimer } from './reading-timer';
 import { Button } from './ui/button';
 
 /** 두 번째 인자는 타이머가 잰 분이다. 없으면 사용자가 직접 넣는다. */
@@ -190,7 +195,12 @@ function RecordContent({
   onLockedChange: (locked: boolean) => void;
 }) {
   const { data, error, reload } = useWorkspace();
-  const [selected, setSelected] = useState(bookId ?? '');
+  const { running } = useReadingTimer();
+  const [selected, setSelected] = useState(() =>
+    initialRecordBook(bookId, running),
+  );
+  // 저장하고 나면 이 창은 결과와 떠올리기를 보여 준다. 그때 읽기 시작은 어울리지 않는다.
+  const [recorded, setRecorded] = useState(false);
   if (error) return <WorkspaceError error={error} reload={reload} />;
   if (!data) return <WorkspaceLoading />;
   const choices = recordableBooks(data);
@@ -262,6 +272,29 @@ function RecordContent({
           </Button>
         </div>
       )}
+      {running && (
+        <p className="rounded-lg bg-primary-soft p-3 text-sm text-primary">
+          {running.title ? `‘${running.title}’ ` : ''}
+          {running.unit ? '학습' : '읽는'} 시간을 재고 있어요. 끝내면 위쪽 띠의 ‘
+          {running.unit ? '다 했어요' : '다 읽었어요'}’를 눌러 주세요. 잰 시간이
+          채워진 채로 기록 창이 열려요.
+        </p>
+      )}
+      {/* 타이머를 끝내고 열린 창이면 방금 다 읽은 것이다. 다시 시작하라고 권하지 않는다. */}
+      {choice && minutes === undefined && !running && !recorded && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+          <p className="text-sm text-muted-foreground">
+            지금부터 읽나요? 시간을 재고, 끝내면 이 창에 채워 드려요.
+          </p>
+          <StartReadingButton
+            resourceId={choice.book.id}
+            title={choice.book.title}
+            disabled={locked}
+            className="shrink-0"
+            onStart={onClose}
+          />
+        </div>
+      )}
       {choice && (
         <ProgressForm
           key={`${choice.book.id}:${choice.book.progress_version}:${choice.plan?.version ?? 0}`}
@@ -271,6 +304,7 @@ function RecordContent({
           plan={choice.plan}
           data={data}
           onLockedChange={onLockedChange}
+          onRecorded={() => setRecorded(true)}
           onResult={onSaved}
           onSaved={() => {
             onLockedChange(false);

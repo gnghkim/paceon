@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { recordableBooks } from '../apps/web/src/lib/quick-record.ts';
+import { initialRecordBook, recordableBooks } from '../apps/web/src/lib/quick-record.ts';
 
 const book = (id, extra = {}) => ({
   id,
@@ -84,4 +84,12 @@ test('today is prioritized, completed books remain reviewable, active plan wins 
     ],
   );
   assert.equal(JSON.stringify(data), before);
+});
+
+test('the record dialog starts on the book being timed unless told otherwise', () => {
+  const timing = { resourceId: 'a' };
+  assert.equal(initialRecordBook('b', timing), 'b', 'the caller chose a book');
+  assert.equal(initialRecordBook(undefined, timing), 'a', 'the header button opens on the timed book');
+  assert.equal(initialRecordBook(undefined, null), '');
+  assert.equal(initialRecordBook(undefined, { resourceId: 'm', unit: {} }), '', 'a chapter timer belongs to the chapter dialog');
 });

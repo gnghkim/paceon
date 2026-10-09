@@ -39,4 +39,17 @@ export function recordableBooks(
     );
 }
 
+/**
+ * 기록 창을 열 때 처음 골라 둘 책. 부른 쪽이 책을 정했으면 그 책이다. 상단 단추처럼
+ * 책 없이 열었는데 책을 재는 중이면 그 책을 골라 둔다. 챕터를 재는 중이면 이 창과
+ * 상관없으므로 고르지 않는다.
+ */
+export function initialRecordBook(
+  bookId: string | undefined,
+  running: { resourceId: string; unit?: unknown } | null,
+): string {
+  if (bookId !== undefined) return bookId;
+  return running && !running.unit ? running.resourceId : '';
+}
+
 export const WORKSPACE_CHANGED = 'paceon:workspace-changed';

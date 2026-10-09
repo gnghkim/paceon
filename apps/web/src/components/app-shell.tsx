@@ -22,7 +22,7 @@ import {
   QuickRecordProvider,
   RecordButton,
 } from './quick-record';
-import { ReadingTimerProvider } from './reading-timer';
+import { ReadingTimerProvider, ReadingTimerStrip } from './reading-timer';
 import { UnitRecordProvider } from './unit-record';
 import { AccountControls } from './account-controls';
 import { activeNavigation, pageTitle, primaryNavigation } from '@/lib/navigation';
@@ -33,12 +33,16 @@ const navigation = primaryNavigation.map(item => ({ ...item, icon: icons[item.hr
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { session } = useAuth();
+  const account = session?.user.id ?? 'anonymous';
+  // 타이머가 기록 창보다 바깥에 있어야 기록 창 안에서도 읽기를 시작할 수 있다.
   return (
-    <QuickRecordProvider key={session?.user.id ?? 'anonymous'}>
-      <UnitRecordProvider>
-        <AppShellContent>{children}</AppShellContent>
-      </UnitRecordProvider>
-    </QuickRecordProvider>
+    <ReadingTimerProvider key={account}>
+      <QuickRecordProvider key={account}>
+        <UnitRecordProvider>
+          <AppShellContent>{children}</AppShellContent>
+        </UnitRecordProvider>
+      </QuickRecordProvider>
+    </ReadingTimerProvider>
   );
 }
 
@@ -188,15 +192,14 @@ function AppShellContent({ children }: { children: ReactNode }) {
             </Button>
           </div>
         </header>
-        <ReadingTimerProvider>
-          <main
-            key={session.user.id}
-            id="main-content"
-            className="mx-auto max-w-[1216px] px-4 pt-8 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-8 md:pb-12"
-          >
-            {children}
-          </main>
-        </ReadingTimerProvider>
+        <ReadingTimerStrip />
+        <main
+          key={session.user.id}
+          id="main-content"
+          className="mx-auto max-w-[1216px] px-4 pt-8 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-8 md:pb-12"
+        >
+          {children}
+        </main>
       </div>
       <nav
         aria-label="모바일 주 메뉴"
