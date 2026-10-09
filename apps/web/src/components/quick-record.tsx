@@ -4,7 +4,6 @@ import Link from 'next/link';
 import {
   createContext,
   useContext,
-  useEffect,
   useRef,
   useState,
   type ReactNode,
@@ -23,6 +22,7 @@ import {
 import { ProgressForm, type ProgressSummary } from './progress-form';
 import { StartReadingButton, useReadingTimer } from './reading-timer';
 import { Button } from './ui/button';
+import { SHEET_DIALOG_CLASS, useSheetDialog } from './sheet-dialog';
 
 /** 두 번째 인자는 타이머가 잰 분이다. 없으면 사용자가 직접 넣는다. */
 const RecordContext = createContext<(bookId?: string, minutes?: number) => void>(
@@ -118,30 +118,7 @@ function RecordDialog({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [locked, setLocked] = useState(false);
-  useEffect(() => {
-    const element = dialog.current!;
-    const previousFocus = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    element.showModal();
-    const viewport = window.visualViewport;
-    const size = () => {
-      const height = viewport?.height ?? window.innerHeight;
-      element.style.maxHeight = `${Math.max(100, height - 16)}px`;
-      element.style.bottom = `${Math.max(0, window.innerHeight - height - (viewport?.offsetTop ?? 0))}px`;
-    };
-    size();
-    viewport?.addEventListener('resize', size);
-    viewport?.addEventListener('scroll', size);
-    return () => {
-      viewport?.removeEventListener('resize', size);
-      viewport?.removeEventListener('scroll', size);
-      element.close();
-      document.body.style.overflow = previousOverflow;
-      if (previousFocus instanceof HTMLElement && previousFocus.isConnected)
-        previousFocus.focus();
-    };
-  }, []);
+  useSheetDialog(dialog);
   return (
     <dialog
       ref={dialog}
@@ -150,7 +127,7 @@ function RecordDialog({
         event.preventDefault();
         if (!locked) onClose();
       }}
-      className="fixed inset-x-0 top-auto m-0 mx-auto w-full max-w-lg scroll-pb-24 overflow-y-auto overscroll-contain rounded-t-2xl border border-border bg-surface p-5 text-foreground shadow-xl backdrop:bg-black/40 sm:rounded-2xl"
+      className={SHEET_DIALOG_CLASS}
     >
       <header className="mb-3 flex items-center justify-between gap-3">
         <h2 id="quick-record-title" className="text-xl font-semibold">

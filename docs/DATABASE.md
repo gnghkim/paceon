@@ -61,6 +61,16 @@ Phase 5의 `submit_book_progress`가 위 계약을 구현한다. 사용자별 ad
 
 쓰기는 Worker의 service_role 함수(`link_telegram`, `unlink_telegram_user`, `get_telegram_context`, `update_telegram_settings`, `record_telegram_turn`, `get_telegram_quiz_cards`, `save_telegram_quiz_state`, `record_correction_review`, `claim_due_telegram_reviews`, `get_telegram_stats`)가 한다. 모두 `security invoker`이고 anon·authenticated에는 EXECUTE가 없다. 브라우저 함수는 `create_telegram_link_code`(security definer)와 `unlink_telegram`뿐이다. 계정을 지우면 연결·코드·대화·교정 카드가 cascade로 지워진다.
 
+## 문장 기록 (`20261015000000_book_quotes.sql`)
+
+계약 전체는 [문장 기록](BOOK_QUOTES.md)을 따른다.
+
+| 테이블 | 역할 및 주요 계약 |
+| --- | --- |
+| book_quotes | 책에서 남긴 문장. `page`(1 이상), `content`(다듬은 뒤 1~2000자), 선택적 `note`(있으면 1~2000자, 공백만은 안 됨). `(resource_id, user_id)`로 자기 책만 가리키고 책을 지우면 함께 지워진다. BEFORE 트리거가 쪽 단위 책인지와 마지막 쪽을 넘지 않는지 본다. 자기 행 CRUD |
+
+복습 표(`learning_expressions`)에 넣지 않았다. 문장은 복습에서 다시 묻지 않기 때문이다.
+
 ## 개발 seed와 검증
 
 Phase 4에서 최초 도서 계획 저장용 `create_initial_book_plan` RPC를 추가했다. 사용자 단위 잠금, RLS, 페이지 연속성·공유 시간 예산 검증 뒤 목표·계획·세션을 한 트랜잭션으로 저장한다. 기존 진도 기록이나 활성 계획이 있으면 새 초기 계획을 만들지 않는다. 이 함수는 위의 진도 기록/재계획 RPC와 별개이며 상세 계약은 [WORKSPACE_UI.md](WORKSPACE_UI.md)를 따른다.

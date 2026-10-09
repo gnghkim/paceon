@@ -16,6 +16,7 @@ import { PlanForm } from '@/components/plan-form';
 import { PlanSettings } from '@/components/plan-settings';
 import { StartReadingButton, useReadingTimer } from '@/components/reading-timer';
 import { RecallNotes } from '@/components/recall-notes';
+import { BookQuotes } from '@/components/book-quotes';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { bookReadingSpeed, formatDate, summarizeBook } from '@/lib/planning';
@@ -208,6 +209,7 @@ function BookDetailPanel({ id }: { id: string }) {
           onResult={setSaved}
         />
       )}
+      <BookQuotes bookId={book.id} />
       <RecallNotes resourceId={book.id} refreshKey={book.progress_version} />
       {plan && (
         <Card className="p-4 md:p-6">

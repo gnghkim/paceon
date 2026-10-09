@@ -9,9 +9,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { BookOpen, Maximize2, Pause, Play, Square } from 'lucide-react';
+import { BookOpen, Maximize2, Pause, Play, Square, TextQuote } from 'lucide-react';
 import { useAuth } from './auth-provider';
 import { useQuickRecord } from './quick-record';
+import { useQuoteWriter } from './book-quotes';
 import { ReadingFocus } from './reading-focus';
 import { useUnitRecord } from './unit-record';
 import { Button } from './ui/button';
@@ -129,6 +130,7 @@ export function ReadingTimerStrip() {
   const { running, pause, resume, finish } = useReadingTimer();
   const openRecord = useQuickRecord();
   const openUnitRecord = useUnitRecord();
+  const writeQuote = useQuoteWriter();
   const [now, setNow] = useState(() => Date.now());
   const [overCap, setOverCap] = useState<number | null>(null);
   // 집중 화면은 띠의 단추를 눌렀을 때만 연다. 시작하자마자 화면을 덮으면
@@ -187,6 +189,9 @@ export function ReadingTimerStrip() {
 
   const paused = running !== null && isPaused(running);
   const elapsed = running ? formatElapsed(elapsedSeconds(running, now)) : '';
+  // 문장은 쪽으로 읽는 책에만 남긴다. 챕터 자료에는 쪽이 없다.
+  const quoteBook = running && !running.unit ? running.resourceId : null;
+  const quote = quoteBook ? () => writeQuote({ bookId: quoteBook }) : undefined;
 
   return (
     <>
@@ -224,15 +229,18 @@ export function ReadingTimerStrip() {
                   </p>
                 </div>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="shrink-0"
-                onClick={() => setFocusOpen(true)}
-              >
-                <Maximize2 aria-hidden="true" />
-                집중 화면
-              </Button>
+              <div className="flex shrink-0 gap-2">
+                {quote && (
+                  <Button type="button" variant="outline" aria-label="문장 남기기" onClick={quote}>
+                    <TextQuote aria-hidden="true" />
+                    문장
+                  </Button>
+                )}
+                <Button type="button" variant="outline" onClick={() => setFocusOpen(true)}>
+                  <Maximize2 aria-hidden="true" />
+                  집중 화면
+                </Button>
+              </div>
             </div>
             <div className="flex w-full gap-2 sm:w-auto sm:shrink-0">
               {paused ? (
@@ -265,6 +273,7 @@ export function ReadingTimerStrip() {
         onPause={pause}
         onResume={resume}
         onStop={stop}
+        {...(quote ? { onQuote: quote } : {})}
       />
       {/* 다시 재기 시작하면 지난번 경고는 거둔다. */}
       {overCap !== null && !running && (

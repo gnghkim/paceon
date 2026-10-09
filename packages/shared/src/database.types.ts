@@ -108,6 +108,47 @@ export type Database = {
         }
         Relationships: []
       }
+      book_quotes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          note: string | null
+          page: number
+          resource_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          page: number
+          resource_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          page?: number
+          resource_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_quotes_resource_fk"
+            columns: ["resource_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       goals: {
         Row: {
           created_at: string

@@ -24,6 +24,7 @@ import {
 } from './quick-record';
 import { ReadingTimerProvider, ReadingTimerStrip } from './reading-timer';
 import { UnitRecordProvider } from './unit-record';
+import { QuoteProvider } from './book-quotes';
 import { AccountControls } from './account-controls';
 import { activeNavigation, pageTitle, primaryNavigation } from '@/lib/navigation';
 import { browserStorage, readSidebarCollapsed, writeSidebarCollapsed } from '@/lib/sidebar';
@@ -39,7 +40,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     <ReadingTimerProvider key={account}>
       <QuickRecordProvider key={account}>
         <UnitRecordProvider>
-          <AppShellContent>{children}</AppShellContent>
+          <QuoteProvider>
+            <AppShellContent>{children}</AppShellContent>
+          </QuoteProvider>
         </UnitRecordProvider>
       </QuickRecordProvider>
     </ReadingTimerProvider>

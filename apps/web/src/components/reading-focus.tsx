@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Minimize2, Pause, Play, Square } from 'lucide-react';
+import { Minimize2, Pause, Play, Square, TextQuote } from 'lucide-react';
 import { Button } from './ui/button';
 import { useWorkspace } from './workspace-data';
 import { describePosition, readingPosition } from '@/lib/reading-timer';
@@ -27,6 +27,7 @@ export function ReadingFocus({
   onPause,
   onResume,
   onStop,
+  onQuote,
 }: {
   open: boolean;
   title: string | undefined;
@@ -40,6 +41,8 @@ export function ReadingFocus({
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
+  /** 쪽으로 읽는 책이면 문장을 남길 수 있다. 입력창은 이 화면 위에 뜨고, 닫으면 이 화면으로 돌아온다. */
+  onQuote?: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
 
@@ -113,10 +116,18 @@ export function ReadingFocus({
           <p className="min-w-0 text-sm leading-5 text-muted-foreground">
             닫아도 타이머는 계속 가요.
           </p>
-          <Button type="button" variant="ghost" onClick={() => dialog.current?.close()}>
-            <Minimize2 aria-hidden="true" />
-            닫기
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            {onQuote && (
+              <Button type="button" variant="outline" onClick={onQuote}>
+                <TextQuote aria-hidden="true" />
+                문장 남기기
+              </Button>
+            )}
+            <Button type="button" variant="ghost" onClick={() => dialog.current?.close()}>
+              <Minimize2 aria-hidden="true" />
+              닫기
+            </Button>
+          </div>
         </div>
 
         <div className="flex min-w-0 max-w-full flex-col items-center text-center">
