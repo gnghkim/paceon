@@ -208,7 +208,7 @@ export function ReadingTimerStrip() {
                   aria-hidden="true"
                 />
                 <div className="min-w-0">
-                  <p className="truncate text-xs text-muted-foreground">
+                  <p className="truncate text-sm text-muted-foreground">
                     {paused ? '잠시 멈춤' : running.unit ? '학습 중' : '읽는 중'}
                     {running.title && ` · ${running.title}`}
                   </p>
@@ -257,6 +257,7 @@ export function ReadingTimerStrip() {
       <ReadingFocus
         open={focusOpen && running !== null}
         title={running?.title}
+        resourceId={running && !running.unit ? running.resourceId : undefined}
         studying={!!running?.unit}
         elapsed={elapsed}
         paused={paused}
