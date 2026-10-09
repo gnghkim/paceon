@@ -18,6 +18,7 @@ import { StartReadingButton, useReadingTimer } from '@/components/reading-timer'
 import { RecallNotes } from '@/components/recall-notes';
 import { ReadingStateButton } from '@/components/reading-state';
 import { readingState, rereadStartPage } from '@/lib/reading-state';
+import { CompletionRecordCard } from '@/components/completion-record';
 import { BookQuotes } from '@/components/book-quotes';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -152,6 +153,7 @@ function BookDetailPanel({ id }: { id: string }) {
           )}
         </div>
       </header>
+      <CompletionRecordCard data={data} resourceId={book.id} />
       <Card id="book-progress" className="grid scroll-mt-6 gap-6 p-4 md:grid-cols-2 md:p-6">
         <div>
           <div className="flex items-center justify-between">

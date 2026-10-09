@@ -7,6 +7,7 @@ import { ArrowLeft, Check, ChevronDown, ExternalLink, RotateCcw } from 'lucide-r
 import { useAuth } from './auth-provider';
 import { StartReadingButton, useReadingTimer } from './reading-timer';
 import { MATERIAL_CHANGED, useUnitRecord } from './unit-record';
+import { CompletionRecordCard } from './completion-record';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
@@ -136,6 +137,8 @@ export function MaterialDetail({ id }: { id: string }) {
           </a>
         )}
       </header>
+
+      {workspace && <CompletionRecordCard data={workspace} resourceId={id} />}
 
       {(notice || error) && (
         <p role="alert" className="rounded-xl bg-warning-soft p-4 text-sm leading-6">
