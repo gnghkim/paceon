@@ -98,6 +98,7 @@ export function ProgressForm({
   data,
   onSaved,
   onResult,
+  onRecorded,
   compact = false,
   onLockedChange,
   initialDuration,
@@ -108,6 +109,8 @@ export function ProgressForm({
   data: WorkspaceData;
   onSaved: () => void;
   onResult?: (result: ProgressSummary) => void;
+  /** 저장이 끝난 순간. onResult는 떠올리기를 마친 뒤에 오므로 그보다 이르다. */
+  onRecorded?: () => void;
   compact?: boolean;
   onLockedChange?: (locked: boolean) => void;
   /** 타이머가 잰 분. 채워 두되 사용자가 고칠 수 있다. */
@@ -239,6 +242,7 @@ export function ProgressForm({
       }
       setAmbiguous(false);
       setResult(payload as ProgressSummary);
+      onRecorded?.();
       const finish = () => {
         onResult?.(payload as ProgressSummary);
         onSaved();

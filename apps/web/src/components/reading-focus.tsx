@@ -3,6 +3,8 @@
 import { useEffect, useRef } from 'react';
 import { Minimize2, Pause, Play, Square } from 'lucide-react';
 import { Button } from './ui/button';
+import { useWorkspace } from './workspace-data';
+import { describePosition, readingPosition } from '@/lib/reading-timer';
 import { cn } from '@/lib/utils';
 
 /**
@@ -17,6 +19,7 @@ import { cn } from '@/lib/utils';
 export function ReadingFocus({
   open,
   title,
+  resourceId,
   studying = false,
   elapsed,
   paused,
@@ -27,6 +30,8 @@ export function ReadingFocus({
 }: {
   open: boolean;
   title: string | undefined;
+  /** 쪽으로 읽는 책이면 넘긴다. 어디부터 읽는지 보여 준다. */
+  resourceId?: string | undefined;
   /** 책이 아니라 챕터(강의, 교재의 Unit)를 재는 중이면 읽는다는 말을 쓰지 않는다. */
   studying?: boolean;
   elapsed: string;
@@ -105,7 +110,7 @@ export function ReadingFocus({
       {/* 가로로 눕힌 휴대폰은 높이가 400px 안팎이다. 간격과 숫자를 줄여 단추까지 한 화면에 담는다. */}
       <div className="flex h-full flex-col items-center justify-between gap-6 px-6 pt-4 pb-[max(2rem,env(safe-area-inset-bottom))] [@media(max-height:500px)]:gap-2 [@media(max-height:500px)]:pt-2 [@media(max-height:500px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="flex w-full items-center justify-between gap-3">
-          <p className="min-w-0 text-xs leading-5 text-muted-foreground">
+          <p className="min-w-0 text-sm leading-5 text-muted-foreground">
             닫아도 타이머는 계속 가요.
           </p>
           <Button type="button" variant="ghost" onClick={() => dialog.current?.close()}>
@@ -115,14 +120,22 @@ export function ReadingFocus({
         </div>
 
         <div className="flex min-w-0 max-w-full flex-col items-center text-center">
-          <p className={cn('text-sm font-medium', paused ? 'text-muted-foreground' : 'text-primary')}>
+          {/* 책 옆에 놓인 폰을 흘끗 봐도 읽히게, 시계 다음으로 크게 쓴다. */}
+          <p
+            className={cn(
+              'text-lg font-semibold sm:text-xl [@media(max-height:500px)]:text-sm',
+              paused ? 'text-muted-foreground' : 'text-primary',
+            )}
+          >
             {paused ? '잠시 멈춤' : studying ? '학습 중' : '읽는 중'}
           </p>
           {title && (
-            <p className="mt-1 line-clamp-2 max-w-md break-words text-base text-muted-foreground [@media(max-height:500px)]:line-clamp-1 [@media(max-height:500px)]:text-sm">
+            <p className="mt-2 line-clamp-2 max-w-2xl break-words text-2xl font-bold leading-tight sm:text-4xl [@media(max-height:500px)]:mt-0.5 [@media(max-height:500px)]:line-clamp-1 [@media(max-height:500px)]:text-lg">
               {title}
             </p>
           )}
+          {/* 열려 있을 때만 붙인다. 붙을 때 서재를 한 번 불러온다. */}
+          {open && resourceId && <ReadingPositionLines resourceId={resourceId} />}
           <p
             role="timer"
             aria-label={`읽은 시간 ${elapsed}${paused ? ', 잠시 멈춤' : ''}`}
@@ -176,5 +189,23 @@ export function ReadingFocus({
         </div>
       </div>
     </dialog>
+  );
+}
+
+/** 지난번에 어디까지 읽었고 지금 어디부터인지, 오늘 일정이 남았으면 어디까지인지. */
+function ReadingPositionLines({ resourceId }: { resourceId: string }) {
+  const { data } = useWorkspace();
+  const position = data ? readingPosition(data, resourceId) : null;
+  if (!position) return null;
+  const { from, today } = describePosition(position);
+  return (
+    <div className="mt-3 space-y-1 text-lg sm:text-2xl [@media(max-height:500px)]:mt-1 [@media(max-height:500px)]:text-sm">
+      <p className="tabular-nums">{from}</p>
+      {today && (
+        <p className="text-base text-muted-foreground tabular-nums sm:text-xl [@media(max-height:500px)]:hidden">
+          {today}
+        </p>
+      )}
+    </div>
   );
 }

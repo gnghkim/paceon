@@ -11,6 +11,8 @@ import {
   readingTimerKey,
   resumeTimer,
   timerResult,
+  readingPosition,
+  describePosition,
 } from '../apps/web/src/lib/reading-timer.ts';
 
 const start = 1_700_000_000_000;
@@ -202,4 +204,40 @@ test('a damaged chapter marker is dropped but the measured time is kept', () => 
   for (const unit of ['unit-7', 7, [], null])
     assert.equal('unit' in parseReadingTimer(JSON.stringify({ ...timer, unit }), after(600)), false, JSON.stringify(unit));
   assert.equal(elapsedSeconds(parseReadingTimer(JSON.stringify({ ...timer, unit: 'x' }), after(600)), after(600)), 600);
+});
+
+const shelf = (extra = {}) => ({
+  today: '2026-10-09',
+  resources: [{ id: 'b', total_pages: 300, initial_completed_workload: 0 }],
+  progress: { b: { completedThroughPage: 120, percent: 40, latestLearningId: null } },
+  sessions: [
+    { resource_id: 'b', study_date: '2026-10-09', status: 'PLANNED', start_page: 121, end_page: 140 },
+    { resource_id: 'b', study_date: '2026-10-10', status: 'PLANNED', start_page: 141, end_page: 160 },
+  ],
+  ...extra,
+});
+
+test('the focus view says where the last sitting stopped and how far today goes', () => {
+  const position = readingPosition(shelf(), 'b');
+  assert.deepEqual(position, { lastPage: 120, totalPages: 300, todayEnd: 140, finished: false });
+  assert.deepEqual(describePosition(position), {
+    from: '지난번 120쪽까지 읽었어요 · 121쪽부터',
+    today: '오늘은 140쪽까지 · 20쪽',
+  });
+});
+
+test('a book read past today\'s pages, or without a plan, only says where to start', () => {
+  const ahead = readingPosition(shelf({ progress: { b: { completedThroughPage: 145, percent: 48, latestLearningId: null } } }), 'b');
+  assert.equal(ahead.todayEnd, null, 'tomorrow\'s session is not today\'s goal');
+  assert.equal(readingPosition(shelf({ sessions: [{ ...shelf().sessions[0], status: 'SKIPPED' }] }), 'b').todayEnd, null);
+  const fresh = readingPosition(shelf({ progress: {}, sessions: [] }), 'b');
+  assert.deepEqual(describePosition(fresh), { from: '1쪽부터 읽어요', today: null });
+  const started = readingPosition(shelf({ progress: {}, sessions: [], resources: [{ id: 'b', total_pages: 300, initial_completed_workload: 30 }] }), 'b');
+  assert.equal(describePosition(started).from, '지난번 30쪽까지 읽었어요 · 31쪽부터', 'pages read before the book was added count');
+});
+
+test('a finished book being read again, and a book that is gone, are told apart', () => {
+  const done = readingPosition(shelf({ progress: { b: { completedThroughPage: 300, percent: 100, latestLearningId: null } } }), 'b');
+  assert.equal(describePosition(done).from, '끝까지 읽은 책이에요 · 300쪽');
+  assert.equal(readingPosition(shelf(), 'missing'), null);
 });

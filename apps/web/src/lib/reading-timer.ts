@@ -13,6 +13,8 @@
  * 열어도, 멈춘 채 닫아도 같은 값이 나온다.
  */
 
+import type { WorkspaceData } from './workspace-types';
+
 /** 이 시간을 넘기면 시간을 자동으로 채우지 않고 직접 확인하게 한다. */
 export const READING_TIMER_CAP_MINUTES = 240;
 
@@ -137,4 +139,54 @@ export function formatElapsed(seconds: number): string {
   const minutes = `${Math.floor(whole / 60) % 60}`.padStart(2, '0');
   const rest = `${whole % 60}`.padStart(2, '0');
   return whole >= 3600 ? `${Math.floor(whole / 3600)}:${minutes}:${rest}` : `${minutes}:${rest}`;
+}
+
+export interface ReadingPosition {
+  /** 지금까지 읽은 마지막 쪽. 아직 읽지 않았으면 0이다. */
+  lastPage: number;
+  totalPages: number | null;
+  /** 오늘 일정이 아직 남아 있으면 그 끝 쪽. 일정이 없거나 이미 지났으면 null이다. */
+  todayEnd: number | null;
+  /** 끝까지 읽은 책을 다시 읽는 중이다. */
+  finished: boolean;
+}
+
+/**
+ * 집중 화면에 보여 줄 읽는 자리. 책을 펼칠 때 어디부터인지 바로 알 수 있게 한다.
+ * 책이 목록에 없으면(보관했거나 챕터 자료면) null이다.
+ */
+export function readingPosition(
+  data: Pick<WorkspaceData, 'resources' | 'progress' | 'sessions' | 'today'>,
+  resourceId: string,
+): ReadingPosition | null {
+  const book = data.resources.find((item) => item.id === resourceId);
+  if (!book) return null;
+  const lastPage = data.progress[book.id]?.completedThroughPage ?? book.initial_completed_workload;
+  const totalPages = book.total_pages ?? null;
+  const today = data.sessions.find(
+    (s) =>
+      s.resource_id === book.id &&
+      s.study_date === data.today &&
+      s.status !== 'SKIPPED' &&
+      s.end_page !== null &&
+      s.end_page > lastPage,
+  );
+  return {
+    lastPage,
+    totalPages,
+    todayEnd: today?.end_page ?? null,
+    finished: totalPages !== null && lastPage >= totalPages,
+  };
+}
+
+/** 읽는 자리를 문장으로. 첫 줄은 어디부터인지, 둘째 줄은 오늘 어디까지인지 말한다. */
+export function describePosition(position: ReadingPosition): { from: string; today: string | null } {
+  const { lastPage, totalPages, todayEnd, finished } = position;
+  const from = finished
+    ? `끝까지 읽은 책이에요${totalPages ? ` · ${totalPages}쪽` : ''}`
+    : lastPage <= 0
+      ? '1쪽부터 읽어요'
+      : `지난번 ${lastPage}쪽까지 읽었어요 · ${lastPage + 1}쪽부터`;
+  const today = todayEnd !== null ? `오늘은 ${todayEnd}쪽까지 · ${todayEnd - lastPage}쪽` : null;
+  return { from, today };
 }

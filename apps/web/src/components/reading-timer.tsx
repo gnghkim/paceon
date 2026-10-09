@@ -28,6 +28,7 @@ import {
   resumeTimer,
   timerResult,
   type ReadingTimer,
+  type TimerResult,
 } from '@/lib/reading-timer';
 
 interface TimerApi {
@@ -36,7 +37,8 @@ interface TimerApi {
   start: (resourceId: string, title?: string, unit?: { id?: string }) => void;
   pause: () => void;
   resume: () => void;
-  stop: () => void;
+  /** 재기를 끝내고 무엇을 얼마나 쟀는지 돌려준다. 재는 중이 아니면 null이다. */
+  finish: () => { timer: ReadingTimer; result: TimerResult } | null;
 }
 
 const noop = () => {};
@@ -45,25 +47,20 @@ const TimerContext = createContext<TimerApi>({
   start: noop,
   pause: noop,
   resume: noop,
-  stop: noop,
+  finish: () => null,
 });
 export const useReadingTimer = () => useContext(TimerContext);
 
 /**
- * 읽는 시간을 재고, 끝내면 그 시간을 채운 채로 독서 기록 창을 연다.
- * 시작 시각만 기기에 저장하므로 앱을 닫았다 열어도 이어진다.
+ * 읽는 시간을 잰다. 시작 시각만 기기에 저장하므로 앱을 닫았다 열어도 이어진다.
+ *
+ * 기록 창보다 바깥에 둔다. 기록 창 안에서도 읽기를 시작할 수 있어야 하기 때문이다.
+ * 그래서 끝낼 때 기록 창을 여는 일은 띠(ReadingTimerStrip)가 맡는다.
  */
 export function ReadingTimerProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
-  const openRecord = useQuickRecord();
-  const openUnitRecord = useUnitRecord();
   const userId = session?.user.id ?? '';
   const [running, setRunning] = useState<ReadingTimer | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-  const [overCap, setOverCap] = useState<number | null>(null);
-  // 집중 화면은 띠의 단추를 눌렀을 때만 연다. 시작하자마자 화면을 덮으면
-  // 방금 누른 곳이 사라져 어디에 있는지 놓친다. 크게 볼지는 읽는 사람이 정한다.
-  const [focusOpen, setFocusOpen] = useState(false);
 
   const key = readingTimerKey(userId);
 
@@ -79,6 +76,72 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
     }, 0);
     return () => clearTimeout(timer);
   }, [key, userId]);
+
+  const keep = useCallback(
+    (timer: ReadingTimer) => {
+      setRunning(timer);
+      try {
+        localStorage.setItem(key, JSON.stringify(timer));
+      } catch {
+        /* 저장하지 못해도 이 화면이 열려 있는 동안은 잰다. */
+      }
+    },
+    [key],
+  );
+
+  const start = useCallback(
+    (resourceId: string, title?: string, unit?: { id?: string }) =>
+      keep(newReadingTimer(resourceId, Date.now(), title, unit)),
+    [keep],
+  );
+
+  const pause = useCallback(() => {
+    if (running) keep(pauseTimer(running, Date.now()));
+  }, [running, keep]);
+
+  const resume = useCallback(() => {
+    if (running) keep(resumeTimer(running, Date.now()));
+  }, [running, keep]);
+
+  const finish = useCallback(() => {
+    if (!running) return null;
+    const result = timerResult(running, Date.now());
+    setRunning(null);
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* 이미 상태에서 지웠다. */
+    }
+    return { timer: running, result };
+  }, [running, key]);
+
+  return (
+    <TimerContext value={{ running, start, pause, resume, finish }}>
+      {children}
+    </TimerContext>
+  );
+}
+
+/**
+ * 재는 동안 헤더 아래에 붙는 띠. 끝내면 그 시간을 채운 채로 기록 창을 연다.
+ */
+export function ReadingTimerStrip() {
+  const { running, pause, resume, finish } = useReadingTimer();
+  const openRecord = useQuickRecord();
+  const openUnitRecord = useUnitRecord();
+  const [now, setNow] = useState(() => Date.now());
+  const [overCap, setOverCap] = useState<number | null>(null);
+  // 집중 화면은 띠의 단추를 눌렀을 때만 연다. 시작하자마자 화면을 덮으면
+  // 방금 누른 곳이 사라져 어디에 있는지 놓친다. 크게 볼지는 읽는 사람이 정한다.
+  const [focusOpen, setFocusOpen] = useState(false);
+
+  // 시작·멈춤·이어 읽기는 어느 화면에서든 일어난다. 바뀌는 즉시 시계를 맞춰
+  // 다음 초를 기다리는 동안 옛 시각으로 계산한 숫자가 보이지 않게 한다.
+  useEffect(() => {
+    if (!running) return;
+    const timer = setTimeout(() => setNow(Date.now()), 0);
+    return () => clearTimeout(timer);
+  }, [running]);
 
   // 멈춰 있는 동안은 숫자가 움직이지 않으므로 시계도 돌리지 않는다.
   const ticking = running !== null && !isPaused(running);
@@ -105,62 +168,28 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
     };
   }, [showing]);
 
-  const keep = useCallback(
-    (timer: ReadingTimer) => {
-      setRunning(timer);
-      setNow(Date.now());
-      try {
-        localStorage.setItem(key, JSON.stringify(timer));
-      } catch {
-        /* 저장하지 못해도 이 화면이 열려 있는 동안은 잰다. */
-      }
-    },
-    [key],
-  );
-
-  const start = useCallback(
-    (resourceId: string, title?: string, unit?: { id?: string }) => {
-      setOverCap(null);
-      keep(newReadingTimer(resourceId, Date.now(), title, unit));
-    },
-    [keep],
-  );
-
-  const pause = useCallback(() => {
-    if (running) keep(pauseTimer(running, Date.now()));
-  }, [running, keep]);
-
-  const resume = useCallback(() => {
-    if (running) keep(resumeTimer(running, Date.now()));
-  }, [running, keep]);
-
   const stop = useCallback(() => {
-    if (!running) return;
-    const result = timerResult(running, Date.now());
-    setRunning(null);
+    const finished = finish();
+    if (!finished) return;
+    const { timer, result } = finished;
     setFocusOpen(false);
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      /* 이미 상태에서 지웠다. */
-    }
     // 상한을 넘으면 분을 채우지 않는다. 끄는 것을 잊은 기록이 통계를 조용히 망가뜨리지 않게 한다.
-    if (result.overCap) setOverCap(result.seconds);
+    setOverCap(result.overCap ? result.seconds : null);
     const minutes = result.overCap ? undefined : (result.minutes ?? undefined);
-    if (running.unit)
+    if (timer.unit)
       openUnitRecord({
-        materialId: running.resourceId,
-        ...(running.unit.id ? { unitId: running.unit.id } : {}),
+        materialId: timer.resourceId,
+        ...(timer.unit.id ? { unitId: timer.unit.id } : {}),
         ...(minutes === undefined ? {} : { minutes }),
       });
-    else openRecord(running.resourceId, minutes);
-  }, [running, key, openRecord, openUnitRecord]);
+    else openRecord(timer.resourceId, minutes);
+  }, [finish, openRecord, openUnitRecord]);
 
   const paused = running !== null && isPaused(running);
   const elapsed = running ? formatElapsed(elapsedSeconds(running, now)) : '';
 
   return (
-    <TimerContext value={{ running, start, pause, resume, stop }}>
+    <>
       {running && (
         <div
           ref={strip}
@@ -179,7 +208,7 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
                   aria-hidden="true"
                 />
                 <div className="min-w-0">
-                  <p className="truncate text-xs text-muted-foreground">
+                  <p className="truncate text-sm text-muted-foreground">
                     {paused ? '잠시 멈춤' : running.unit ? '학습 중' : '읽는 중'}
                     {running.title && ` · ${running.title}`}
                   </p>
@@ -228,6 +257,7 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
       <ReadingFocus
         open={focusOpen && running !== null}
         title={running?.title}
+        resourceId={running && !running.unit ? running.resourceId : undefined}
         studying={!!running?.unit}
         elapsed={elapsed}
         paused={paused}
@@ -236,7 +266,8 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
         onResume={resume}
         onStop={stop}
       />
-      {overCap !== null && (
+      {/* 다시 재기 시작하면 지난번 경고는 거둔다. */}
+      {overCap !== null && !running && (
         <p
           role="alert"
           className="mx-4 mt-4 rounded-lg bg-warning-soft p-3 text-sm leading-6 sm:mx-8"
@@ -245,8 +276,7 @@ export function ReadingTimerProvider({ children }: { children: ReactNode }) {
           입력해 주세요. {READING_TIMER_CAP_MINUTES / 60}시간이 넘으면 자동으로 채우지 않아요.
         </p>
       )}
-      {children}
-    </TimerContext>
+    </>
   );
 }
 
@@ -263,6 +293,8 @@ export function StartReadingButton({
   label = '읽기 시작',
   emphasis = 'quiet',
   className,
+  disabled,
+  onStart,
 }: {
   resourceId: string;
   title?: string;
@@ -273,6 +305,9 @@ export function StartReadingButton({
   /** primary는 채운 색, large는 책 상세처럼 단추 하나가 주인공인 자리다. */
   emphasis?: 'quiet' | 'primary' | 'large';
   className?: string;
+  disabled?: boolean;
+  /** 시작한 뒤 할 일. 기록 창은 스스로 닫혀 띠가 보이게 한다. */
+  onStart?: () => void;
 }) {
   const { running, start } = useReadingTimer();
   if (running) return null;
@@ -282,9 +317,11 @@ export function StartReadingButton({
       variant={emphasis === 'quiet' ? 'outline' : 'default'}
       {...(emphasis === 'large' ? { size: 'lg' as const } : {})}
       className={cn(emphasis === 'large' && 'w-full sm:w-auto', className)}
+      disabled={disabled}
       onClick={(event) => {
         event.stopPropagation();
         start(resourceId, title, unit);
+        onStart?.();
       }}
     >
       {/* 조용한 단추는 좁은 카드 안에서 제목과 자리를 다툰다. 아이콘은 강조할 때만 붙인다. */}
