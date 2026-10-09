@@ -25,6 +25,7 @@ import {
 import { ReadingTimerProvider, ReadingTimerStrip } from './reading-timer';
 import { UnitRecordProvider } from './unit-record';
 import { QuoteProvider } from './book-quotes';
+import { CompletionProvider } from './completion-record';
 import { AccountControls } from './account-controls';
 import { activeNavigation, pageTitle, primaryNavigation } from '@/lib/navigation';
 import { browserStorage, readSidebarCollapsed, writeSidebarCollapsed } from '@/lib/sidebar';
@@ -36,15 +37,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { session } = useAuth();
   const account = session?.user.id ?? 'anonymous';
   // 타이머가 기록 창보다 바깥에 있어야 기록 창 안에서도 읽기를 시작할 수 있다.
+  // 완료 기록 창도 기록 창 바깥에 있다. 마지막 기록을 저장한 기록 창이 연다.
   return (
     <ReadingTimerProvider key={account}>
-      <QuickRecordProvider key={account}>
-        <UnitRecordProvider>
-          <QuoteProvider>
-            <AppShellContent>{children}</AppShellContent>
-          </QuoteProvider>
-        </UnitRecordProvider>
-      </QuickRecordProvider>
+      <CompletionProvider key={account}>
+        <QuickRecordProvider key={account}>
+          <UnitRecordProvider>
+            <QuoteProvider>
+              <AppShellContent>{children}</AppShellContent>
+            </QuoteProvider>
+          </UnitRecordProvider>
+        </QuickRecordProvider>
+      </CompletionProvider>
     </ReadingTimerProvider>
   );
 }

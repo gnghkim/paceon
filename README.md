@@ -218,7 +218,7 @@ LR4의 표현 저장·복습과 단어장, PWA 설치와 알림은 구현했습�
 - 모바일 크기의 브라우저와 테스트 마이크를 검증했으며, 실제 iOS/Android 마이크·권한 동작은 추가 검증이 필요합니다.
 - AI 응답은 저장된 작업을 처리한 뒤 조회하는 방식이며 토큰 스트리밍은 지원하지 않습니다.
 
-개발 문서: [영어 학습](docs/LEARNING_ROOM.md) · [텔레그램 튜터](docs/TELEGRAM_TUTOR.md) · [표현 복습](docs/EXPRESSION_REVIEW.md) · [문장 기록](docs/BOOK_QUOTES.md) · [단어장](docs/WORD_BOOK.md) · [매일 알림](docs/NOTIFICATIONS.md) · [통계](docs/STATISTICS.md) · [PDF](docs/PDF.md) · [AI](docs/AI.md) · [도서](docs/BOOKS.md) · [스케줄러](docs/SCHEDULER.md) · [데이터베이스](docs/DATABASE.md) · [아키텍처](docs/ARCHITECTURE.md) · [제품 요구사항](docs/PRD.md) · [디자인](docs/DESIGN.md).
+개발 문서: [영어 학습](docs/LEARNING_ROOM.md) · [텔레그램 튜터](docs/TELEGRAM_TUTOR.md) · [표현 복습](docs/EXPRESSION_REVIEW.md) · [문장 기록](docs/BOOK_QUOTES.md) · [완료 기록](docs/COMPLETION_RECORD.md) · [단어장](docs/WORD_BOOK.md) · [매일 알림](docs/NOTIFICATIONS.md) · [통계](docs/STATISTICS.md) · [PDF](docs/PDF.md) · [AI](docs/AI.md) · [도서](docs/BOOKS.md) · [스케줄러](docs/SCHEDULER.md) · [데이터베이스](docs/DATABASE.md) · [아키텍처](docs/ARCHITECTURE.md) · [제품 요구사항](docs/PRD.md) · [디자인](docs/DESIGN.md).
 
 ## 라이선스
 

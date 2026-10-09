@@ -13,6 +13,7 @@ import {
 import { X } from 'lucide-react';
 import { useAuth } from './auth-provider';
 import { RecallPrompt } from './recall-prompt';
+import { useCompletionMoment } from './completion-record';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Skeleton } from './ui/skeleton';
@@ -43,6 +44,7 @@ export const MATERIAL_CHANGED = 'paceon:material-changed';
 export function UnitRecordProvider({ children }: { children: ReactNode }) {
   const [request, setRequest] = useState<UnitRecordRequest | null>(null);
   const [notice, setNotice] = useState('');
+  const showCompletion = useCompletionMoment();
   return (
     <UnitRecordContext
       value={(next) => {
@@ -72,11 +74,12 @@ export function UnitRecordProvider({ children }: { children: ReactNode }) {
           key={`${request.materialId}:${request.unitId ?? ''}:${request.mode ?? ''}`}
           request={request}
           onClose={() => setRequest(null)}
-          onDone={(message) => {
+          onDone={(message, completed) => {
             setRequest(null);
             setNotice(message);
             window.dispatchEvent(new Event(WORKSPACE_CHANGED));
             window.dispatchEvent(new Event(MATERIAL_CHANGED));
+            if (completed) showCompletion(request.materialId);
           }}
         />
       )}
@@ -91,7 +94,8 @@ function UnitRecordDialog({
 }: {
   request: UnitRecordRequest;
   onClose: () => void;
-  onDone: (message: string) => void;
+  /** completed는 이번 기록으로 모든 챕터를 마쳤다는 뜻이다. */
+  onDone: (message: string, completed: boolean) => void;
 }) {
   const { apiFetch } = useAuth();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -107,6 +111,7 @@ function UnitRecordDialog({
   const attempt = useRef<{ signature: string; key: string } | null>(null);
   // 저장한 뒤 떠올리는 도중에 닫아도 화면은 새 진도를 보여야 한다.
   const pendingDone = useRef<string | null>(null);
+  const completesMaterial = useRef(false);
 
   useEffect(() => {
     const element = dialog.current!;
@@ -144,7 +149,7 @@ function UnitRecordDialog({
     if (busy) return;
     const message = pendingDone.current;
     pendingDone.current = null;
-    if (message) onDone(message);
+    if (message) onDone(message, completesMaterial.current);
     else onClose();
   }, [busy, onClose, onDone]);
 
@@ -186,6 +191,7 @@ function UnitRecordDialog({
         ? `${selected.title} 다시 공부한 것을 남겼어요`
         : `${selected.title} 완료 · ${body.done}/${body.total}${label}`;
       pendingDone.current = line;
+      completesMaterial.current = !repeat && body.done >= body.total;
       setSaved({ unit: { id: selected.id, title: selected.title }, line });
     } catch {
       setError('저장 결과를 확인하지 못했어요. 다시 누르면 같은 요청으로 확인해요.');
@@ -228,7 +234,7 @@ function UnitRecordDialog({
           onDone={() => {
             const message = pendingDone.current ?? saved.line;
             pendingDone.current = null;
-            onDone(message);
+            onDone(message, completesMaterial.current);
           }}
         />
       ) : choices.length === 0 ? (
