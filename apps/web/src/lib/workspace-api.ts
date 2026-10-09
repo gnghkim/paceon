@@ -21,6 +21,7 @@ import { parsePlanOptions, createInitialSchedule } from './planning.ts';
 import type { WorkspaceData } from './workspace-types.ts';
 import { projectProgress, ProgressError } from './progress.ts';
 import { completedUnits, unitProgress } from './unit-progress.ts';
+import { planReadingChange, readingState } from './reading-state.ts';
 
 const uuid = z.uuid();
 export function createWorkspaceHandlers(
@@ -319,20 +320,44 @@ export function createWorkspaceHandlers(
      * 책을 보관하거나 되돌린다.
      * 보관하면 계획도 함께 멈춰 일정이 오늘과 캘린더에서 사라진다.
      * 보관을 풀어도 계획은 멈춘 채로 두고, 다시 시작할지는 사용자가 정한다.
+     *
+     * `{ reading }`이면 독서 시작, 재독 시작, 재독 마치기다. 독서 기록 창에는 읽기 시작한
+     * 책과 재독 중인 책만 나온다. 이미 그 상태면 아무것도 바꾸지 않고 지금 상태를 돌려준다.
      */
     async BOOK_STATUS(request: Request, resourceId: string) {
       try {
         const auth = await authenticate(request);
         uuid.parse(resourceId);
         const input = z
-          .object({ status: z.enum(['ACTIVE', 'ARCHIVED']) })
-          .strict()
+          .union([
+            z.object({ status: z.enum(['ACTIVE', 'ARCHIVED']) }).strict(),
+            z.object({ reading: z.enum(['START', 'REREAD', 'STOP_REREAD']) }).strict(),
+          ])
           .parse(await readBody(request));
         const [book] = await rows<Resource>(auth, 'resources', {
           id: `eq.${resourceId}`,
           type: 'eq.BOOK',
         });
         if (!book) throw new ApiError(404, '자료를 찾을 수 없습니다.');
+        if ('reading' in input) {
+          let change;
+          try {
+            change = planReadingChange(book, input.reading, new Date().toISOString());
+          } catch (refusal) {
+            throw new ApiError(409, (refusal as Error).message);
+          }
+          if (!change) return json({ reading: readingState(book) });
+          const [saved] = (await rest(
+            auth,
+            'resources',
+            { id: `eq.${resourceId}`, user_id: `eq.${auth.userId}`, status: `eq.${book.status}` },
+            change,
+            { method: 'PATCH', headers: { Prefer: 'return=representation' } },
+          )) as Resource[];
+          // 그사이 다 읽었거나 보관했다. 옛 상태로 바꾸지 않는다.
+          if (!saved) throw new ApiError(409, '책의 상태가 바뀌었어요. 새로고침해 주세요.');
+          return json({ reading: readingState(saved) });
+        }
         if (book.status === 'COMPLETED' && input.status === 'ACTIVE')
           throw new ApiError(409, '완독한 책의 상태는 바꿀 수 없어요.');
         if (input.status === 'ARCHIVED')
@@ -357,7 +382,7 @@ export function createWorkspaceHandlers(
         return json({ status: input.status });
       } catch (error) {
         if (error instanceof z.ZodError)
-          return json({ error: '보관 상태를 확인해 주세요.' }, 400);
+          return json({ error: '바꿀 상태를 확인해 주세요.' }, 400);
         return handle(error);
       }
     },

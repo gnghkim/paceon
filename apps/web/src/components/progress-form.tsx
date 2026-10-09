@@ -10,6 +10,7 @@ import { Input } from "./ui/input";
 import { formatDate } from "@/lib/planning";
 import { rangeForRecord, type PageRange } from "@/lib/recall";
 import { RecallPrompt } from "./recall-prompt";
+import { endsReread, readingState, rereadStartPage } from "@/lib/reading-state";
 import { useCompletionMoment } from "./completion-record";
 import { justCompleted } from "@/lib/completion-record";
 
@@ -23,6 +24,8 @@ export interface ProgressSummary {
   conflicts: { code: string }[];
   /** 계획이 없는 책의 기록. 진도만 쌓이고 움직일 일정은 없다. */
   unplanned?: boolean;
+  /** 재독 중에 남긴 복습. 마지막 쪽까지 다시 읽었으면 재독이 끝났다(finished). */
+  reread?: "continuing" | "finished";
 }
 
 const conflictMessages: Record<string, string> = {
@@ -45,6 +48,13 @@ export function ProgressResult({
       role="status"
       className="space-y-2 border-primary/30 bg-accent/40 p-4"
     >
+      {result.reread ? (
+        <>
+          <p className="font-semibold">{result.title}</p>
+          <p className="text-sm">{rereadMessage(result.reread)}</p>
+        </>
+      ) : (
+      <>
       <p className="font-semibold">
         {result.title ?? '기록을 저장했어요'} · 현재{' '}
         {result.completedThroughPage}쪽
@@ -89,8 +99,17 @@ export function ProgressResult({
           ))}
         </>
       )}
+      </>
+      )}
     </Card>
   );
+}
+
+/** 재독 중에 남긴 복습의 안내. 진도와 일정은 그대로라 그 이야기는 하지 않는다. */
+export function rereadMessage(reread: "continuing" | "finished"): string {
+  return reread === "finished"
+    ? "끝까지 다시 읽었어요. 독서 기록 창에서 이 책은 빠져요. 또 읽으려면 서재에서 재독 시작을 눌러 주세요."
+    : "진도와 완독 기록은 그대로예요. 다음에는 이어서 다시 읽은 쪽부터 채워 드려요.";
 }
 
 type Kind = "LEARNING" | "REVIEW" | "CORRECTION";
@@ -106,7 +125,7 @@ export function ProgressForm({
   initialDuration,
 }: {
   book: Resource;
-  /** 없으면 계획 없이 읽은 기록이다. 읽은 진도와 마지막 기록 정정만 받는다. */
+  /** 없으면 계획 없이 읽은 기록이다. 읽은 진도와 마지막 기록 정정, 재독 중의 복습을 받는다. */
   plan: Plan | null;
   data: WorkspaceData;
   onSaved: () => void;
@@ -134,12 +153,24 @@ export function ProgressForm({
     day: "2-digit",
   }).format(new Date());
   const finished = completed >= (book.total_pages ?? 0);
-  // 계획 없이 다 읽은 책에는 복습을 남길 곳이 없다. 마지막 기록을 고치는 일만 남는다.
+  // 재독 중이면 다시 읽은 범위를 복습으로 남긴다. 이번 재독에서 읽은 다음 쪽부터 채운다.
+  const rereading = readingState(book) === "REREADING";
+  const rereadFrom = rereadStartPage(
+    book,
+    data.events.filter((event) => event.resource_id === book.id),
+  );
+  // 계획 없이 다 읽은 책은 재독하지 않는 한 마지막 기록을 고치는 일만 남는다.
   const [kind, setKind] = useState<Kind>(
-    !finished ? "LEARNING" : plan ? "REVIEW" : "CORRECTION",
+    !finished
+      ? "LEARNING"
+      : plan || rereading
+        ? "REVIEW"
+        : "CORRECTION",
   );
   const [endPage, setEndPage] = useState("");
-  const [startPage, setStartPage] = useState("1");
+  const [startPage, setStartPage] = useState(
+    String(rereading ? rereadFrom : 1),
+  );
   const [studyDate, setStudyDate] = useState(today);
   const [duration, setDuration] = useState(
     initialDuration === undefined ? "" : String(initialDuration),
@@ -190,6 +221,7 @@ export function ProgressForm({
           : String(initialDuration),
     );
     setMemo(next === "CORRECTION" ? (latest?.memo ?? "") : "");
+    if (next === "REVIEW") setStartPage(String(rereading ? rereadFrom : 1));
   }
   async function submit(event?: FormEvent) {
     event?.preventDefault();
@@ -244,7 +276,15 @@ export function ProgressForm({
         return;
       }
       setAmbiguous(false);
-      setResult(payload as ProgressSummary);
+      const summary: ProgressSummary = {
+        ...(payload as ProgressSummary),
+        ...(rereading && kind === "REVIEW"
+          ? endsReread(book, kind, Number(endPage))
+            ? { title: "재독을 마쳤어요", reread: "finished" as const }
+            : { title: "다시 읽은 범위를 남겼어요", reread: "continuing" as const }
+          : {}),
+      };
+      setResult(summary);
       onRecorded?.();
       // 이번 저장으로 다 읽었으면 떠올리기를 마친 뒤 완료 기록을 띄운다.
       const completesBook = justCompleted(
@@ -253,7 +293,7 @@ export function ProgressForm({
         book.total_pages,
       );
       const finish = () => {
-        onResult?.(payload as ProgressSummary);
+        onResult?.(summary);
         onSaved();
         if (completesBook) showCompletion(book.id);
       };
@@ -290,8 +330,9 @@ export function ProgressForm({
         {/* 떠올리는 동안에는 새 진도를 아직 불러오지 않았다. 옛 숫자를 보이면 방금 저장한 것과 어긋난다. */}
         {!recall && (
           <p className="mt-1 text-sm text-muted-foreground">
-            현재 {completed}쪽까지 읽었어요 · 남은{" "}
-            {Math.max(0, (book.total_pages ?? 0) - completed)}쪽
+            {rereading
+              ? `다시 읽는 중이에요 · ${rereadFrom}쪽부터`
+              : `현재 ${completed}쪽까지 읽었어요 · 남은 ${Math.max(0, (book.total_pages ?? 0) - completed)}쪽`}
           </p>
         )}
       </div>
@@ -305,7 +346,11 @@ export function ProgressForm({
         <RecallPrompt
           resourceId={book.id}
           range={recall.range}
-          savedLine={`기록을 저장했어요 · 현재 ${result.completedThroughPage}쪽`}
+          savedLine={
+            result.reread
+              ? `다시 읽은 범위를 남겼어요 · ${recall.range.startPage}–${recall.range.endPage}쪽`
+              : `기록을 저장했어요 · 현재 ${result.completedThroughPage}쪽`
+          }
           onDone={finishRecall}
         />
       ) : (
@@ -337,7 +382,9 @@ export function ProgressForm({
             {(
               [
                 ["LEARNING", "읽은 진도"],
-                ...(plan ? [["REVIEW", "복습"]] : []),
+                ...(plan || rereading
+                  ? [["REVIEW", rereading ? "재독" : "복습"]]
+                  : []),
                 ...(!compact ? [["CORRECTION", "마지막 기록 정정"]] : []),
               ] as [Kind, string][]
             ).map(([value, label]) => (
@@ -375,13 +422,17 @@ export function ProgressForm({
           )}
           {kind === "REVIEW" && (
             <p className="text-sm text-muted-foreground">
-              다시 읽은 범위를 기록해요. 복습은 읽은 진도를 늘리지 않아요.
+              {rereading
+                ? "다시 읽은 범위를 남겨요. 마지막 쪽까지 다시 읽으면 재독이 끝나요."
+                : "다시 읽은 범위를 기록해요. 복습은 읽은 진도를 늘리지 않아요."}
             </p>
           )}
           <div className="grid gap-4 sm:grid-cols-2">
             {kind === "REVIEW" && (
               <label className="space-y-2 text-sm">
-                <span>복습 시작 페이지</span>
+                <span>
+                  {rereading ? "어디부터 다시 읽었나요?" : "복습 시작 페이지"}
+                </span>
                 <Input
                   type="number"
                   min={1}
@@ -397,7 +448,9 @@ export function ProgressForm({
             <label className="space-y-2 text-sm">
               <span>
                 {kind === "REVIEW"
-                  ? "복습 마지막 페이지"
+                  ? rereading
+                    ? "어디까지 다시 읽었나요? (마지막 페이지)"
+                    : "복습 마지막 페이지"
                   : compact
                     ? "오늘 어디까지 읽었나요? (마지막 페이지)"
                     : "마지막으로 읽은 페이지"}

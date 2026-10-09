@@ -1339,7 +1339,9 @@ export type Database = {
           isbn: string | null
           progress_version: number
           publisher: string | null
+          reading_started_at: string | null
           replan_required: boolean
+          rereading_since: string | null
           source: string
           source_id: string | null
           status: Database["public"]["Enums"]["resource_status"]
@@ -1361,7 +1363,9 @@ export type Database = {
           isbn?: string | null
           progress_version?: number
           publisher?: string | null
+          reading_started_at?: string | null
           replan_required?: boolean
+          rereading_since?: string | null
           source?: string
           source_id?: string | null
           status?: Database["public"]["Enums"]["resource_status"]
@@ -1383,7 +1387,9 @@ export type Database = {
           isbn?: string | null
           progress_version?: number
           publisher?: string | null
+          reading_started_at?: string | null
           replan_required?: boolean
+          rereading_since?: string | null
           source?: string
           source_id?: string | null
           status?: Database["public"]["Enums"]["resource_status"]

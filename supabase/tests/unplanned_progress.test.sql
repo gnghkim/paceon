@@ -66,7 +66,7 @@ select throws_ok($$select submit_unplanned_book_progress('2a000000-0000-4000-800
   '23514','Invalid progress request','Fields that belong to a planned record are refused');
 select throws_ok($$select submit_unplanned_book_progress('2a000000-0000-4000-8000-000000000001',
   pg_temp.request('REVIEW','3a000000-0000-4000-8000-000000000008',1,40),100,10,(select d from today))$$,
-  '23514','Invalid progress request','Only reading and its correction are recorded without a plan');
+  '23514','Invalid progress request','A review names where it began');
 select throws_ok($$select submit_unplanned_book_progress('2a000000-0000-4000-8000-000000000001',
   pg_temp.request('LEARNING','3a000000-0000-4000-8000-000000000009',1,40,'{"endPage":40.5}'),100,10,(select d from today))$$,
   '23514','Invalid progress request','Pages are whole numbers');

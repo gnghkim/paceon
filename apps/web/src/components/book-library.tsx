@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { ReadingStateButton } from './reading-state';
+import { readingState, readingStateLabel } from '@/lib/reading-state';
 import { useState } from 'react';
 import { BookOpen, Plus, Search } from 'lucide-react';
 import { MaterialList } from './material-list';
@@ -84,6 +86,7 @@ export function BookLibrary() {
         <div role="group" className="flex flex-wrap gap-1" aria-label="도서 상태 필터">
           {([
             ['all', '전체'],
+            ['NOT_STARTED', '읽기 전'],
             ['ACTIVE', '읽는 중'],
             ['COMPLETED', '완독'],
             ['ARCHIVED', '보관'],
@@ -166,22 +169,17 @@ export function BookLibrary() {
               completed: progress?.completedThroughPage ?? baseline.completed,
               percent: progress?.percent ?? baseline.percent,
             };
+            const state = readingState(book);
+            // 카드 전체가 상세로 가는 링크다. 그 안의 독서 시작 단추는 링크 위에 따로 놓는다.
             return (
-              <Link
-                key={book.id}
-                href={`/resources/${book.id}`}
-                className="block rounded-xl focus-visible:outline-2 focus-visible:outline-primary"
-              >
-                <Card className="flex items-center gap-4 p-4 transition-colors hover:bg-accent/30 md:gap-6 md:p-6">
+                <Card key={book.id} className="relative flex items-center gap-4 p-4 transition-colors hover:bg-accent/30 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-primary md:gap-6 md:p-6">
                   <BookCover url={book.cover_url} title={book.title} />
                   <div className="min-w-0 flex-1">
                     <p className="mb-1 text-xs text-muted-foreground">
                       {book.source === 'PDF_IMPORT' && <span>PDF · </span>}
-                      {book.status === 'ARCHIVED'
-                        ? '보관'
-                        : book.status === 'COMPLETED'
-                          ? '완독'
-                          : book.replan_required
+                      {state !== 'READING'
+                        ? readingStateLabel[state]
+                        : book.replan_required
                             ? '일정 조정 대기'
                             : plan?.status === 'PAUSED'
                               ? '잠시 멈춤'
@@ -190,7 +188,12 @@ export function BookLibrary() {
                                 : '계획 대기'}
                     </p>
                     <h3 className="break-words text-lg font-semibold">
-                      {book.title}
+                      <Link
+                        href={`/resources/${book.id}`}
+                        className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none"
+                      >
+                        {book.title}
+                      </Link>
                     </h3>
                     <p className="mt-1 truncate text-sm text-muted-foreground">
                       {book.author || '저자 정보 없음'}
@@ -215,6 +218,7 @@ export function BookLibrary() {
                         ? '이미 완독한 책'
                         : formatDate(summary.forecast)}
                     </p>
+                    <ReadingStateButton book={book} className="relative z-10 mt-3" />
                   </div>
                   <div className="hidden text-right sm:block">
                     <p className="text-xs text-muted-foreground">예상 완독</p>
@@ -230,7 +234,6 @@ export function BookLibrary() {
                     )}
                   </div>
                 </Card>
-              </Link>
             );
           })}
           </section>}

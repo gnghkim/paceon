@@ -114,7 +114,7 @@ test('a plan-less record is checked before anything is written', async () => {
     [{ ...unplanned, endPage: 10 }, 400, 'pages already read'],
     [{ ...unplanned, endPage: 101 }, 400, 'past the last page'],
     [{ ...unplanned, studyDate: '2999-01-01' }, 400, 'a future day'],
-    [{ ...unplanned, kind: 'REVIEW', startPage: 1 }, 400, 'review needs a plan'],
+    [{ ...unplanned, kind: 'REVIEW', startPage: 1 }, 409, 'a review needs a book being re-read'],
     [{ ...unplanned, expectedProgressVersion: 3 }, 409, 'an old revision'],
   ];
   for (const [payload, status, label] of cases) {
@@ -131,6 +131,22 @@ test('an archived book, or a finished one asked to read on, is not recorded', as
     assert.equal((await handler(request({ ...unplanned, studyDate: todayUtc() }), id)).status, 409, book.status);
     assert.deepEqual(writes, []);
   }
+});
+
+test('a finished book takes a review of the pages read again only while it is re-read', async () => {
+  const review = { kind: 'REVIEW', idempotencyKey: key, expectedProgressVersion: 0, studyDate: todayUtc(), startPage: 1, endPage: 40, durationMinutes: 30, memo: '' };
+  const finished = { status: 'COMPLETED', reading_started_at: '2026-09-01T00:00:00Z', rereading_since: null };
+  const idle = unplannedStub({ book: finished });
+  assert.equal((await idle.handler(request(review), id)).status, 409, 'not being re-read');
+  assert.deepEqual(idle.writes, []);
+  const rereading = unplannedStub({ book: { ...finished, rereading_since: '2026-10-01T00:00:00Z' } });
+  assert.equal((await rereading.handler(request(review), id)).status, 201);
+  assert.equal(rereading.writes[0].p_request.startPage, 1);
+  assert.equal(rereading.writes[0].p_request.kind, 'REVIEW');
+  const outside = unplannedStub({ book: { ...finished, rereading_since: '2026-10-01T00:00:00Z' } });
+  assert.equal((await outside.handler(request({ ...review, endPage: 101 }), id)).status, 400, 'inside the book');
+  assert.equal((await outside.handler(request({ ...review, startPage: 50 }), id)).status, 400, 'ends after it begins');
+  assert.deepEqual(outside.writes, []);
 });
 
 test('the latest plan-less reading can be corrected, even on a book it finished', async () => {

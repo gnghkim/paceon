@@ -41,7 +41,7 @@ YES24 결과도 같은 확인·보정 화면을 사용한다. `source: "YES24"`�
 
 2026-09-13 실제 키로 `클린 코드` 검색 결과 10건을 받아 페이지 수가 있는 도서를 등록하고 AI 도서 분석·코칭 완료까지 확인했다. 키 값은 출력·커밋하지 않았으며 임시 검증 계정과 자료는 삭제했다.
 
-성공은 HTTP 201 `{ resource: <resources 행> }`. `currentPage`는 `initial_completed_workload`에 저장하고 전체 페이지와 같으면 상태는 `COMPLETED`다. 현재 API는 신규 등록용이며 이후 진도 변경은 Phase 5 이력 처리로 구현한다. 등록 요청의 `user_id` 등 계약 외 필드는 저장에 사용하지 않는다.
+성공은 HTTP 201 `{ resource: <resources 행> }`. `currentPage`는 `initial_completed_workload`에 저장하고 전체 페이지와 같으면 상태는 `COMPLETED`다. `currentPage`가 0보다 크면 읽기 시작한 책(`reading_started_at`)으로 등록되고, 0이면 읽기 전인 책이라 서재에서 독서 시작을 눌러야 독서 기록 창에 나온다([독서 기록](QUICK_RECORD.md)의 **독서 시작과 재독**). 현재 API는 신규 등록용이며 이후 진도 변경은 Phase 5 이력 처리로 구현한다. 등록 요청의 `user_id` 등 계약 외 필드는 저장에 사용하지 않는다.
 
 `GET /api/resources/books?limit=20&offset=0`은 같은 인증이 필요하며 본인 소유 BOOK만 생성 시각 역순으로 반환한다: `{ resources, limit, offset }`. `limit`은 1~100, `offset`은 0~1,000,000이다.
 

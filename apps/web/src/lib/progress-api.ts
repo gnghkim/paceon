@@ -6,6 +6,7 @@ import type { Config } from './books-api.ts';
 import { createWorkspaceHandlers } from './workspace-api.ts';
 import { calculateProgressCandidate, checkUnplannedProgress, describeReplan, isUnplannedRequest, parseProgressRequest, parseUnplannedRequest, ProgressError } from './progress.ts';
 import type { ProgressCandidate, UnplannedProgressRequest } from './progress.ts';
+import { readingState } from './reading-state.ts';
 
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
@@ -35,9 +36,15 @@ export function createProgressHandler(config: Config | undefined, fetcher: typeo
     const book = books[0];
     if (!book) throw new ApiError(404, '기록할 책을 찾을 수 없습니다.');
     if (plans.length) throw new ApiError(409, '이 책에는 계획이 생겼어요. 새로고침한 뒤 다시 기록해 주세요.');
-    // A finished book only takes a correction, so a mistyped last page can be taken back.
-    if (book.status === 'ARCHIVED' || (book.status === 'COMPLETED' && input.kind !== 'CORRECTION'))
-      throw new ApiError(409, '지금 읽고 있는 책에만 기록할 수 있어요.');
+    // A finished book takes a correction, so a mistyped last page can be taken back,
+    // and a review only while it is being re-read. A review needs a finished book.
+    const state = readingState(book);
+    if (
+      state === 'ARCHIVED' ||
+      (input.kind === 'LEARNING' && state !== 'READING' && state !== 'NOT_STARTED') ||
+      (input.kind === 'REVIEW' && state !== 'REREADING')
+    )
+      throw new ApiError(409, input.kind === 'REVIEW' ? '재독 중인 책에만 다시 읽은 범위를 기록할 수 있어요.' : '지금 읽고 있는 책에만 기록할 수 있어요.');
     if (book.progress_version !== input.expectedProgressVersion) {
       const committed = await replay();
       if (committed) return committed;

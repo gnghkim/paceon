@@ -71,6 +71,21 @@ Phase 5의 `submit_book_progress`가 위 계약을 구현한다. 사용자별 ad
 
 복습 표(`learning_expressions`)에 넣지 않았다. 문장은 복습에서 다시 묻지 않기 때문이다.
 
+## 독서 시작과 재독 (`20261016000000_reading_start.sql`)
+
+화면 쪽 계약은 [독서 기록](QUICK_RECORD.md)의 **독서 시작과 재독**을 따른다.
+
+| 칼럼·함수 | 역할 및 주요 계약 |
+| --- | --- |
+| resources.reading_started_at | 읽기 시작한 시각. 비어 있으면 읽기 전이다. 쪽 단위 책에만 쓴다(`resources_reading_state` 검사) |
+| resources.rereading_since | 완독한 책을 다시 읽기 시작한 시각. 완독이고 시작한 책일 때만 값이 있다 |
+| `resources_reading_state` 트리거 | 등록 때 읽은 쪽이 있거나 다 읽은 책은 시작한 책으로 채운다. 다 읽은 책에서 벗어나면(정정, 보관) 재독을 비운다 |
+| `plans_start_reading` 트리거 | 계획을 만들면 시작한 책이 된다 |
+| `progress_events_reading_state` 트리거 | VOID가 아닌 기록이 생기면 시작한 책이 된다. 재독 중에 마지막 쪽까지 다시 읽은 복습이 생기면 재독을 비운다 |
+| `submit_unplanned_book_progress` | 재독 중인 계획 없는 완독 책에서 `REVIEW`(`startPage`~`endPage`)를 받는다. 진도와 상태는 바뀌지 않는다. 그 밖에는 전과 같다 |
+
+이 migration 전부터 있던 쪽 단위 책은 계획·기록·등록 때 읽은 쪽이 있거나 완독이면 시작한 책으로 채웠다. 시작 시각은 첫 기록, 첫 계획, 등록 시각 중 먼저 있는 것이다. 서재의 독서 시작, 재독 시작, 재독 마치기는 자기 행 UPDATE다.
+
 ## 개발 seed와 검증
 
 Phase 4에서 최초 도서 계획 저장용 `create_initial_book_plan` RPC를 추가했다. 사용자 단위 잠금, RLS, 페이지 연속성·공유 시간 예산 검증 뒤 목표·계획·세션을 한 트랜잭션으로 저장한다. 기존 진도 기록이나 활성 계획이 있으면 새 초기 계획을 만들지 않는다. 이 함수는 위의 진도 기록/재계획 RPC와 별개이며 상세 계약은 [WORKSPACE_UI.md](WORKSPACE_UI.md)를 따른다.
