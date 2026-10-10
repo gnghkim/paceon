@@ -10,8 +10,12 @@ apt-get update
 apt-get install -y docker.io docker-compose-v2 age curl
 # Ubuntu 패키지의 rclone(1.60)은 R2의 조각 업로드와 스트림 업로드에서 501을 낸다(2026-10-11 확인). 공식 패키지를 쓴다.
 if ! rclone version 2>/dev/null | head -n 1 | grep -qE 'v1\.(7[0-9]|[89][0-9])\.'; then
+  # 버전을 고정하고, root로 설치하기 전에 공식 SHA256SUMS(downloads.rclone.org와 GitHub 릴리스가 같은 값)와 대조한다.
+  rclone_version=1.75.2
+  rclone_sha256=efbfe852181f7191eb3c9043ed1ab49c9b2d0ba045c61c926a5da111c939ec5c
   deb="$(mktemp --suffix=.deb)"
-  curl -fsSL -o "$deb" https://downloads.rclone.org/rclone-current-linux-amd64.deb
+  curl -fsSL -o "$deb" "https://downloads.rclone.org/v${rclone_version}/rclone-v${rclone_version}-linux-amd64.deb"
+  echo "${rclone_sha256}  ${deb}" | sha256sum -c --quiet -
   dpkg -i "$deb"
   rm -f "$deb"
 fi
