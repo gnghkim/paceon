@@ -7,7 +7,14 @@ here="$(cd "$(dirname "$0")" && pwd)"
 user="${SUDO_USER:?sudo로 실행하세요}"
 
 apt-get update
-apt-get install -y docker.io docker-compose-v2 age rclone
+apt-get install -y docker.io docker-compose-v2 age curl
+# Ubuntu 패키지의 rclone(1.60)은 R2의 조각 업로드와 스트림 업로드에서 501을 낸다(2026-10-11 확인). 공식 패키지를 쓴다.
+if ! rclone version 2>/dev/null | head -n 1 | grep -qE 'v1\.(7[0-9]|[89][0-9])\.'; then
+  deb="$(mktemp --suffix=.deb)"
+  curl -fsSL -o "$deb" https://downloads.rclone.org/rclone-current-linux-amd64.deb
+  dpkg -i "$deb"
+  rm -f "$deb"
+fi
 
 install -m 0644 "$here/paceon.slice" /etc/systemd/system/paceon.slice
 install -d /etc/docker
