@@ -103,9 +103,13 @@ function generated(now, random) {
   };
 }
 
+// Vercel은 Sensitive로 표시한 값을 내려주지 않고 이 글자를 준다. 값이 없는 것으로 다룬다.
+const HIDDEN = '[SENSITIVE]';
+
 export function buildEnv({ local = false, imports = [], now = Math.floor(Date.now() / 1000), random = randomBytes } = {}) {
   const taken = new Map();
-  for (const source of imports) {
+  for (const given of imports) {
+    const source = new Map([...given].filter(([, value]) => value !== HIDDEN));
     const vapid = source.get('NEXT_PUBLIC_VAPID_PUBLIC_KEY');
     if (vapid !== undefined) {
       if (taken.has('VAPID_PUBLIC_KEY') && taken.get('VAPID_PUBLIC_KEY') !== vapid) throw new Error('가져온 VAPID 공개키가 서로 다릅니다.');

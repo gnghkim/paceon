@@ -105,3 +105,14 @@ test('the web container receives every key the book search reads', () => {
   const web = compose.slice(compose.indexOf('\n  web:'), compose.indexOf('\n  ai-worker:'));
   for (const name of ['YES24_API_KEY', 'GOOGLE_BOOKS_API_KEY']) assert.ok(web.includes(`${name}: \${${name}:-}`), name);
 });
+
+test('a Vercel [SENSITIVE] placeholder is treated as missing, never written as the value', () => {
+  const vercel = new Map([['GOOGLE_CLIENT_SECRET', '[SENSITIVE]'], ['NEXT_PUBLIC_VAPID_PUBLIC_KEY', '[SENSITIVE]']]);
+  const vps = new Map([['VAPID_PUBLIC_KEY', 'real-key']]);
+  const { text, blanks } = buildEnv({ imports: [vercel, vps], random: fixed });
+  const env = parseEnv(text);
+  assert.equal(env.get('GOOGLE_CLIENT_SECRET'), '');
+  assert.ok(blanks.includes('GOOGLE_CLIENT_SECRET'));
+  assert.equal(env.get('VAPID_PUBLIC_KEY'), 'real-key');
+  assert.doesNotMatch(text, /SENSITIVE/);
+});
