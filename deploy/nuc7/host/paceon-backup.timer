@@ -1,0 +1,9 @@
+[Unit]
+Description=PaceOn: daily backup at 07:00 KST (between the US close and the KRX open)
+
+[Timer]
+OnCalendar=*-*-* 07:00:00 Asia/Seoul
+Persistent=true
+
+[Install]
+WantedBy=timers.target

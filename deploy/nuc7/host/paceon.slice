@@ -1,0 +1,8 @@
+[Unit]
+Description=PaceOn containers (capped so ETFlow and the other services keep their share)
+Before=slices.target
+
+[Slice]
+CPUQuota=150%
+MemoryHigh=3G
+MemoryMax=3584M

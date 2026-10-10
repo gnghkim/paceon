@@ -1,0 +1,12 @@
+[Unit]
+Description=PaceOn: encrypted daily backup to R2
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=gnghkim
+EnvironmentFile=/opt/paceon/.env
+ExecStart=/opt/paceon/src/deploy/nuc7/bin/backup.sh
+Nice=15
+IOSchedulingClass=idle
