@@ -33,7 +33,8 @@ const checks = [
     return ids.includes('learning-pdfs') && ids.includes('learning-audio');
   }],
   // service 키로는 /pg/가 열린다(공식 설정). 밖에서는 Tunnel 경로 규칙이 /pg/를 404로 끊는다(PLAN Task 11 Step 6).
-  ['pg-meta는 anon 키로 닫혀 있다', async () => refused(await call(`${api}/pg/tables`, { headers: as(anon) }))],
+  // Tunnel 너머에서는 경로 규칙이 /pg/를 Envoy에 닿기 전에 404로 끊는다. 그것도 닫힌 것이다.
+  ['pg-meta는 anon 키로 닫혀 있다', async () => { const r = await call(`${api}/pg/tables`, { headers: as(anon) }); return refused(r) || r.status === 404; }],
 ];
 if (web) {
   checks.push(
