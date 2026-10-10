@@ -1,0 +1,3 @@
+# 컨테이너와 Linux 서버에서 쓰는 파일은 Windows에서도 LF로 둔다.
+*.sh text eol=lf
+deploy/nuc7/** text eol=lf
