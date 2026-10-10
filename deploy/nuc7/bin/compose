@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# nuc7 스택용 docker compose. env 파일과 profile을 붙인다. Worker는 PACEON_WORKER=on일 때만 들어간다.
+set -euo pipefail
+dir="$(cd "$(dirname "$0")/.." && pwd)"
+env_file="${PACEON_ENV:-/opt/paceon/.env}"
+profiles=(--profile tunnel)
+if [ "$(sed -n 's/^PACEON_WORKER=//p' "$env_file" | tail -n 1)" = "on" ]; then profiles+=(--profile worker); fi
+exec docker compose --project-directory "$dir" -f "$dir/compose.yaml" --env-file "$env_file" "${profiles[@]}" "$@"

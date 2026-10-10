@@ -1,0 +1,11 @@
+[Unit]
+Description=PaceOn: pull new main images
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=gnghkim
+EnvironmentFile=/opt/paceon/.env
+ExecStart=/opt/paceon/src/deploy/nuc7/bin/deploy.sh
+Nice=10

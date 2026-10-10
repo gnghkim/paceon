@@ -1,0 +1,29 @@
+# 개발 PC에서 운영 구성을 그대로 띄워 보는 덮어쓰기. Tunnel 없이 127.0.0.1에 포트를 연다.
+#   docker compose -p paceon-local -f deploy/nuc7/compose.yaml -f deploy/nuc7/compose.local.yaml --env-file deploy/nuc7/.env.local up -d
+# 개발용 Worker(포트 8000)를 띄워 두었다면 먼저 끈다.
+services:
+  db:
+    ports: !override
+      - "127.0.0.1:15432:5432"
+    volumes:
+      # Windows 바인드 마운트는 PGDATA 권한을 지키지 못해 이름 있는 볼륨을 쓴다.
+      - local-db:/var/lib/postgresql/data
+  storage:
+    volumes:
+      - local-storage:/var/lib/storage
+  api-gw:
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      default:
+        aliases: [envoy, kong, api-gw.localhost]
+  web:
+    image: paceon-web:local
+    ports:
+      - "127.0.0.1:13000:3000"
+  ai-worker:
+    image: paceon-ai-worker:local
+
+volumes:
+  local-db:
+  local-storage:

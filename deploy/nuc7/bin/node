@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# nuc7에는 Node가 없다. 저장소의 Node 스크립트를 컨테이너에서 돌린다. 작업 폴더는 /opt/paceon/src.
+set -euo pipefail
+exec docker run --rm -i -u "$(id -u):$(id -g)" --network "${NODE_NETWORK:-host}" \
+  -v /opt/paceon:/opt/paceon -w /opt/paceon/src node:24.14.0-slim node "$@"

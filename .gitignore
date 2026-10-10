@@ -24,3 +24,6 @@ services/ai-worker/build/
 
 # gstack browser tool logs
 .gstack/
+
+# 운영 env 예시는 저장소에 둔다. 실제 env(.env, .env.local)는 위 규칙대로 무시된다.
+!deploy/nuc7/.env.example
