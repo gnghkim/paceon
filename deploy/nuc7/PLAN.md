@@ -1917,7 +1917,7 @@ Expected: 6개 `healthy`/`running`. `bin/compose logs cloudflared`에 `Registere
 
 ```bash
 ssh -f -N -L 15432:127.0.0.1:5432 nuc7
-url="postgresql://postgres:$(ssh nuc7 "sed -n 's/^POSTGRES_PASSWORD=//p' /opt/paceon/.env")@127.0.0.1:15432/postgres"
+url="postgresql://postgres:$(ssh nuc7 "sed -n 's/^POSTGRES_PASSWORD=//p' /opt/paceon/.env")@127.0.0.1:15432/postgres?sslmode=disable"
 supabase db push --db-url "$url" --yes
 supabase test db --db-url "$url"
 unset url
@@ -2060,7 +2060,7 @@ PR → 병합. Vercel이 빌드한 뒤 `curl -sI https://paceon-green.vercel.app
 ### 되돌리기 (전환 뒤 2주 안, 사용자 결정)
 
 1. nuc7 Worker를 끈다: `.env`에서 `PACEON_WORKER=off`, `TELEGRAM_ENABLED=false` 후 `bin/compose stop ai-worker`.
-2. 전환 뒤 nuc7에 쌓인 기록을 살린다면: Supabase Cloud를 대시보드에서 다시 켜고(일시 정지됐을 때), ssh 터널을 연 채 `dump.sh --db-url postgresql://postgres:…@127.0.0.1:15432/postgres <dir>`로 nuc7을 덤프해 Cloud에 `restore.sh <dir> --reset`으로 넣는다. 이때 `TARGET_PSQL`은 `docker run --rm -i supabase/postgres:17.6.1.136 psql "<Cloud 직접 연결 문자열>"`이다(Cloud 대시보드 → Connect에서 받는다). Cloud의 `postgres` 역할은 `auth.users`를 비우지 못할 수 있다. 먼저 `truncate auth.identities`를 트랜잭션 안에서 시험하고, 안 되면 nuc7에서 전환 뒤 생긴 행만 고르는 SQL을 따로 쓴다.
+2. 전환 뒤 nuc7에 쌓인 기록을 살린다면: Supabase Cloud를 대시보드에서 다시 켜고(일시 정지됐을 때), ssh 터널을 연 채 `dump.sh --db-url postgresql://postgres:…@127.0.0.1:15432/postgres?sslmode=disable <dir>`로 nuc7을 덤프해 Cloud에 `restore.sh <dir> --reset`으로 넣는다. 이때 `TARGET_PSQL`은 `docker run --rm -i supabase/postgres:17.6.1.136 psql "<Cloud 직접 연결 문자열>"`이다(Cloud 대시보드 → Connect에서 받는다). Cloud의 `postgres` 역할은 `auth.users`를 비우지 못할 수 있다. 먼저 `truncate auth.identities`를 트랜잭션 안에서 시험하고, 안 되면 nuc7에서 전환 뒤 생긴 행만 고르는 SQL을 따로 쓴다.
 3. VPS Worker를 켠다: `cd /opt/paceon-deploy && docker compose up -d`.
 4. `apps/web/vercel.json`을 지우는 PR을 병합한다.
 5. 푸시 알림은 옛 주소에서 다시 켠다.

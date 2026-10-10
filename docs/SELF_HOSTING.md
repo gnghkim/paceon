@@ -88,7 +88,7 @@ nuc7은 2코어라 PaceOn이 매매 봇의 몫을 빼앗으면 안 된다. nuc7�
 2. **DNS**: nolzza.net을 Cloudflare(무료)에 등록한다. 지금 네임서버는 후이즈(`ns1~4.whoisdomain.kr`)이고, apex와 `www`가 Vercel의 다른 사이트를 가리킨다. 후이즈 관리 화면에서 레코드를 **전부** 확인해 Cloudflare에 같게 넣는다(공개 조회로는 하위 주소를 다 볼 수 없다). Vercel 레코드는 회색 구름(DNS only)으로 둔다. 대조를 마친 뒤 후이즈에서 네임서버를 바꾼다.
 3. **Cloudflare**: Tunnel을 만들고 `paceon.nolzza.net` → `http://web:3000`, `paceon-api.nolzza.net`(경로 `^/(auth|rest|storage)/v1/`) → `http://api-gw:8000`을 잇는다. R2 버킷 `paceon-backup`과 그 버킷에만 쓰고 읽는 토큰을 만든다(R2 토큰은 쓰기 전용으로 좁힐 수 없다).
 4. **Resend**: `nolzza.net`을 인증한다(Cloudflare DNS에 SPF·DKIM 레코드). Auth의 SMTP로 넣는다.
-5. **빈 스택**: nuc7에 새 키로 스택을 띄운다. 개발 PC에서 `ssh -N -L 15432:127.0.0.1:5432 nuc7`로 터널을 열고 `supabase db push --db-url postgresql://postgres:…@127.0.0.1:15432/postgres`를 실행한다. `supabase test db --db-url …`로 pgTAP을 nuc7 DB에 돌려 스키마가 같은지 확인한다.
+5. **빈 스택**: nuc7에 새 키로 스택을 띄운다. 개발 PC에서 `ssh -N -L 15432:127.0.0.1:5432 nuc7`로 터널을 열고 `supabase db push --db-url postgresql://postgres:…@127.0.0.1:15432/postgres?sslmode=disable`를 실행한다. `supabase test db --db-url …`로 pgTAP을 nuc7 DB에 돌려 스키마가 같은지 확인한다.
 6. **리허설**: 운영 데이터를 덤프해 nuc7에 복원하고 새 주소에서 로그인해 본다.
    - 옮기는 것: `public`·`private`·`learning_private`의 데이터, `auth.users`·`auth.identities`, Storage 파일(지금 0개). `storage.buckets`는 migration이 만드므로 옮기지 않는다. Storage 파일은 API로 내려받아 nuc7에 다시 올리고 `owner`를 맞춘다.
    - 복원할 때는 트리거를 끈다(`session_replication_role = replica`). 켜 두면 읽기 상태 트리거 같은 것이 옮기는 행을 고친다.
@@ -157,3 +157,32 @@ nuc7은 2코어라 PaceOn이 매매 봇의 몫을 빼앗으면 안 된다. nuc7�
 
 - nuc7을 유선 LAN으로 연결한다.
 - BIOS에서 정전 뒤 전원이 돌아오면 저절로 켜지게 한다(AC power loss → Power On).
+
+## 운영 명령
+
+nuc7에서는 `/opt/paceon/src/deploy/nuc7`에서 `bin/compose`를 쓴다. env 파일과 profile을 붙여 준다.
+
+| 할 일 | 명령 |
+| --- | --- |
+| 상태 | `bin/compose ps` |
+| 로그 | `bin/compose logs -f --tail 100 web` |
+| 이미지 바로 갱신 | `sudo systemctl start paceon-deploy` |
+| compose·Envoy 설정 반영 | `git -C /opt/paceon/src pull --ff-only && bin/compose up -d` |
+| Studio 켜기·끄기 | `bin/compose --profile admin up -d studio` / `bin/compose --profile admin stop studio meta` |
+| Studio 접속(개발 PC) | `ssh -N -L 3001:127.0.0.1:3001 nuc7` 후 `http://localhost:3001` (사용자 `paceon`, 비밀번호는 `.env`의 `DASHBOARD_PASSWORD`) |
+| DB 접속(개발 PC) | `ssh -N -L 15432:127.0.0.1:5432 nuc7` 후 `postgresql://postgres:…@127.0.0.1:15432/postgres?sslmode=disable` (DB에 SSL이 없다. 암호화는 ssh 터널이 맡는다) |
+| migration 올리기 | 위 터널을 열고 `supabase db push --db-url …?sslmode=disable` → `bin/compose restart rest` → PR 병합. pgTAP은 `supabase test db --db-url …`(같은 주소, 2026-10-11 로컬에서 확인) |
+| 특정 버전으로 되돌리기 | `.env`의 `PACEON_TAG=sha-<7자리>` 후 `bin/compose up -d web ai-worker`. 되돌린 뒤 다시 `main`으로 |
+| 바로 백업 | `sudo systemctl start paceon-backup && journalctl -u paceon-backup -n 20` |
+| 복원 연습(개발 PC, 매달) | `deploy/nuc7/bin/restore-check.sh` |
+| 상태 확인 | `bin/node deploy/nuc7/smoke.mjs --env-file /opt/paceon/.env --api https://paceon-api.nolzza.net --web https://paceon.nolzza.net` |
+
+anon·service_role 키는 만든 날로부터 10년 뒤 만료된다(만든 날: Task 11에서 적는다). 만료 전에 새 키로 바꾸고 GitHub 변수 `NUC7_ANON_KEY`도 바꾼다.
+
+### 재해 복구
+
+1. 새 서버(또는 디스크)에 Task 9를 다시 한다.
+2. 비밀번호 관리자의 `/opt/paceon/.env` 사본과 age 비밀키를 꺼낸다.
+3. R2에서 마지막 `daily/`를 받아 복호화한다.
+4. `bin/compose up -d db`로 빈 DB를 띄우고 `pg_restore -U supabase_admin -h localhost --clean --if-exists -d postgres < db.dump`(컨테이너 안). Storage는 `storage.tar`를 `/opt/paceon/data`에 푼다.
+5. `bin/compose up -d` 뒤 smoke와 `verify-counts.mjs`(백업의 `counts.csv` 기준)로 확인한다.
