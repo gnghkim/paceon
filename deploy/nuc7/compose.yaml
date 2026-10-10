@@ -198,6 +198,8 @@ services:
     environment:
       # NEXT_PUBLIC_*는 이미지에 박혀 있지만, process.env를 통째로 읽는 서버 코드(youtube-oauth.ts)를 위해 실행 때도 넣는다.
       NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_PUBLIC_URL}
+      # 서버 코드는 Supabase를 내부망으로 부른다(브라우저는 위 공개 주소).
+      SUPABASE_INTERNAL_URL: http://api-gw:8000
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}

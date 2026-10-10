@@ -42,7 +42,7 @@ nuc7  /opt/paceon   docker compose 프로젝트 "paceon", 전용 내부망
 ```
 
 - API 주소는 `paceon-api.nolzza.net`이다. Cloudflare 무료 인증서는 `*.nolzza.net` 한 단계만 덮어서 `api.paceon.nolzza.net`은 쓸 수 없다.
-- 브라우저가 Supabase를 직접 부르므로(`supabase-browser.ts`, 로그인, YouTube 연결) API 주소도 밖에 연다. 웹 서버도 같은 공개 주소로 Supabase를 부른다(`NEXT_PUBLIC_SUPABASE_URL`이 하나뿐이다). Tunnel을 한 번 돌아 나가지만 코드를 바꾸지 않는다.
+- 브라우저가 Supabase를 직접 부르므로(`supabase-browser.ts`, 로그인, YouTube 연결) API 주소도 밖에 연다. 웹 서버는 `SUPABASE_INTERNAL_URL`(`http://api-gw:8000`)로 내부망에서 부른다. 공개 주소로 부르면 Cloudflare 무료 플랜이 한국 트래픽을 해외 엣지(LAX)로 받아 호출마다 약 0.8초가 더 걸렸다(2026-10-11 측정, 내부망은 0.1초 안팎). 이 값이 없으면(Vercel) 공개 주소를 쓴다.
 - 운영 웹은 Worker를 직접 부르지 않는다(Vercel에도 `AI_WORKER_URL`이 없다). Worker는 DB 큐를 읽고 내부망의 `http://api-gw:8000`으로 Supabase를 부른다.
 - Supabase 공식 self-hosting 구성(`supabase/supabase`의 `docker/`, 커밋을 고정해 복사)에서 쓰는 것만 띄운다. Realtime, Edge Functions, 로그 분석(analytics·vector), 이미지 변환(imgproxy), 풀러(supavisor)는 쓰지 않으니 뺀다. Studio와 pg-meta는 관리할 때만 켜는 compose profile(`admin`)로 둔다.
 - 관문은 공식 구성의 기본값인 Envoy다(예전 Kong을 대신한다). 공식 설정에서 `/auth`·`/rest`는 anon·service 키가 있어야 통과하고, `/pg`(pg-meta)는 service 키로만 열린다. 밖에서 `/pg`와 Studio를 막는 것은 Tunnel이다. Tunnel의 `paceon-api.nolzza.net` 규칙이 `/auth/v1/`, `/rest/v1/`, `/storage/v1/`만 넘기고 나머지는 404로 끊는다.
