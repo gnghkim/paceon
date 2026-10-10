@@ -178,7 +178,7 @@ nuc7에서는 `/opt/paceon/src/deploy/nuc7`에서 `bin/compose`를 쓴다. env �
 | 복원 연습(개발 PC, 매달) | `deploy/nuc7/bin/restore-check.sh` |
 | 상태 확인 | `bin/node deploy/nuc7/smoke.mjs --env-file /opt/paceon/.env --api https://paceon-api.nolzza.net --web https://paceon.nolzza.net` |
 
-anon·service_role 키는 만든 날로부터 10년 뒤 만료된다(만든 날: Task 11에서 적는다). 만료 전에 새 키로 바꾸고 GitHub 변수 `NUC7_ANON_KEY`도 바꾼다.
+anon·service_role 키는 2026-10-11에 만들었고 10년 뒤(2036-10-08쯤) 만료된다. 만료 전에 새 키로 바꾸고 GitHub 변수 `NUC7_ANON_KEY`도 바꾼다.
 
 ### 재해 복구
 
