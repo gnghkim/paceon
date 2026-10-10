@@ -91,3 +91,17 @@ test('the CLI never overwrites an existing env file and writes it owner-only', (
   assert.equal(third.status, 0, third.stderr);
   assert.equal(parseEnv(readFileSync(join(dir, 'other.env'), 'utf8')).get('GEMINI_API_KEY'), 'g');
 });
+
+test('book search keys move with the web app when production has them', () => {
+  const env = parseEnv(buildEnv({ imports: [new Map([['YES24_API_KEY', 'y24'], ['GOOGLE_BOOKS_API_KEY', 'gb']])], random: fixed }).text);
+  assert.equal(env.get('YES24_API_KEY'), 'y24');
+  assert.equal(env.get('GOOGLE_BOOKS_API_KEY'), 'gb');
+  const without = parseEnv(buildEnv({ random: fixed }).text);
+  assert.equal(without.has('GOOGLE_BOOKS_API_KEY'), false, 'an optional key that production lacks is not written');
+});
+
+test('the web container receives every key the book search reads', () => {
+  const compose = readFileSync('deploy/nuc7/compose.yaml', 'utf8');
+  const web = compose.slice(compose.indexOf('\n  web:'), compose.indexOf('\n  ai-worker:'));
+  for (const name of ['YES24_API_KEY', 'GOOGLE_BOOKS_API_KEY']) assert.ok(web.includes(`${name}: \${${name}:-}`), name);
+});
