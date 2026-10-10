@@ -78,7 +78,8 @@ nuc7은 2코어라 PaceOn이 매매 봇의 몫을 빼앗으면 안 된다. nuc7�
 - 새 JWT secret으로 anon·service_role 키를 만든다. Cloud의 키는 옮기지 않는다.
 - **기존 형식(JWT) 키를 쓴다.** self-hosted Envoy가 새 형식 키(`sb_publishable_…`, `sb_secret_…`)를 받으려면 비대칭(ES256) 서명 키까지 따로 마련해야 한다. 앱은 키 값을 헤더에 그대로 넣기만 하므로 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`에 anon JWT를, `SUPABASE_SERVICE_ROLE_KEY`에 service_role JWT를 넣는다. 코드 변경은 없다. 로컬 개발(Supabase CLI)은 지금처럼 새 형식 키를 쓴다.
 - JWT secret이 바뀌므로 기존 로그인 세션은 끊긴다. 비밀번호 해시는 옮기므로 같은 비밀번호로 다시 로그인하면 된다.
-- VAPID 키, 텔레그램 토큰, OpenAI·Gemini 키, Google OAuth 값, `YOUTUBE_TOKEN_ENCRYPTION_KEY`는 지금 값을 그대로 옮긴다. 암호화 키가 바뀌면 저장된 YouTube 토큰을 풀 수 없다.
+- VAPID 키, 텔레그램 토큰, OpenAI·Gemini 키는 VPS의 값을 그대로 옮긴다. Vercel의 운영 값은 모두 Sensitive라 다시 읽을 수 없어서(`vercel env pull`이 `[SENSITIVE]`만 준다) Google OAuth 값과 YES24 키는 원래 콘솔에서 다시 받는다.
+- `YOUTUBE_TOKEN_ENCRYPTION_KEY`는 같은 이유로 새로 만들었다. 옛 키로 암호화된 YouTube 연결은 전환 때 지우고 다시 연결한다.
 
 ## 이전 절차
 

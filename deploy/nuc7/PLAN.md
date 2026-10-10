@@ -2028,8 +2028,9 @@ Expected: 모두 같다(Storage는 copy-storage 뒤 다시 비교해서 같다).
 - [ ] **Step 4: 옛 푸시 구독을 지운다** — 출처가 바뀌어 옛 주소의 구독은 새 주소에서 쓸 수 없다.
 
 ```bash
-ssh nuc7 '/opt/paceon/src/deploy/nuc7/bin/compose exec -T db psql -U supabase_admin -h localhost -c "delete from public.push_subscriptions"'
+ssh nuc7 '/opt/paceon/src/deploy/nuc7/bin/compose exec -T db psql -U supabase_admin -h localhost -c "delete from public.push_subscriptions" -c "delete from private.youtube_connections"'
 ```
+`YOUTUBE_TOKEN_ENCRYPTION_KEY`는 Vercel이 Sensitive 값을 내려주지 않아 새로 만들었다(2026-10-11). 옛 키로 암호화된 YouTube 연결은 풀 수 없으니 지우고, 확인 목록에서 YouTube를 다시 연결한다.
 - [ ] **Step 5: nuc7 Worker를 켠다** — `/opt/paceon/.env`에서 `PACEON_WORKER=on`, `TELEGRAM_ENABLED=true`로 바꾸고(에이전트가 `sed -i`로, 값 두 개만):
 
 ```bash
@@ -2054,7 +2055,7 @@ PR → 병합. Vercel이 빌드한 뒤 `curl -sI https://paceon-green.vercel.app
   - [ ] 영어 학습: 음성 녹음 → 재생(Storage) → AI 피드백
   - [ ] 설정에서 푸시 알림 다시 켜기 → 테스트 알림 도착(두 기기)
   - [ ] 텔레그램 봇에 말 걸기 → 한 번만 답함
-  - [ ] YouTube 연결 상태 유지(연결이 풀렸으면 다시 연결)
+  - [ ] 설정에서 YouTube 다시 연결(암호화 키를 새로 만들어 옛 연결은 지웠다)
   - [ ] 다음 날 아침 매일 알림이 한 번 도착
   - [ ] `smoke.mjs --login` 10개 통과
 - [ ] **Step 9: 사용자** — UptimeRobot(무료): `https://paceon.nolzza.net/api/health`, 키워드 `ok`, 5분, 알림 gnghkim@gmail.com. API는 apikey 헤더가 있어야 답하는데 무료 플랜은 헤더를 못 넣는다. 그래서 API는 배포 타이머가 5분마다 공개 주소로 확인하고(`deploy.sh`), 실패하면 healthchecks.io `paceon-deploy` 신호가 끊겨 메일이 온다.
