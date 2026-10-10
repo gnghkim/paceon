@@ -15,7 +15,8 @@ export function failure(error: unknown): Response {
   return json({ error: 'Service temporarily unavailable' }, 503);
 }
 export function bookApiConfig(): Config | undefined {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  // 자체 서버(nuc7)에서는 같은 내부망 주소로 부른다. 공개 주소로 부르면 Cloudflare를 돌아와 느려진다.
+  const url = process.env.SUPABASE_INTERNAL_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   return url && key ? { url, key } : undefined;
 }

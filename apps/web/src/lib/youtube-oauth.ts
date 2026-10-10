@@ -47,7 +47,7 @@ export function readYouTubeConfig(env: Record<string, string | undefined> = proc
     const url = new URL(appUrl);
     if (url.username || url.password || url.pathname !== '/' || url.search || url.hash || (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname)))) return;
     if (Buffer.from(encryptionKey, 'base64').length !== 32 || Buffer.from(encryptionKey, 'base64').toString('base64') !== encryptionKey) return;
-    return { clientId, clientSecret, encryptionKey, appUrl: url.origin, supabaseUrl, publicKey, serviceKey };
+    return { clientId, clientSecret, encryptionKey, appUrl: url.origin, supabaseUrl: env.SUPABASE_INTERNAL_URL || supabaseUrl, publicKey, serviceKey };
   } catch { return; }
 }
 export function seal(value: unknown, config: Config, userId: string): string {
