@@ -123,7 +123,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      # 빈 DB에서 처음 뜰 때 storage 스키마 migration을 먼저 돈다. 그동안 실패를 세지 않는다.
+      start_period: 120s
     environment:
       ANON_KEY: ${ANON_KEY}
       SERVICE_KEY: ${SERVICE_ROLE_KEY}

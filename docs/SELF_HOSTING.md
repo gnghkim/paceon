@@ -45,7 +45,7 @@ nuc7  /opt/paceon   docker compose 프로젝트 "paceon", 전용 내부망
 - 브라우저가 Supabase를 직접 부르므로(`supabase-browser.ts`, 로그인, YouTube 연결) API 주소도 밖에 연다. 웹 서버도 같은 공개 주소로 Supabase를 부른다(`NEXT_PUBLIC_SUPABASE_URL`이 하나뿐이다). Tunnel을 한 번 돌아 나가지만 코드를 바꾸지 않는다.
 - 운영 웹은 Worker를 직접 부르지 않는다(Vercel에도 `AI_WORKER_URL`이 없다). Worker는 DB 큐를 읽고 내부망의 `http://api-gw:8000`으로 Supabase를 부른다.
 - Supabase 공식 self-hosting 구성(`supabase/supabase`의 `docker/`, 커밋을 고정해 복사)에서 쓰는 것만 띄운다. Realtime, Edge Functions, 로그 분석(analytics·vector), 이미지 변환(imgproxy), 풀러(supavisor)는 쓰지 않으니 뺀다. Studio와 pg-meta는 관리할 때만 켜는 compose profile(`admin`)로 둔다.
-- 관문은 공식 구성의 기본값인 Envoy다(예전 Kong을 대신한다). 공식 설정은 이미 `/pg`(pg-meta)를 모두 막고 Studio에는 기본 인증을 건다. 그 위에 Tunnel의 `paceon-api.nolzza.net` 규칙이 `/auth/v1/`, `/rest/v1/`, `/storage/v1/`만 넘기고 나머지는 404로 끊는다.
+- 관문은 공식 구성의 기본값인 Envoy다(예전 Kong을 대신한다). 공식 설정에서 `/auth`·`/rest`는 anon·service 키가 있어야 통과하고, `/pg`(pg-meta)는 service 키로만 열린다. 밖에서 `/pg`와 Studio를 막는 것은 Tunnel이다. Tunnel의 `paceon-api.nolzza.net` 규칙이 `/auth/v1/`, `/rest/v1/`, `/storage/v1/`만 넘기고 나머지는 404로 끊는다.
 - Postgres는 Cloud와 같은 17이다(`supabase/config.toml`의 `major_version`). Auth(GoTrue) 버전은 Cloud에서 쓰는 버전보다 낮지 않게 고른다. `auth.users` 열이 버전마다 달라서다.
 
 ### 자원 상한
@@ -99,7 +99,7 @@ nuc7은 2코어라 PaceOn이 매매 봇의 몫을 빼앗으면 안 된다. nuc7�
 
 사용자는 1명(본인)이라 공지 없이 하되, 전환하는 동안 기존 앱은 쓰지 않는다.
 
-1. VPS의 `paceon-ai-worker`를 멈춘다. 텔레그램 폴링도 함께 멈춰 두 곳이 같은 봇 토큰을 읽지 않게 한다.
+1. VPS의 `paceon-ai-worker`를 `docker compose down`으로 내리고 VPS `.env`의 `TELEGRAM_ENABLED`를 `false`로 둔다. 재부팅해도 다시 뜨지 않아 두 곳이 같은 봇 토큰을 읽지 않는다.
 2. 최종 덤프를 받아 nuc7에 복원하고 행 수를 대조한다.
 3. nuc7 Worker를 `TELEGRAM_ENABLED=true`로 켠다. 반드시 1번 뒤에만.
 4. 주소를 바꾼다.
@@ -148,7 +148,7 @@ nuc7은 2코어라 PaceOn이 매매 봇의 몫을 빼앗으면 안 된다. nuc7�
 ### 보안
 
 - 공유기 포트는 열지 않는다. 밖에서 들어오는 길은 Tunnel 하나다.
-- Studio와 Postgres는 nuc7의 127.0.0.1에만 연다. 개발 PC에서는 `ssh -L`(Tailscale 위)로 접속한다.
+- Studio와 Postgres는 nuc7의 127.0.0.1에만 연다. 개발 PC에서는 `ssh -L`(Tailscale 위)로 접속한다. Studio는 Envoy를 거치지 않아 로그인이 없다. 그래서 필요할 때만 켜고 끝나면 끈다(켜져 있는 동안은 nuc7 안의 프로세스 누구나 DB를 고칠 수 있다).
 - 비밀 값은 nuc7의 `/opt/paceon/.env` 한 곳에 두고 권한은 600이다. Git에 넣지 않는다. 저장소는 `/opt/paceon/src`에 받고, 데이터는 `/opt/paceon/data`에 둔다.
 - GitHub에는 공개 빌드 값만 둔다(Variables). Secrets는 쓰지 않는다.
 - `gnghkim`을 `docker` 그룹에 넣는다. ssh로 운영하기 위해서이고, 이 그룹은 root와 같은 권한이다.
@@ -169,10 +169,10 @@ nuc7에서는 `/opt/paceon/src/deploy/nuc7`에서 `bin/compose`를 쓴다. env �
 | 이미지 바로 갱신 | `sudo systemctl start paceon-deploy` |
 | compose·Envoy 설정 반영 | `git -C /opt/paceon/src pull --ff-only && bin/compose up -d` |
 | Studio 켜기·끄기 | `bin/compose --profile admin up -d studio` / `bin/compose --profile admin stop studio meta` |
-| Studio 접속(개발 PC) | `ssh -N -L 3001:127.0.0.1:3001 nuc7` 후 `http://localhost:3001` (사용자 `paceon`, 비밀번호는 `.env`의 `DASHBOARD_PASSWORD`) |
+| Studio 접속(개발 PC) | `ssh -N -L 3001:127.0.0.1:3001 nuc7` 후 `http://localhost:3001`. 로그인이 없으니 쓰고 나면 바로 끈다 |
 | DB 접속(개발 PC) | `ssh -N -L 15432:127.0.0.1:5432 nuc7` 후 `postgresql://postgres:…@127.0.0.1:15432/postgres?sslmode=disable` (DB에 SSL이 없다. 암호화는 ssh 터널이 맡는다) |
-| migration 올리기 | 위 터널을 열고 `supabase db push --db-url …?sslmode=disable` → `bin/compose restart rest` → PR 병합. pgTAP은 `supabase test db --db-url …`(같은 주소, 2026-10-11 로컬에서 확인) |
-| 특정 버전으로 되돌리기 | `.env`의 `PACEON_TAG=sha-<7자리>` 후 `bin/compose up -d web ai-worker`. 되돌린 뒤 다시 `main`으로 |
+| migration 올리기 | 위 터널을 열고 `supabase db push --db-url …?sslmode=disable` → `bin/compose restart rest` → PR 병합. 빈 nuc7을 띄운 뒤부터 전환 전까지는 Cloud(`--linked`)에도 같이 올린다. 빠지면 전환 때 복원이 실패한다. pgTAP은 `supabase test db --db-url …`(같은 주소, 2026-10-11 로컬에서 확인) |
+| 특정 버전으로 되돌리기 | `.env`의 `PACEON_TAG=sha-<7자리>` 후 `bin/compose up -d web`(전환 뒤 Worker가 켜져 있으면 `bin/compose up -d`). 되돌린 뒤 다시 `main`으로. Worker가 꺼져 있을 때는 Worker 서비스 이름을 명령에 적지 않는다(적으면 profile이 켜져 Worker가 뜬다) |
 | 바로 백업 | `sudo systemctl start paceon-backup && journalctl -u paceon-backup -n 20` |
 | 복원 연습(개발 PC, 매달) | `deploy/nuc7/bin/restore-check.sh` |
 | 상태 확인 | `bin/node deploy/nuc7/smoke.mjs --env-file /opt/paceon/.env --api https://paceon-api.nolzza.net --web https://paceon.nolzza.net` |

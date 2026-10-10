@@ -14,6 +14,8 @@ const anon = env.get('ANON_KEY');
 const service = env.get('SERVICE_ROLE_KEY');
 const as = (key) => ({ apikey: key, Authorization: `Bearer ${key}` });
 const call = (url, init = {}) => fetch(url, { ...init, redirect: 'manual', signal: AbortSignal.timeout(15000) });
+// 닫혀 있다는 것은 401·403으로 거절된 것이다. 뒤쪽 서비스가 죽어서 난 502·503은 닫힌 것이 아니다.
+const refused = (response) => response.status === 401 || response.status === 403;
 
 const checks = [
   ['Auth가 답한다', async () => (await call(`${api}/auth/v1/health`, { headers: { apikey: anon } })).status === 200],
@@ -23,14 +25,15 @@ const checks = [
     if (response.status === 401 || response.status === 403) return (await response.json()).code === '42501';
     return response.status === 200 && JSON.stringify(await response.json()) === '[]';
   }],
-  ['빈 apikey로는 REST가 열리지 않는다', async () => (await call(`${api}/rest/v1/`, { headers: { apikey: '' } })).status !== 200],
-  ['anon 키로는 관리자 전용 OpenAPI가 열리지 않는다', async () => (await call(`${api}/rest/v1/`, { headers: as(anon) })).status !== 200],
+  ['빈 apikey로는 REST가 열리지 않는다', async () => refused(await call(`${api}/rest/v1/`, { headers: { apikey: '' } }))],
+  ['anon 키로는 관리자 전용 OpenAPI가 열리지 않는다', async () => refused(await call(`${api}/rest/v1/`, { headers: as(anon) }))],
   ['service 키로 Storage 버킷 두 개가 보인다', async () => {
     const response = await call(`${api}/storage/v1/bucket`, { headers: as(service) });
     const ids = response.status === 200 ? (await response.json()).map((bucket) => bucket.id) : [];
     return ids.includes('learning-pdfs') && ids.includes('learning-audio');
   }],
-  ['pg-meta는 service 키로도 닫혀 있다', async () => (await call(`${api}/pg/tables`, { headers: as(service) })).status !== 200],
+  // service 키로는 /pg/가 열린다(공식 설정). 밖에서는 Tunnel 경로 규칙이 /pg/를 404로 끊는다(PLAN Task 11 Step 6).
+  ['pg-meta는 anon 키로 닫혀 있다', async () => refused(await call(`${api}/pg/tables`, { headers: as(anon) }))],
 ];
 if (web) {
   checks.push(

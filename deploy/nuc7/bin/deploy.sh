@@ -3,7 +3,8 @@
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 services=(web)
-if [ "${PACEON_WORKER:-off}" = "on" ]; then services+=(ai-worker); fi
+# bin/compose와 같은 방법으로 읽는다. 둘이 다르게 읽으면 profile 없이 Worker를 이름으로 불러 켜 버릴 수 있다.
+if [ "$(sed -n 's/^PACEON_WORKER=//p' "${PACEON_ENV:-/opt/paceon/.env}" | tail -n 1)" = "on" ]; then services+=(ai-worker); fi
 "$here/compose" pull --quiet "${services[@]}"
 "$here/compose" up -d --no-deps "${services[@]}"
 docker image prune -f --filter "until=168h" >/dev/null

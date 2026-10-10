@@ -1798,10 +1798,10 @@ nuc7에서는 `/opt/paceon/src/deploy/nuc7`에서 `bin/compose`를 쓴다. env �
 | 이미지 바로 갱신 | `sudo systemctl start paceon-deploy` |
 | compose·Envoy 설정 반영 | `git -C /opt/paceon/src pull --ff-only && bin/compose up -d` |
 | Studio 켜기·끄기 | `bin/compose --profile admin up -d studio` / `bin/compose --profile admin stop studio meta` |
-| Studio 접속(개발 PC) | `ssh -N -L 3001:127.0.0.1:3001 nuc7` 후 `http://localhost:3001` (사용자 `paceon`, 비밀번호는 `.env`의 `DASHBOARD_PASSWORD`) |
+| Studio 접속(개발 PC) | `ssh -N -L 3001:127.0.0.1:3001 nuc7` 후 `http://localhost:3001`. 로그인이 없으니 쓰고 나면 바로 끈다 |
 | DB 접속(개발 PC) | `ssh -N -L 15432:127.0.0.1:5432 nuc7` 후 `postgresql://postgres:…@127.0.0.1:15432/postgres` |
-| migration 올리기 | 위 터널을 열고 `supabase db push --db-url …` → `bin/compose restart rest` → PR 병합 |
-| 특정 버전으로 되돌리기 | `.env`의 `PACEON_TAG=sha-<7자리>` 후 `bin/compose up -d web ai-worker`. 되돌린 뒤 다시 `main`으로 |
+| migration 올리기 | 위 터널을 열고 `supabase db push --db-url …?sslmode=disable` → `bin/compose restart rest` → PR 병합. Task 11부터 전환 전까지는 Cloud(`--linked`)에도 같이 올린다 |
+| 특정 버전으로 되돌리기 | `.env`의 `PACEON_TAG=sha-<7자리>` 후 `bin/compose up -d web`(전환 뒤 Worker가 켜져 있으면 `bin/compose up -d`). 되돌린 뒤 다시 `main`으로. Worker가 꺼져 있을 때는 Worker 서비스 이름을 명령에 적지 않는다(적으면 profile이 켜져 Worker가 뜬다) |
 | 바로 백업 | `sudo systemctl start paceon-backup && journalctl -u paceon-backup -n 20` |
 | 복원 연습(개발 PC, 매달) | `deploy/nuc7/bin/restore-check.sh` |
 | 상태 확인 | `bin/node deploy/nuc7/smoke.mjs --env-file /opt/paceon/.env --api https://paceon-api.nolzza.net --web https://paceon.nolzza.net` |
@@ -1871,6 +1871,7 @@ Expected: Docker 27 이상, compose v2, `systemd 2`, `paceon.slice` 아래에 `d
 
 에이전트는 각 단계의 정확한 화면 경로를 안내하고, 끝나면 확인 명령을 돌린다.
 
+- [ ] **Step 0: DNSSEC 확인** (에이전트) — `Resolve-DnsName nolzza.net -Type DS -Server 1.1.1.1`. DS 레코드가 있으면(DNSSEC 켜짐) 네임서버를 바꾸는 순간 nolzza.net 전체가 풀리지 않는다. **사용자**가 후이즈에서 DNSSEC를 먼저 끄고, 이전이 끝난 뒤 Cloudflare에서 다시 켠다. 2026-10-11 확인 때는 DS 레코드가 없었다.
 - [ ] **Step 1: Cloudflare에 nolzza.net 등록(Free)** — Cloudflare가 가져온 레코드를 후이즈 관리 화면의 레코드 전체와 대조한다. apex와 `www`(Vercel)는 회색 구름(DNS only).
 - [ ] **Step 2: 대조 확인** (에이전트) — 네임서버를 바꾸기 전에 Cloudflare가 정한 네임서버(예: `xxx.ns.cloudflare.com`)에 직접 물어 본다.
 
@@ -2009,13 +2010,14 @@ Expected: `백업 완료`, R2에 `db.dump.age`, `storage.tar.age`, `counts.csv`,
 
 **사용자에게 날짜·시각을 정해 승인받는다.** 약 30분. 그동안 PaceOn을 쓰지 않는다.
 
+- [ ] **Step 0: 두 DB의 스키마와 GoTrue를 맞춘다** — Task 11 뒤 병합한 migration이 nuc7에도 올라갔는지 본다: `supabase migration list --db-url …?sslmode=disable`(ssh 터널)과 `supabase migration list --linked`의 마지막 항목이 같아야 한다. 다르면 nuc7에 `db push`부터 한다. Cloud의 GoTrue 버전(`curl -s https://nxlekljxuojobokngvnr.supabase.co/auth/v1/health -H 'apikey: <Cloud anon 키>'`의 `version`)이 compose의 `v2.196.0`보다 높으면 compose를 올려 nuc7 auth를 다시 띄운 뒤 진행한다. 낮은 GoTrue에 높은 버전의 `auth.users`를 넣으면 복원이 실패한다.
 - [ ] **Step 1: 사전 점검** — Cloud에 진행 중인 작업이 없는지 본다: `supabase db query --linked "select status, count(*) from public.ai_jobs group by 1"`과 PDF·음성 작업 테이블. `RUNNING`이 있으면 끝날 때까지 기다린다.
 - [ ] **Step 2: VPS Worker를 멈춘다**
 
 ```bash
-ssh -i ~/.ssh/linkvault_hostinger root@187.127.204.154 'cd /opt/paceon-deploy && docker compose stop && docker compose ps'
+ssh -i ~/.ssh/linkvault_hostinger root@187.127.204.154 "cd /opt/paceon-deploy && sed -i 's/^TELEGRAM_ENABLED=.*/TELEGRAM_ENABLED=false/' .env && docker compose down && docker compose ps -a"
 ```
-Expected: `paceon-ai-worker` `Exited`. (텔레그램 폴링도 멈춘다.)
+Expected: `paceon-ai-worker` 컨테이너가 없다. `stop`이 아니라 `down`이다. VPS가 재부팅되거나 Docker가 업데이트돼도 옛 Worker가 다시 떠서 같은 봇 토큰을 읽거나 Cloud 데이터로 알림을 보내지 않게 한다. `.env`의 `TELEGRAM_ENABLED=false`는 그래도 누가 `up`을 했을 때를 위한 두 번째 잠금이다.
 - [ ] **Step 3: 최종 덤프와 복원** — Task 13 Step 1~3을 `--reset`으로 다시 한다.
 
 ```bash
@@ -2060,8 +2062,8 @@ PR → 병합. Vercel이 빌드한 뒤 `curl -sI https://paceon-green.vercel.app
 ### 되돌리기 (전환 뒤 2주 안, 사용자 결정)
 
 1. nuc7 Worker를 끈다: `.env`에서 `PACEON_WORKER=off`, `TELEGRAM_ENABLED=false` 후 `bin/compose stop ai-worker`.
-2. 전환 뒤 nuc7에 쌓인 기록을 살린다면: Supabase Cloud를 대시보드에서 다시 켜고(일시 정지됐을 때), ssh 터널을 연 채 `dump.sh --db-url postgresql://postgres:…@127.0.0.1:15432/postgres?sslmode=disable <dir>`로 nuc7을 덤프해 Cloud에 `restore.sh <dir> --reset`으로 넣는다. 이때 `TARGET_PSQL`은 `docker run --rm -i supabase/postgres:17.6.1.136 psql "<Cloud 직접 연결 문자열>"`이다(Cloud 대시보드 → Connect에서 받는다). Cloud의 `postgres` 역할은 `auth.users`를 비우지 못할 수 있다. 먼저 `truncate auth.identities`를 트랜잭션 안에서 시험하고, 안 되면 nuc7에서 전환 뒤 생긴 행만 고르는 SQL을 따로 쓴다.
-3. VPS Worker를 켠다: `cd /opt/paceon-deploy && docker compose up -d`.
+2. 전환 뒤 nuc7에 쌓인 기록을 살린다면: Supabase Cloud를 대시보드에서 다시 켜고(일시 정지됐을 때), ssh 터널을 연 채 `dump.sh --db-url postgresql://postgres:…@127.0.0.1:15432/postgres?sslmode=disable <dir>`로 nuc7을 덤프해 Cloud에 `restore.sh <dir> --reset`으로 넣는다. 이때 `TARGET_PSQL`은 `docker run --rm -i supabase/postgres:17.6.1.136 psql <Cloud 직접 연결 문자열>`이다(Cloud 대시보드 → Connect에서 받는다). `restore.sh`가 이 값을 따옴표 없이 단어로 나누므로 연결 문자열은 따옴표로 감싸지 않는다(연결 문자열에는 공백이 없다). Cloud의 `postgres` 역할은 `auth.users`를 비우지 못할 수 있다. 먼저 `truncate auth.identities`를 트랜잭션 안에서 시험하고, 안 되면 nuc7에서 전환 뒤 생긴 행만 고르는 SQL을 따로 쓴다.
+3. VPS Worker를 켠다: `cd /opt/paceon-deploy && sed -i 's/^TELEGRAM_ENABLED=.*/TELEGRAM_ENABLED=true/' .env && docker compose up -d`. nuc7 Worker를 먼저 끈 뒤에만 한다(1번).
 4. `apps/web/vercel.json`을 지우는 PR을 병합한다.
 5. 푸시 알림은 옛 주소에서 다시 켠다.
 
